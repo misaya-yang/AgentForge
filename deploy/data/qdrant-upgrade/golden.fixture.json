@@ -1,0 +1,81 @@
+{
+  "schema": "qdrant-retrieval-golden/v1",
+  "corpus_id": "synthetic-shape-example-never-product-acceptance",
+  "corpus_kind": "fixture",
+  "model_revision": "synthetic-dense-3-no-model",
+  "index_generation": "synthetic-generation",
+  "cases": [
+    {
+      "id": "positive",
+      "collection": "fixture_collection",
+      "tenant_id": "fixture-tenant",
+      "dataset_id": "fixture-dataset",
+      "request": {
+        "query": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "limit": 20,
+        "with_payload": true,
+        "filter": {
+          "must": [
+            {
+              "key": "tenant_id",
+              "match": {
+                "value": "fixture-tenant"
+              }
+            },
+            {
+              "key": "dataset_id",
+              "match": {
+                "value": "fixture-dataset"
+              }
+            }
+          ]
+        }
+      },
+      "expected_ids": [
+        1
+      ],
+      "relevance": {
+        "1": 3
+      },
+      "negative": false
+    },
+    {
+      "id": "cross-tenant-negative",
+      "collection": "fixture_collection",
+      "tenant_id": "other-tenant",
+      "dataset_id": "fixture-dataset",
+      "request": {
+        "query": [
+          0.1,
+          0.2,
+          0.3
+        ],
+        "limit": 20,
+        "with_payload": true,
+        "filter": {
+          "must": [
+            {
+              "key": "tenant_id",
+              "match": {
+                "value": "other-tenant"
+              }
+            },
+            {
+              "key": "dataset_id",
+              "match": {
+                "value": "fixture-dataset"
+              }
+            }
+          ]
+        }
+      },
+      "expected_ids": [],
+      "relevance": {},
+      "negative": true
+    }
+  ]
+}

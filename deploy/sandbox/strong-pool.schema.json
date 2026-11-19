@@ -1,0 +1,130 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "namespace": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nodeName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtimeClassName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sandboxImage": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^.+@sha256:[0-9a-f]{64}$"
+    },
+    "controlImage": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^.+@sha256:[0-9a-f]{64}$"
+    },
+    "sharedHostPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "apiServerCIDR": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jobPublicKeyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jobPublicKeyHex": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "attestationPublicKeyringJSON": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seccompProfile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runscExecutableSHA256": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "attestationPrivateKeySecret": {
+      "type": "string",
+      "minLength": 1
+    },
+    "containerdSocket": {
+      "type": "string",
+      "minLength": 1
+    },
+    "crictlHostPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "warm": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32
+    },
+    "maximum": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 32
+    },
+    "cgroupCSI": {
+      "type": "object",
+      "required": [
+        "driver"
+      ],
+      "properties": {
+        "driver": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "namespace",
+          "nodeName",
+          "runtimeClassName",
+          "sandboxImage",
+          "controlImage",
+          "sharedHostPath",
+          "apiServerCIDR",
+          "jobPublicKeyId",
+          "jobPublicKeyHex",
+          "attestationPublicKeyringJSON",
+          "seccompProfile",
+          "runscExecutableSHA256",
+          "attestationPrivateKeySecret",
+          "containerdSocket",
+          "crictlHostPath",
+          "cgroupCSI"
+        ]
+      }
+    }
+  ]
+}

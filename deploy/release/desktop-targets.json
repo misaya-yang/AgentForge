@@ -1,0 +1,11 @@
+{
+  "schema_version": "ai-platform-desktop/build-targets/v1",
+  "bundle_identifier": "org.ai-platform.desktop",
+  "targets": [
+    {"name": "linux-x64", "runner": "ubuntu-24.04", "rust_target": "x86_64-unknown-linux-gnu", "os": "linux", "arch": "x86_64", "binary": "ai-platform-desktop", "archive": "tar.gz", "machine": 62, "declared_build_baseline": "Ubuntu 24.04 (glibc 2.39); X11/XWayland and an OpenGL-capable driver required"},
+    {"name": "linux-arm64", "runner": "ubuntu-24.04-arm", "rust_target": "aarch64-unknown-linux-gnu", "os": "linux", "arch": "aarch64", "binary": "ai-platform-desktop", "archive": "tar.gz", "machine": 183, "declared_build_baseline": "Ubuntu 24.04 (glibc 2.39); X11/XWayland and an OpenGL-capable driver required"},
+    {"name": "darwin-x64", "runner": "macos-15-intel", "rust_target": "x86_64-apple-darwin", "os": "macos", "arch": "x86_64", "binary": "ai-platform-desktop", "archive": "tar.gz", "machine": 16777223, "macos_minimum": "14.0", "declared_build_baseline": "macOS 15 Intel runner; deployment target macOS 14.0"},
+    {"name": "darwin-arm64", "runner": "macos-14", "rust_target": "aarch64-apple-darwin", "os": "macos", "arch": "aarch64", "binary": "ai-platform-desktop", "archive": "tar.gz", "machine": 16777228, "macos_minimum": "14.0", "declared_build_baseline": "macOS 14 Apple Silicon runner; deployment target macOS 14.0"},
+    {"name": "win32-x64", "runner": "windows-2022", "rust_target": "x86_64-pc-windows-msvc", "os": "windows", "arch": "x86_64", "binary": "ai-platform-desktop.exe", "archive": "zip", "machine": 34404, "declared_build_baseline": "Windows Server 2022 MSVC runner; static C runtime requested, clean Windows desktop acceptance still required"}
+  ]
+}

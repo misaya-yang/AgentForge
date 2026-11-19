@@ -1,0 +1,38 @@
+# Grafana Tempo single-binary mode for local dev tracing.
+# Listens for OTLP gRPC on :4317 and OTLP HTTP on :4318.
+# Apps export to http://tempo:4317 (env: OTEL_EXPORTER_OTLP_ENDPOINT).
+# Query via Tempo HTTP API on :3200 (open in browser:
+# http://localhost:3200/api/echo for liveness).
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: info
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 24h    # local dev: keep traces 1 day
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/blocks
+    wal:
+      path: /var/tempo/wal
+
+usage_report:
+  reporting_enabled: false

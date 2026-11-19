@@ -1,0 +1,57 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -251,7 +251,7 @@
+ version = "0.8"
+ 
+ [dependencies.zip]
+-version = "8.6.0"
++version = "=9.0.0"
+ default-features = false
+ 
+ [dev-dependencies.anyhow]
+@@ -274,3 +274,8 @@
+ version = "0.22.0"
+ features = ["onig"]
+ default-features = false
++
++# AgentForge downstream zip9 compatibility tests; all upstream test targets retained.
++[[test]]
++name = "agentforge_zip9_tests"
++path = "tests/agentforge_zip9_tests.rs"
+--- a/src/npy.rs
++++ b/src/npy.rs
+@@ -286,8 +286,8 @@
+         for i in 0..zip.len() {
+             let mut reader = zip.by_index(i)?;
+             let name = {
+-                let name = reader.name();
+-                name.strip_suffix(NPY_SUFFIX).unwrap_or(name).to_owned()
++                let name = reader.name()?;
++                name.strip_suffix(NPY_SUFFIX).unwrap_or(name.as_ref()).to_owned()
+             };
+             let header = read_header(&mut reader)?;
+             let header = Header::parse(&header)?;
+@@ -383,8 +383,8 @@
+         for i in 0..zip.len() {
+             let file = zip.by_index(i)?;
+             let name = {
+-                let name = file.name();
+-                name.strip_suffix(NPY_SUFFIX).unwrap_or(name).to_owned()
++                let name = file.name()?;
++                name.strip_suffix(NPY_SUFFIX).unwrap_or(name.as_ref()).to_owned()
+             };
+             index_per_name.insert(name, i);
+         }
+--- a/src/pickle.rs
++++ b/src/pickle.rs
+@@ -677,8 +677,8 @@
+     let mut zip = zip::ZipArchive::new(zip_reader)?;
+     let zip_file_names = zip
+         .file_names()
+-        .map(|f| f.to_string())
+-        .collect::<Vec<String>>();
++        .map(|name| name.map(|name| name.into_owned()))
++        .collect::<zip::result::ZipResult<Vec<String>>>()?;
+ 
+     let mut tensor_infos = vec![];
+     for file_name in zip_file_names.iter() {

@@ -1,0 +1,282 @@
+{
+  "schema": "agentforge/partition-authority-source/v1",
+  "sequence": 35,
+  "functions": [
+    {
+      "name": "partition_ops.assert_owner",
+      "identity_arguments": "",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.family_enabled",
+      "identity_arguments": "p_family text",
+      "security_definer": true,
+      "roles": [
+        "capability_worker",
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker",
+        "runtime"
+      ]
+    },
+    {
+      "name": "partition_ops.identity",
+      "identity_arguments": "p_columns name[], p_row jsonb",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.projection",
+      "identity_arguments": "p_columns name[], p_row jsonb",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.claim_row",
+      "identity_arguments": "p_family text, p_row jsonb, p_identity jsonb, p_moving boolean",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.row_guard",
+      "identity_arguments": "",
+      "security_definer": true,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.expand",
+      "identity_arguments": "p_family text, p_boundary timestamp with time zone, p_admission_sha256 text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.owner_family_enabled",
+      "identity_arguments": "p_family text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.approve_operator_stage",
+      "identity_arguments": "p_family text, p_stage text, p_revision bigint, p_scope_sha256 text, p_evidence jsonb",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.require_operator_approval",
+      "identity_arguments": "p_family text, p_stage text, p_revision bigint, p_scope_sha256 text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.status",
+      "identity_arguments": "p_family text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.backfill",
+      "identity_arguments": "p_family text, p_expected_revision bigint, p_limit integer",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.validate_legacy",
+      "identity_arguments": "p_family text, p_expected_revision bigint",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.capture_foreign_keys",
+      "identity_arguments": "p_family text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.reference_guard",
+      "identity_arguments": "",
+      "security_definer": true,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.rebind_fk",
+      "identity_arguments": "p_oid oid, p_step text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.prepare",
+      "identity_arguments": "p_family text, p_first timestamp with time zone, p_count integer",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.cutover",
+      "identity_arguments": "p_family text, p_revision bigint, p_compatibility_sha256 text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.legacy_index_sql",
+      "identity_arguments": "p_family text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.write_spec",
+      "identity_arguments": "p_family text",
+      "security_definer": true,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.lookup_conflict",
+      "identity_arguments": "p_family text, p_index text, p_row jsonb",
+      "security_definer": true,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.statement_spec",
+      "identity_arguments": "p_family text, p_tail text",
+      "security_definer": true,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.column_types",
+      "identity_arguments": "p_family text",
+      "security_definer": true,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.require_payload",
+      "identity_arguments": "p_result jsonb",
+      "security_definer": false,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.write_json",
+      "identity_arguments": "p_family text, p_row jsonb, p_mode text, p_conflict_index text, p_statement text, p_parameters jsonb",
+      "security_definer": false,
+      "roles": [
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker"
+      ]
+    },
+    {
+      "name": "partition_ops.seal_acl",
+      "identity_arguments": "p_relation oid",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.retention_begin",
+      "identity_arguments": "p_family text, p_relation text, p_cutoff timestamp with time zone, p_evidence jsonb",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.detach_status",
+      "identity_arguments": "p_family text, p_relation text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.record_archive",
+      "identity_arguments": "p_family text, p_relation text, p_receipt jsonb",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.drop_archived",
+      "identity_arguments": "p_family text, p_relation text, p_archive_manifest_sha256 text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.reattach",
+      "identity_arguments": "p_family text, p_relation text",
+      "security_definer": false,
+      "roles": []
+    },
+    {
+      "name": "partition_ops.schema_admitted",
+      "identity_arguments": "",
+      "security_definer": true,
+      "roles": [
+        "capability_worker",
+        "gateway",
+        "knowledge_api",
+        "knowledge_worker",
+        "runtime"
+      ]
+    }
+  ],
+  "tables": [
+    "families",
+    "partitions",
+    "foreign_keys",
+    "statement_policies",
+    "operator_approvals"
+  ],
+  "readers": [
+    "capability_worker",
+    "gateway",
+    "knowledge_api",
+    "knowledge_worker",
+    "runtime"
+  ],
+  "writers": [
+    "gateway",
+    "knowledge_api",
+    "knowledge_worker"
+  ],
+  "families": [
+    "gateway.usage_records",
+    "gateway.request_traces",
+    "gateway.audit_logs",
+    "gateway.billing_events",
+    "gateway.agent_trace_spans",
+    "gateway.agent_trace_events",
+    "gateway.tool_audit_log",
+    "gateway.login_audit",
+    "gateway.service_health_records",
+    "assistant.assistant_runtime_items",
+    "assistant.assistant_audit_events",
+    "assistant.assistant_capability_events",
+    "knowledge.kb_document_progress_events",
+    "assistant.assistant_runtime_model_calls",
+    "assistant.assistant_runtime_model_leases",
+    "gateway.knowledge_model_calls",
+    "gateway.task_reconciliation_audit",
+    "gateway.price_book_v2_activation_audit",
+    "gateway.price_book_v2_import_audit",
+    "gateway.price_book_v2_usage_receipts",
+    "gateway.price_book_v2_accounting_checkpoints",
+    "gateway.agent_traces"
+  ],
+  "reference_tables": [
+    "families",
+    "statement_policies"
+  ],
+  "runtime_operations_in_migration": false
+}

@@ -1,0 +1,42 @@
+[package]
+name = "ai-platform-gateway-integrations"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+ai-platform-gateway-foundation = { version = "0.1.0", path = "../platform-gateway-foundation"  }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
+axum = { workspace = true, features = ["multipart"] }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest.workspace = true
+tokio.workspace = true
+sha2 = "0.10"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+redis.workspace = true
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite.workspace = true
+base64 = "0.22"
+regex = "1"
+jsonwebtoken = "9.3"
+rusqlite = { version = "0.32", features = ["bundled"] }
+libc = "0.2"
+unicode-normalization = "0.1"
+
+ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
+encoding_rs = "0.8"
+zip.workspace = true
+quick-xml = "0.41"
+scraper.workspace = true
+tiktoken-rs = "0.7"
+sha1 = "0.10"
+md-5 = "0.10"
+unicode-casefold = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+
+qdrant-client = { version = "=1.19.0", default-features = false, features = ["serde"] }
+
+tracing = "0.1"

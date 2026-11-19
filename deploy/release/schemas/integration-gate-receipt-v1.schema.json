@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ai-platform/integration-gate-receipt/v1",
+  "title": "AI Platform executable integration gate receipt",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "gate", "result", "unexpected_skips", "steps"],
+  "properties": {
+    "schema_version": {"const": "ai-platform/integration-gate-receipt/v1"},
+    "gate": {"type": "string", "minLength": 1},
+    "tier": {"enum": ["L2", "L3"]},
+    "release_id": {"type": ["string", "null"]},
+    "source_git_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "result": {"enum": ["blocked", "dry-run", "fail", "pass"]},
+    "unexpected_skips": {"type": "integer", "minimum": 0},
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "exit_code", "skip_markers", "output_sha256"],
+        "properties": {
+          "command": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "exit_code": {"type": "integer"},
+          "skip_markers": {"type": "integer", "minimum": 0},
+          "output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  }
+}

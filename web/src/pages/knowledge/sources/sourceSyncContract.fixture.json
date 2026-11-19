@@ -1,0 +1,58 @@
+{
+  "pending": {
+    "task_id": "4fd4c558-18f1-4b33-9314-675cf4907a01",
+    "binding_id": "binding-a",
+    "status": "pending",
+    "progress": 0,
+    "total_items": null,
+    "processed_items": null,
+    "started_at": null,
+    "completed_at": null,
+    "synced_items": null,
+    "failed_items": null,
+    "error_count": null,
+    "error_summary": null
+  },
+  "processing": {
+    "task_id": "4fd4c558-18f1-4b33-9314-675cf4907a01",
+    "binding_id": "binding-a",
+    "status": "processing",
+    "progress": 50,
+    "total_items": 2,
+    "processed_items": 1,
+    "started_at": null,
+    "completed_at": null,
+    "synced_items": null,
+    "failed_items": null,
+    "error_count": null,
+    "error_summary": null
+  },
+  "completed": {
+    "task_id": "4fd4c558-18f1-4b33-9314-675cf4907a01",
+    "binding_id": "binding-a",
+    "status": "completed",
+    "progress": 100,
+    "total_items": 2,
+    "processed_items": 2,
+    "started_at": null,
+    "completed_at": null,
+    "synced_items": 2,
+    "failed_items": 0,
+    "error_count": 0,
+    "error_summary": null
+  },
+  "failed_partial": {
+    "task_id": "4fd4c558-18f1-4b33-9314-675cf4907a01",
+    "binding_id": "binding-a",
+    "status": "failed",
+    "progress": 100,
+    "total_items": 2,
+    "processed_items": 2,
+    "started_at": null,
+    "completed_at": null,
+    "synced_items": 1,
+    "failed_items": 1,
+    "error_count": 1,
+    "error_summary": "Sync failed or was interrupted. Review source status before retrying."
+  }
+}

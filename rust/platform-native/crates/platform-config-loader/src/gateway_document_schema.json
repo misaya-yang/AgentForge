@@ -1,0 +1,1663 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agentforge:gateway-config:v1",
+  "title": "AgentForge Gateway configuration v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "settings",
+    "native"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "default": 1
+    },
+    "settings": {
+      "$ref": "#/$defs/Settings"
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "native": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kernel_revision",
+        "worker_writes_enabled",
+        "local_utc_offset_seconds",
+        "allow_private_knowledge_http",
+        "pdf",
+        "local_channel",
+        "confluence_registration",
+        "model_publication",
+        "provider_publication"
+      ],
+      "properties": {
+        "kernel_revision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "worker_writes_enabled": {
+          "type": "boolean"
+        },
+        "local_utc_offset_seconds": {
+          "type": "integer",
+          "minimum": -86400,
+          "maximum": 86400
+        },
+        "allow_private_knowledge_http": {
+          "type": "boolean"
+        },
+        "sandbox_origin": {
+          "type": "string"
+        },
+        "sandbox_token": {
+          "type": "string"
+        },
+        "pdf": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pdfinfo",
+            "pdftotext",
+            "scratch_root",
+            "allow_attachment_alternative"
+          ],
+          "properties": {
+            "pdfinfo": {
+              "type": "string"
+            },
+            "pdftotext": {
+              "type": "string"
+            },
+            "pdftoppm": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "scratch_root": {
+              "type": "string"
+            },
+            "allow_attachment_alternative": {
+              "type": "boolean"
+            }
+          }
+        },
+        "google_application_default_credentials": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "google_default_project": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "google_metadata_origin": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "local_channel": {
+          "enum": [
+            "disabled",
+            "required"
+          ]
+        },
+        "confluence_registration": {
+          "enum": [
+            "disabled",
+            "required"
+          ]
+        },
+        "model_publication": {
+          "enum": [
+            "absent",
+            "required"
+          ]
+        },
+        "provider_publication": {
+          "enum": [
+            "absent",
+            "required"
+          ]
+        }
+      }
+    },
+    "control_plane": {
+      "type": "object",
+      "properties": {
+        "cedar": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": [
+                "off",
+                "shadow",
+                "enforce"
+              ]
+            },
+            "enforce": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "expected_policy_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expected_matrix_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "resources": {
+              "type": "object",
+              "properties": {
+                "enforce": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "tenant",
+                      "user",
+                      "dataset",
+                      "agent",
+                      "tool",
+                      "model"
+                    ]
+                  }
+                },
+                "expected_policy_sha256": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "expected_matrix_sha256": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "mcp": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "resource": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "authorization_servers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "allowed_origins": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "resource",
+                "authorization_servers"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "a2a": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "origin": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "publications": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "publication_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "version_id": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    },
+                    "required": [
+                      "publication_id",
+                      "version_id"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "signing_key_id": {
+                  "type": "string"
+                },
+                "signing_private_key": {
+                  "type": "string"
+                },
+                "runtime_revision": {
+                  "type": "string"
+                },
+                "typed_capabilities_revision": {
+                  "type": "string"
+                },
+                "outbound": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      },
+                      "endpoint": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "bearer_token": {
+                        "type": "string"
+                      },
+                      "max_calls_per_day": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      },
+                      "max_request_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1048576
+                      },
+                      "max_response_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 4194304
+                      },
+                      "timeout_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 120
+                      },
+                      "agent_card_key_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "agent_card_public_key": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{43}$"
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "endpoint",
+                      "address",
+                      "bearer_token",
+                      "max_calls_per_day",
+                      "max_request_bytes",
+                      "max_response_bytes",
+                      "timeout_seconds",
+                      "agent_card_key_id",
+                      "agent_card_public_key"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "origin",
+                "publications",
+                "signing_key_id",
+                "signing_private_key",
+                "runtime_revision",
+                "typed_capabilities_revision"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "placement": {
+              "enum": [
+                "shared",
+                "dedicated"
+              ]
+            },
+            "concurrency": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32
+            }
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "AnonymousIdentitySettings": {
+      "description": "Anonymous/guest identity settings (for stable pre-auth sessions).",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "cookie_name": {
+          "default": "ag_anon_id",
+          "title": "Cookie Name",
+          "type": "string"
+        },
+        "header_name": {
+          "default": "X-AG-Anonymous-Id",
+          "title": "Header Name",
+          "type": "string"
+        },
+        "ttl_days": {
+          "default": 30,
+          "title": "Ttl Days",
+          "type": "integer"
+        },
+        "same_site": {
+          "default": "lax",
+          "title": "Same Site",
+          "type": "string"
+        }
+      },
+      "title": "AnonymousIdentitySettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "AuthAPIKeySettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "header_name": {
+          "default": "X-API-Key",
+          "title": "Header Name",
+          "type": "string"
+        },
+        "keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keys",
+          "type": "array"
+        }
+      },
+      "title": "AuthAPIKeySettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "AuthJWTSettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "secret": {
+          "default": "",
+          "title": "Secret",
+          "type": "string"
+        },
+        "algorithms": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Algorithms",
+          "type": "array"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience"
+        },
+        "issuer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Issuer"
+        }
+      },
+      "title": "AuthJWTSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "AuthenticationSettings": {
+      "properties": {
+        "jwt": {
+          "$ref": "#/$defs/AuthJWTSettings"
+        },
+        "api_key": {
+          "$ref": "#/$defs/AuthAPIKeySettings"
+        },
+        "guest_session_enabled": {
+          "default": true,
+          "title": "Guest Session Enabled",
+          "type": "boolean"
+        }
+      },
+      "title": "AuthenticationSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "CORSSettings": {
+      "description": "CORS configuration.\n\nOrigins are read from the CORS_ALLOWED_ORIGINS environment variable\n(comma-separated list) with a safe localhost-only default for development.",
+      "properties": {
+        "allow_origins": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allow Origins",
+          "type": "array"
+        },
+        "allow_credentials": {
+          "default": true,
+          "title": "Allow Credentials",
+          "type": "boolean"
+        },
+        "allow_methods": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allow Methods",
+          "type": "array"
+        },
+        "allow_headers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allow Headers",
+          "type": "array"
+        },
+        "expose_headers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expose Headers",
+          "type": "array"
+        },
+        "max_age": {
+          "default": 600,
+          "title": "Max Age",
+          "type": "integer"
+        },
+        "allow_origin_regex": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allow Origin Regex"
+        }
+      },
+      "title": "CORSSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "DatabaseSettings": {
+      "description": "PostgreSQL \u6570\u636e\u5e93\u914d\u7f6e\n\nSECURITY NOTE:\n- DSN must be explicitly configured via environment variables\n- auto_init is disabled by default to prevent accidental schema changes",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "dsn": {
+          "default": "postgresql://localhost:5432/gateway",
+          "title": "Dsn",
+          "type": "string"
+        },
+        "auto_init": {
+          "default": false,
+          "title": "Auto Init",
+          "type": "boolean"
+        },
+        "permission_cache_ttl_seconds": {
+          "default": 60,
+          "title": "Permission Cache Ttl Seconds",
+          "type": "integer"
+        },
+        "pool_min_size": {
+          "default": 2,
+          "title": "Pool Min Size",
+          "type": "integer"
+        },
+        "pool_max_size": {
+          "default": 10,
+          "title": "Pool Max Size",
+          "type": "integer"
+        },
+        "api_key_usage_flush_interval_seconds": {
+          "default": 2,
+          "title": "Api Key Usage Flush Interval Seconds",
+          "type": "integer"
+        },
+        "api_key_usage_flush_batch_size": {
+          "default": 100,
+          "title": "Api Key Usage Flush Batch Size",
+          "type": "integer"
+        }
+      },
+      "title": "DatabaseSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ImageSigningSettings": {
+      "description": "\u672c\u5730\u6587\u4ef6 URL \u7b7e\u540d\u914d\u7f6e\uff08\u5386\u53f2\u5b57\u6bb5 GATEWAY_IMAGE_SIGNING__ENCRYPTION_KEY\uff09\u3002\n\n\u66fe\u6302\u9760\u5728\u5df2\u5220\u9664\u7684 Confluence \u914d\u7f6e\u7ec4\u4e0b\uff1bConfluence \u5316\u77f3\u6808\u79fb\u9664\u540e\uff0c\u8be5\u5bc6\u94a5\u4ec5\u7528\u4e8e\n\u56fe\u7247\u5b58\u50a8\u670d\u52a1\u751f\u6210\u672c\u5730\u6587\u4ef6\u7b7e\u540d URL\u3002",
+      "properties": {
+        "encryption_key": {
+          "default": "",
+          "title": "Encryption Key",
+          "type": "string"
+        }
+      },
+      "title": "ImageSigningSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "KnowledgeGeminiSettings": {
+      "description": "Gemini Embedding API \u914d\u7f6e",
+      "properties": {
+        "api_key": {
+          "default": "",
+          "title": "Api Key",
+          "type": "string"
+        },
+        "model": {
+          "default": "gemini-embedding-001",
+          "title": "Model",
+          "type": "string"
+        },
+        "dimension": {
+          "default": 1024,
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Url"
+        },
+        "timeout_seconds": {
+          "default": 30.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        }
+      },
+      "title": "KnowledgeGeminiSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "KnowledgeProviderSettings": {
+      "properties": {
+        "api_key": {
+          "default": "",
+          "title": "Api Key",
+          "type": "string"
+        },
+        "base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Base Url"
+        }
+      },
+      "title": "KnowledgeProviderSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "KnowledgeQdrantSettings": {
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "url": {
+          "default": "http://localhost:6333",
+          "title": "Url",
+          "type": "string"
+        },
+        "api_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Key"
+        },
+        "prefer_grpc": {
+          "default": false,
+          "title": "Prefer Grpc",
+          "type": "boolean"
+        },
+        "timeout_seconds": {
+          "default": 120.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        },
+        "max_retries": {
+          "default": 5,
+          "title": "Max Retries",
+          "type": "integer"
+        },
+        "retry_base_delay": {
+          "default": 2.0,
+          "title": "Retry Base Delay",
+          "type": "number"
+        },
+        "bm25_v2_enabled": {
+          "default": false,
+          "title": "Bm25 V2 Enabled",
+          "type": "boolean"
+        },
+        "bm25_v2_capability_ttl_seconds": {
+          "default": 300.0,
+          "title": "Bm25 V2 Capability Ttl Seconds",
+          "type": "number"
+        },
+        "bm25_v2_readiness_ttl_seconds": {
+          "default": 5.0,
+          "title": "Bm25 V2 Readiness Ttl Seconds",
+          "type": "number"
+        },
+        "bm25_v2_cutover_test_tenants": {
+          "default": "",
+          "title": "Bm25 V2 Cutover Test Tenants",
+          "type": "string"
+        }
+      },
+      "title": "KnowledgeQdrantSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "KnowledgeSettings": {
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "worker_concurrency": {
+          "default": 2,
+          "title": "Worker Concurrency",
+          "type": "integer"
+        },
+        "qdrant": {
+          "$ref": "#/$defs/KnowledgeQdrantSettings"
+        },
+        "dashscope": {
+          "$ref": "#/$defs/KnowledgeProviderSettings"
+        },
+        "gemini": {
+          "$ref": "#/$defs/KnowledgeGeminiSettings"
+        },
+        "siliconflow": {
+          "$ref": "#/$defs/KnowledgeSiliconFlowSettings"
+        },
+        "dataset_fanout_max_concurrency": {
+          "default": 6,
+          "title": "Dataset Fanout Max Concurrency",
+          "type": "integer"
+        },
+        "retrieval_query_max_concurrency": {
+          "default": 8,
+          "title": "Retrieval Query Max Concurrency",
+          "type": "integer"
+        },
+        "retrieval_cache_ttl_seconds": {
+          "default": 300,
+          "title": "Retrieval Cache Ttl Seconds",
+          "type": "integer"
+        },
+        "text_embedding_provider": {
+          "default": "gemini",
+          "title": "Text Embedding Provider",
+          "type": "string"
+        },
+        "text_embedding_model": {
+          "default": "gemini-embedding-001",
+          "title": "Text Embedding Model",
+          "type": "string"
+        },
+        "text_embedding_dimension": {
+          "default": 1024,
+          "title": "Text Embedding Dimension",
+          "type": "integer"
+        },
+        "text_embedding_batch_size": {
+          "default": 50,
+          "title": "Text Embedding Batch Size",
+          "type": "integer"
+        },
+        "text_embedding_max_concurrent": {
+          "default": 5,
+          "title": "Text Embedding Max Concurrent",
+          "type": "integer"
+        },
+        "multimodal_embedding_provider": {
+          "default": "dashscope",
+          "title": "Multimodal Embedding Provider",
+          "type": "string"
+        },
+        "multimodal_embedding_model": {
+          "default": "tongyi-embedding-vision-plus",
+          "title": "Multimodal Embedding Model",
+          "type": "string"
+        },
+        "multimodal_embedding_dimension": {
+          "default": 1024,
+          "title": "Multimodal Embedding Dimension",
+          "type": "integer"
+        },
+        "multimodal_embedding_max_concurrent": {
+          "default": 5,
+          "title": "Multimodal Embedding Max Concurrent",
+          "type": "integer"
+        },
+        "vlm_batch_size": {
+          "default": 5,
+          "title": "Vlm Batch Size",
+          "type": "integer"
+        },
+        "vlm_max_concurrent": {
+          "default": 8,
+          "title": "Vlm Max Concurrent",
+          "type": "integer"
+        },
+        "vlm_timeout_seconds": {
+          "default": 90.0,
+          "title": "Vlm Timeout Seconds",
+          "type": "number"
+        },
+        "vlm_quality_threshold": {
+          "default": 0.5,
+          "title": "Vlm Quality Threshold",
+          "type": "number"
+        },
+        "document_worker_concurrency": {
+          "default": 3,
+          "title": "Document Worker Concurrency",
+          "type": "integer"
+        },
+        "scanned_min_images_for_image_only": {
+          "default": 5,
+          "title": "Scanned Min Images For Image Only",
+          "type": "integer"
+        },
+        "ocr_enabled": {
+          "default": true,
+          "title": "Ocr Enabled",
+          "type": "boolean"
+        },
+        "ocr_languages": {
+          "default": "eng+ara",
+          "title": "Ocr Languages",
+          "type": "string"
+        },
+        "ocr_render_dpi": {
+          "default": 200,
+          "title": "Ocr Render Dpi",
+          "type": "integer"
+        },
+        "pdf_min_text_chars_for_ocr": {
+          "default": 200,
+          "title": "Pdf Min Text Chars For Ocr",
+          "type": "integer"
+        },
+        "ocr_tesseract_timeout_seconds": {
+          "default": 60,
+          "title": "Ocr Tesseract Timeout Seconds",
+          "type": "integer"
+        },
+        "ocr_page_concurrency": {
+          "default": 3,
+          "title": "Ocr Page Concurrency",
+          "type": "integer"
+        },
+        "ocr_strategy": {
+          "default": "hybrid",
+          "title": "Ocr Strategy",
+          "type": "string"
+        },
+        "ocr_vlm_provider": {
+          "default": "dashscope",
+          "title": "Ocr Vlm Provider",
+          "type": "string"
+        },
+        "ocr_vlm_model": {
+          "default": "qwen-vl-ocr",
+          "title": "Ocr Vlm Model",
+          "type": "string"
+        },
+        "ocr_vlm_task": {
+          "default": "document_parsing",
+          "title": "Ocr Vlm Task",
+          "type": "string"
+        },
+        "ocr_vlm_min_pixels": {
+          "default": 3072,
+          "title": "Ocr Vlm Min Pixels",
+          "type": "integer"
+        },
+        "ocr_vlm_max_pixels": {
+          "default": 8388608,
+          "title": "Ocr Vlm Max Pixels",
+          "type": "integer"
+        },
+        "ocr_vlm_max_tokens": {
+          "default": 8192,
+          "title": "Ocr Vlm Max Tokens",
+          "type": "integer"
+        },
+        "ocr_vlm_enable_rotate": {
+          "default": true,
+          "title": "Ocr Vlm Enable Rotate",
+          "type": "boolean"
+        },
+        "ocr_vlm_concurrency": {
+          "default": 4,
+          "title": "Ocr Vlm Concurrency",
+          "type": "integer"
+        },
+        "ocr_vlm_timeout_seconds": {
+          "default": 30,
+          "title": "Ocr Vlm Timeout Seconds",
+          "type": "integer"
+        },
+        "pdf_split_enabled": {
+          "default": true,
+          "title": "Pdf Split Enabled",
+          "type": "boolean"
+        },
+        "pdf_split_max_size_bytes": {
+          "default": 20971520,
+          "title": "Pdf Split Max Size Bytes",
+          "type": "integer"
+        },
+        "pdf_split_min_pages_per_part": {
+          "default": 5,
+          "title": "Pdf Split Min Pages Per Part",
+          "type": "integer"
+        },
+        "image_position_offset": {
+          "default": 1000000,
+          "title": "Image Position Offset",
+          "type": "integer"
+        },
+        "large_file_threshold": {
+          "default": 52428800,
+          "title": "Large File Threshold",
+          "type": "integer"
+        },
+        "max_memory_processing_size": {
+          "default": 104857600,
+          "title": "Max Memory Processing Size",
+          "type": "integer"
+        },
+        "streaming_batch_size": {
+          "default": 20,
+          "title": "Streaming Batch Size",
+          "type": "integer"
+        },
+        "streaming_min_batch_size": {
+          "default": 5,
+          "title": "Streaming Min Batch Size",
+          "type": "integer"
+        },
+        "streaming_max_batch_size": {
+          "default": 50,
+          "title": "Streaming Max Batch Size",
+          "type": "integer"
+        },
+        "detection_sample_pages": {
+          "default": 5,
+          "title": "Detection Sample Pages",
+          "type": "integer"
+        },
+        "detection_native_pdf_threshold": {
+          "default": 0.8,
+          "title": "Detection Native Pdf Threshold",
+          "type": "number"
+        },
+        "detection_scanned_pdf_threshold": {
+          "default": 0.2,
+          "title": "Detection Scanned Pdf Threshold",
+          "type": "number"
+        },
+        "detection_min_chars_per_page": {
+          "default": 50,
+          "title": "Detection Min Chars Per Page",
+          "type": "integer"
+        },
+        "hierarchical_l2_chunk_size": {
+          "default": 8000,
+          "title": "Hierarchical L2 Chunk Size",
+          "type": "integer"
+        },
+        "hierarchical_l2_chunk_overlap": {
+          "default": 400,
+          "title": "Hierarchical L2 Chunk Overlap",
+          "type": "integer"
+        },
+        "hierarchical_l3_chunk_size": {
+          "default": 2000,
+          "title": "Hierarchical L3 Chunk Size",
+          "type": "integer"
+        },
+        "hierarchical_l3_chunk_overlap": {
+          "default": 200,
+          "title": "Hierarchical L3 Chunk Overlap",
+          "type": "integer"
+        },
+        "hierarchical_l1_top_k": {
+          "default": 5,
+          "title": "Hierarchical L1 Top K",
+          "type": "integer"
+        },
+        "hierarchical_l2_top_k": {
+          "default": 10,
+          "title": "Hierarchical L2 Top K",
+          "type": "integer"
+        },
+        "hierarchical_l3_top_k": {
+          "default": 5,
+          "title": "Hierarchical L3 Top K",
+          "type": "integer"
+        }
+      },
+      "title": "KnowledgeSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "KnowledgeSiliconFlowSettings": {
+      "description": "SiliconFlow Embedding API \u914d\u7f6e\n\n\u652f\u6301\u6a21\u578b\uff1a\n- BAAI/bge-m3: 1024 dimensions\n- Pro/BAAI/bge-m3: 1024 dimensions\n- BAAI/bge-large-zh-v1.5: 1024 dimensions\n- BAAI/bge-large-en-v1.5: 1024 dimensions\n- netease-youdao/bce-embedding-base_v1: 512 dimensions",
+      "properties": {
+        "api_key": {
+          "default": "",
+          "title": "Api Key",
+          "type": "string"
+        },
+        "base_url": {
+          "default": "https://api.siliconflow.cn/v1",
+          "title": "Base Url",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "default": 30.0,
+          "title": "Timeout Seconds",
+          "type": "number"
+        }
+      },
+      "title": "KnowledgeSiliconFlowSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "LangGraphInstanceSettings": {
+      "description": "LangGraph Server \u5b9e\u4f8b\u914d\u7f6e",
+      "properties": {
+        "instance_id": {
+          "title": "Instance Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1,
+          "title": "Weight",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "instance_id",
+        "url"
+      ],
+      "title": "LangGraphInstanceSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "LangGraphSettings": {
+      "description": "LangGraph \u914d\u7f6e",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "load_balancer_strategy": {
+          "default": "least_connections",
+          "title": "Load Balancer Strategy",
+          "type": "string"
+        },
+        "health_check_interval": {
+          "default": 10,
+          "title": "Health Check Interval",
+          "type": "integer"
+        },
+        "instances": {
+          "items": {
+            "$ref": "#/$defs/LangGraphInstanceSettings"
+          },
+          "title": "Instances",
+          "type": "array"
+        },
+        "instance_urls": {
+          "default": "",
+          "title": "Instance Urls",
+          "type": "string"
+        },
+        "auth_token": {
+          "default": "",
+          "title": "Auth Token",
+          "type": "string"
+        },
+        "tier_limits": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "title": "Tier Limits",
+          "type": "object"
+        }
+      },
+      "title": "LangGraphSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "LoadBalancerSettings": {
+      "description": "\u8d1f\u8f7d\u5747\u8861\u914d\u7f6e",
+      "properties": {
+        "strategy": {
+          "default": "round_robin",
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "title": "LoadBalancerSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "MetricsSettings": {
+      "description": "Metrics recorder runtime settings.\n\nControls the behavior of ``MetricsRecorder`` (Redis-backed dashboard\nmetrics). Access via env: ``GATEWAY_METRICS__LATENCY_SAMPLE_CAP=<int>``.",
+      "properties": {
+        "latency_sample_cap": {
+          "default": 10000,
+          "description": "Max entries retained in metrics:latency:samples ZSET",
+          "title": "Latency Sample Cap",
+          "type": "integer"
+        }
+      },
+      "title": "MetricsSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ProxySettings": {
+      "description": "\u900f\u660e\u4ee3\u7406\u914d\u7f6e",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "timeout_connect": {
+          "default": 5.0,
+          "title": "Timeout Connect",
+          "type": "number"
+        },
+        "timeout_read": {
+          "default": 300.0,
+          "title": "Timeout Read",
+          "type": "number"
+        },
+        "timeout_write": {
+          "default": 60.0,
+          "title": "Timeout Write",
+          "type": "number"
+        },
+        "timeout_pool": {
+          "default": 60.0,
+          "title": "Timeout Pool",
+          "type": "number"
+        },
+        "health_check_timeout": {
+          "default": 5.0,
+          "title": "Health Check Timeout",
+          "type": "number"
+        },
+        "availability_cache_ttl_seconds": {
+          "default": 15.0,
+          "title": "Availability Cache Ttl Seconds",
+          "type": "number"
+        },
+        "default_concurrency_limit": {
+          "default": 32,
+          "title": "Default Concurrency Limit",
+          "type": "integer"
+        },
+        "default_streaming_concurrency_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Streaming Concurrency Limit"
+        },
+        "default_non_streaming_concurrency_limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Non Streaming Concurrency Limit"
+        },
+        "default_concurrency_queue_timeout": {
+          "default": 10.0,
+          "title": "Default Concurrency Queue Timeout",
+          "type": "number"
+        },
+        "client_max_connections": {
+          "default": 100,
+          "title": "Client Max Connections",
+          "type": "integer"
+        },
+        "client_max_keepalive_connections": {
+          "default": 20,
+          "title": "Client Max Keepalive Connections",
+          "type": "integer"
+        },
+        "client_keepalive_expiry": {
+          "default": 30.0,
+          "title": "Client Keepalive Expiry",
+          "type": "number"
+        },
+        "config_cache_ttl": {
+          "default": 60.0,
+          "title": "Config Cache Ttl",
+          "type": "number"
+        },
+        "constraint_cache_ttl_seconds": {
+          "default": 30.0,
+          "title": "Constraint Cache Ttl Seconds",
+          "type": "number"
+        },
+        "billing_enabled": {
+          "default": true,
+          "title": "Billing Enabled",
+          "type": "boolean"
+        },
+        "billing_buffer_size": {
+          "default": 100,
+          "title": "Billing Buffer Size",
+          "type": "integer"
+        },
+        "billing_flush_interval": {
+          "default": 5.0,
+          "title": "Billing Flush Interval",
+          "type": "number"
+        },
+        "quota_check_failure_mode": {
+          "default": "fail_open",
+          "title": "Quota Check Failure Mode",
+          "type": "string"
+        },
+        "quota_alert_dedupe_ttl_seconds": {
+          "default": 60.0,
+          "title": "Quota Alert Dedupe Ttl Seconds",
+          "type": "number"
+        },
+        "inject_user_info": {
+          "default": true,
+          "title": "Inject User Info",
+          "type": "boolean"
+        },
+        "inject_request_info": {
+          "default": true,
+          "title": "Inject Request Info",
+          "type": "boolean"
+        },
+        "forward_auth": {
+          "default": true,
+          "title": "Forward Auth",
+          "type": "boolean"
+        },
+        "forward_all_headers": {
+          "default": true,
+          "title": "Forward All Headers",
+          "type": "boolean"
+        },
+        "custom_headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Custom Headers",
+          "type": "object"
+        }
+      },
+      "title": "ProxySettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "RBACSettings": {
+      "properties": {
+        "roles": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Roles",
+          "type": "object"
+        }
+      },
+      "title": "RBACSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "RateLimitSettings": {
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "global_limit": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Global Limit"
+        },
+        "tenant_limits": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Tenant Limits",
+          "type": "object"
+        },
+        "user_limits": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "User Limits",
+          "type": "object"
+        },
+        "service_limits": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Service Limits",
+          "type": "object"
+        },
+        "ip_limits": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ip Limits"
+        }
+      },
+      "title": "RateLimitSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "RedisSettings": {
+      "description": "Redis \u7f13\u5b58\u914d\u7f6e",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "url": {
+          "default": "redis://localhost:6379/0",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "title": "RedisSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "SessionSettings": {
+      "description": "Session persistence settings.",
+      "properties": {
+        "anonymous_ttl_seconds": {
+          "default": 86400,
+          "title": "Anonymous Ttl Seconds",
+          "type": "integer"
+        },
+        "authenticated_ttl_seconds": {
+          "default": 604800,
+          "title": "Authenticated Ttl Seconds",
+          "type": "integer"
+        }
+      },
+      "title": "SessionSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "StorageOSSSettings": {
+      "description": "\u963f\u91cc\u4e91 OSS \u5b58\u50a8\u914d\u7f6e",
+      "properties": {
+        "bucket": {
+          "default": "",
+          "title": "Bucket",
+          "type": "string"
+        },
+        "endpoint": {
+          "default": "",
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "access_key": {
+          "default": "",
+          "title": "Access Key",
+          "type": "string"
+        },
+        "secret_key": {
+          "default": "",
+          "title": "Secret Key",
+          "type": "string"
+        }
+      },
+      "title": "StorageOSSSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "StorageS3Settings": {
+      "description": "S3 \u5b58\u50a8\u914d\u7f6e",
+      "properties": {
+        "bucket": {
+          "default": "",
+          "title": "Bucket",
+          "type": "string"
+        },
+        "region": {
+          "default": "us-east-1",
+          "title": "Region",
+          "type": "string"
+        },
+        "access_key": {
+          "default": "",
+          "title": "Access Key",
+          "type": "string"
+        },
+        "secret_key": {
+          "default": "",
+          "title": "Secret Key",
+          "type": "string"
+        },
+        "endpoint_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endpoint Url"
+        }
+      },
+      "title": "StorageS3Settings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "StorageSettings": {
+      "description": "\u5bf9\u8c61\u5b58\u50a8\u914d\u7f6e\uff08\u7528\u4e8e Confluence \u56fe\u7247\u7b49\uff09",
+      "properties": {
+        "backend": {
+          "default": "local",
+          "title": "Backend",
+          "type": "string"
+        },
+        "local_base_path": {
+          "default": "./data/images",
+          "title": "Local Base Path",
+          "type": "string"
+        },
+        "url_expiry_seconds": {
+          "default": 3600,
+          "title": "Url Expiry Seconds",
+          "type": "integer"
+        },
+        "key_prefix": {
+          "default": "dev",
+          "title": "Key Prefix",
+          "type": "string"
+        },
+        "s3": {
+          "$ref": "#/$defs/StorageS3Settings"
+        },
+        "oss": {
+          "$ref": "#/$defs/StorageOSSSettings"
+        }
+      },
+      "title": "StorageSettings",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Settings": {
+      "description": "Application settings loaded from environment variables.\n\nConfiguration sources (in order of precedence):\n1. Environment variables (highest priority)\n2. .env file in project root\n\nAll settings use GATEWAY_ prefix with double underscore for nested values.\nExample: GATEWAY_DATABASE__ENABLED=true",
+      "properties": {
+        "host": {
+          "default": "0.0.0.0",
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "default": 8080,
+          "title": "Port",
+          "type": "integer"
+        },
+        "services_path": {
+          "default": "services",
+          "title": "Services Path",
+          "type": "string"
+        },
+        "database": {
+          "$ref": "#/$defs/DatabaseSettings"
+        },
+        "redis": {
+          "$ref": "#/$defs/RedisSettings"
+        },
+        "authentication": {
+          "$ref": "#/$defs/AuthenticationSettings"
+        },
+        "rbac": {
+          "$ref": "#/$defs/RBACSettings"
+        },
+        "rate_limits": {
+          "$ref": "#/$defs/RateLimitSettings"
+        },
+        "cors": {
+          "$ref": "#/$defs/CORSSettings"
+        },
+        "anonymous": {
+          "$ref": "#/$defs/AnonymousIdentitySettings"
+        },
+        "session": {
+          "$ref": "#/$defs/SessionSettings"
+        },
+        "load_balancer": {
+          "$ref": "#/$defs/LoadBalancerSettings"
+        },
+        "langgraph": {
+          "$ref": "#/$defs/LangGraphSettings"
+        },
+        "knowledge": {
+          "$ref": "#/$defs/KnowledgeSettings"
+        },
+        "image_signing": {
+          "$ref": "#/$defs/ImageSigningSettings"
+        },
+        "proxy": {
+          "$ref": "#/$defs/ProxySettings"
+        },
+        "storage": {
+          "$ref": "#/$defs/StorageSettings"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricsSettings"
+        },
+        "health_check_interval": {
+          "default": 30,
+          "title": "Health Check Interval",
+          "type": "integer"
+        },
+        "task_worker_concurrency": {
+          "default": 2,
+          "title": "Task Worker Concurrency",
+          "type": "integer"
+        },
+        "default_model": {
+          "default": "qwen3.8-flash",
+          "title": "Default Model",
+          "type": "string"
+        },
+        "model_setup_mode": {
+          "default": "ui",
+          "title": "Model Setup Mode",
+          "type": "string"
+        }
+      },
+      "title": "Settings",
+      "type": "object",
+      "additionalProperties": false
+    }
+  }
+}

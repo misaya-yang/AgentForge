@@ -1,0 +1,12 @@
+# Optional coherent dataset PDP rollout; append after canonical security + workload-required.
+# Do not stack shadow/enforce files. Defaults remain off without either file.
+services:
+  gateway:
+    environment:
+      GATEWAY_CEDAR_CONFIGURATION: '{"mode":"shadow","resources":{"enforce":[],"expected_policy_sha256":"${CEDAR_DATASET_POLICY_SHA256:?Set the native Cedar resource policy SHA256}","expected_matrix_sha256":"${CEDAR_DATASET_MATRIX_SHA256:?Set the native Cedar resource matrix SHA256 for the admitted roles}"}}'
+  knowledge-service:
+    environment:
+      KNOWLEDGE_CEDAR_DATASET_CONFIGURATION: '{"origin":"https://gateway-workload:8443","mode":"shadow","expected_policy_sha256":"${CEDAR_DATASET_POLICY_SHA256:?Set the native Cedar resource policy SHA256}","expected_matrix_sha256":"${CEDAR_DATASET_MATRIX_SHA256:?Set the native Cedar resource matrix SHA256 for the admitted roles}"}'
+  knowledge-worker:
+    environment:
+      KNOWLEDGE_CEDAR_DATASET_CONFIGURATION: '{"origin":"https://gateway-workload:8443","mode":"shadow","expected_policy_sha256":"${CEDAR_DATASET_POLICY_SHA256:?Set the native Cedar resource policy SHA256}","expected_matrix_sha256":"${CEDAR_DATASET_MATRIX_SHA256:?Set the native Cedar resource matrix SHA256 for the admitted roles}"}'

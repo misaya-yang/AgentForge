@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: agentforge-candidate
+  namespace: argocd
+spec:
+  description: Explicitly selected signed AgentForge candidates; no automatic production promotion
+  sourceRepos: [https://github.com/misaya-yang/AgentForge.git]
+  destinations:
+  - server: https://kubernetes.default.svc
+    namespace: agentforge-candidate
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+  - {group: '', kind: ConfigMap}
+  - {group: '', kind: Service}
+  - {group: '', kind: ServiceAccount}
+  - {group: '', kind: PersistentVolumeClaim}
+  - {group: apps, kind: Deployment}
+  - {group: batch, kind: Job}
+  - {group: networking.k8s.io, kind: NetworkPolicy}
+  - {group: policy, kind: PodDisruptionBudget}
+  - {group: autoscaling, kind: HorizontalPodAutoscaler}
+  - {group: argoproj.io, kind: Rollout}
+  - {group: argoproj.io, kind: AnalysisTemplate}
+  - {group: external-secrets.io, kind: ExternalSecret}
+  - {group: keda.sh, kind: ScaledObject}

@@ -1,0 +1,57 @@
+{
+  "capability_worker_sbom": {
+    "component_count": 636,
+    "format": "CycloneDX-1.5",
+    "path": "deploy/agent-runtime-source/capability-worker-sbom.cdx.json",
+    "sha256": "bf03af7ffb0a59f59dfcc7d70d60da664e38b486d6e429c61a9802afc1861a07"
+  },
+  "capability_worker_schema_sha256": "b2b6a1ae71f054387b16daecc0325faf0acb09be7a6119adbfe3227cbfb945a7",
+  "evidence_provenance": {
+    "docker_image_verified": false,
+    "export_evidence_sha256": "b1ada5309914bb36db407dcf6deed295dbf520ca7f7b2adb0e3ed01c458c589e",
+    "metadata_file_sha256": "0ce702d24ced4f62f48da61e9ab100ea2e2d07cd555808b5a68a08858b97b68d",
+    "method": "verified immutable upstream plus source-only overlay; offline compiled protocol export",
+    "runtime_compiled": false,
+    "schema_generated_by_compiled_protocol_library": true,
+    "source_unit_sha256": "804713cbf625cba928e269b5f8893009ccc9715d8f2bec443297092d8239ad42",
+    "worker_compiled": false
+  },
+  "license": {
+    "license_sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "spdx": "Apache-2.0",
+    "upstream_notice_sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+  },
+  "overlay": {
+    "cargo_lock_sha256": "e3aed2dceacd5d05b0c992d720d517a16eae192f5997005f11f468a6e4ba7dce",
+    "file_count": 233,
+    "manifest_schema": "ai-platform/agent-runtime-overlay/v2",
+    "manifest_sha256": "2fefaf4176de240061ca2b5da6390bedfc7d940b877df755f84d8eb79f3d68a2",
+    "sha256": "652e1ffdee8a950fe6a9d4ce448f8b067ed289111f8ad077bc93d6a738131c5d",
+    "source_revision": "69231e119bfca0b14453515e97d99688ce1c47c9",
+    "upstream_sha": "69231e119bfca0b14453515e97d99688ce1c47c9"
+  },
+  "sbom": {
+    "component_count": 1623,
+    "format": "CycloneDX-1.5",
+    "sha256": "1a3904741061a020a4c7030ed9db928925a45131788a715f774d5c6ebf22ed2b"
+  },
+  "schema_bundle": {
+    "file_count": 1066,
+    "sha256": "01cf60668fd3c8be4391017eee99dd785f5a42cb357384648ba2ddfdafcea9fd",
+    "total_bytes": 4100963
+  },
+  "schema_version": "ai-platform/agent-runtime-source-receipt/v1",
+  "source": {
+    "branch": "",
+    "fork_sha": "69231e119bfca0b14453515e97d99688ce1c47c9",
+    "git_tree_sha": "536f9036c55e5861325476e58a9612de08ca3ca8",
+    "upstream_sha": "69231e119bfca0b14453515e97d99688ce1c47c9",
+    "upstream_url": "https://github.com/openai/codex.git"
+  },
+  "toolchain": {
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "cargo_lock_sha256": "af7bc459704d35aad91055ff6664be94dcd07df082f996d2f52c494d13f11881",
+    "rust_toolchain_sha256": "570656042681cfd8795403a455baf9a33035331a07db0645e866bbcea89a3d64",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
+  }
+}

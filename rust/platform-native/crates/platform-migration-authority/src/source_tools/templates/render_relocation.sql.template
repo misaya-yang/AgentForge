@@ -1,0 +1,135 @@
+{START_MARKER}
+-- Generated from ownership-policy.json; DO NOT EDIT THIS BLOCK.
+-- Missing or duplicate source objects abort before any relocation is accepted.
+DO $$
+DECLARE
+    desired RECORD;
+    source_schema TEXT;
+    source_relkind TEXT;
+    matches BIGINT;
+BEGIN
+    FOR desired IN
+        SELECT * FROM (
+            {relation_values}
+        ) AS mapping(kind, name, target_schema)
+        -- PostgreSQL moves an owned serial/identity sequence together with
+        -- its table and rejects moving that sequence independently first.
+        -- Relocate tables/views before sequences; the later sequence row then
+        -- observes the already-correct target schema and remains a full
+        -- existence/uniqueness check rather than a skipped object.
+        ORDER BY CASE kind
+                     WHEN 'table' THEN 0
+                     WHEN 'view' THEN 1
+                     WHEN 'sequence' THEN 2
+                     ELSE 3
+                 END,
+                 name
+    LOOP
+        SELECT count(*), min(namespace.nspname), min(class.relkind::text)
+        INTO matches, source_schema, source_relkind
+        FROM pg_class AS class
+        JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace
+        WHERE namespace.nspname IN ('public', 'gateway', 'assistant', 'knowledge')
+          AND class.relname = desired.name
+          AND CASE desired.kind
+              WHEN 'table' THEN class.relkind IN ('r', 'p', 'f')
+              WHEN 'view' THEN class.relkind IN ('v', 'm')
+              WHEN 'sequence' THEN class.relkind = 'S'
+              ELSE FALSE
+          END
+          AND NOT EXISTS (
+              SELECT 1 FROM pg_depend AS dependency
+              WHERE dependency.classid = 'pg_class'::regclass
+                AND dependency.objid = class.oid
+                AND dependency.deptype = 'e'
+          );
+        IF matches <> 1 THEN
+            RAISE EXCEPTION 'ARC03 relocation % % matched % objects',
+                desired.kind, desired.name, matches;
+        END IF;
+        IF source_schema <> desired.target_schema THEN
+            EXECUTE format(
+                'ALTER %s %I.%I SET SCHEMA %I',
+                CASE
+                    WHEN source_relkind = 'S' THEN 'SEQUENCE'
+                    WHEN source_relkind = 'v' THEN 'VIEW'
+                    WHEN source_relkind = 'm' THEN 'MATERIALIZED VIEW'
+                    WHEN source_relkind = 'f' THEN 'FOREIGN TABLE'
+                    ELSE 'TABLE'
+                END,
+                source_schema, desired.name, desired.target_schema
+            );
+        END IF;
+    END LOOP;
+
+    FOR desired IN
+        SELECT * FROM (
+            {function_values}
+        ) AS mapping(name, identity_arguments, target_schema)
+        ORDER BY name, identity_arguments
+    LOOP
+        SELECT count(*), min(namespace.nspname)
+        INTO matches, source_schema
+        FROM pg_proc AS procedure
+        JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        WHERE namespace.nspname IN ('public', 'gateway', 'assistant', 'knowledge')
+          AND procedure.proname = desired.name
+          -- Policy identities are type-only signatures suitable for ALTER /
+          -- GRANT syntax. The catalog identity formatter includes input names
+          -- when declared, so compare the canonical input type vector instead.
+          AND oidvectortypes(procedure.proargtypes) = desired.identity_arguments
+          AND procedure.prokind = 'f'
+          AND NOT EXISTS (
+              SELECT 1 FROM pg_depend AS dependency
+              WHERE dependency.classid = 'pg_proc'::regclass
+                AND dependency.objid = procedure.oid
+                AND dependency.deptype = 'e'
+          );
+        IF matches <> 1 THEN
+            RAISE EXCEPTION 'ARC03 relocation function %(%) matched % objects',
+                desired.name, desired.identity_arguments, matches;
+        END IF;
+        IF source_schema <> desired.target_schema THEN
+            EXECUTE format(
+                'ALTER FUNCTION %I.%I(%s) SET SCHEMA %I',
+                source_schema, desired.name, desired.identity_arguments,
+                desired.target_schema
+            );
+        END IF;
+    END LOOP;
+
+    FOR desired IN
+        SELECT column1 AS name, column2 AS target_schema FROM (
+            {type_values}
+        ) AS mapping
+        WHERE column1 IS NOT NULL
+        ORDER BY name
+    LOOP
+        SELECT count(*), min(namespace.nspname)
+        INTO matches, source_schema
+        FROM pg_type AS type_object
+        JOIN pg_namespace AS namespace ON namespace.oid = type_object.typnamespace
+        LEFT JOIN pg_class AS relation ON relation.oid = type_object.typrelid
+        WHERE namespace.nspname IN ('public', 'gateway', 'assistant', 'knowledge')
+          AND type_object.typname = desired.name
+          AND (type_object.typtype IN ('e', 'd', 'r', 'm')
+               OR (type_object.typtype = 'c' AND relation.relkind = 'c'))
+          AND NOT EXISTS (
+              SELECT 1 FROM pg_depend AS dependency
+              WHERE dependency.classid = 'pg_type'::regclass
+                AND dependency.objid = type_object.oid
+                AND dependency.deptype = 'e'
+          );
+        IF matches <> 1 THEN
+            RAISE EXCEPTION 'ARC03 relocation type % matched % objects', desired.name, matches;
+        END IF;
+        IF source_schema <> desired.target_schema THEN
+            EXECUTE format(
+                'ALTER TYPE %I.%I SET SCHEMA %I',
+                source_schema, desired.name, desired.target_schema
+            );
+        END IF;
+    END LOOP;
+END
+$$;
+{END_MARKER}

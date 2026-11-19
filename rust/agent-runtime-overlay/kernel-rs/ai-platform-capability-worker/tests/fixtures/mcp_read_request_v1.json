@@ -1,0 +1,10 @@
+{
+  "connection_id": "00000000-0000-0000-0000-000000000111",
+  "principal_type": "service_account",
+  "channel": "api",
+  "runtime_name": "mcp_search",
+  "schema_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "risk_level": "low",
+  "arguments": {"q": "hello"},
+  "arguments_hash": "sha256:08576d040e5f5ced47690f2c76fef94fd91c9c5e5e77c3392e13cdacacebc7f2"
+}

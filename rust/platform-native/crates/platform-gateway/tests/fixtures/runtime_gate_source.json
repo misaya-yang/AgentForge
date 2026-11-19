@@ -1,0 +1,711 @@
+[
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 2,
+      "score_sum": 1.0,
+      "failed_case_count": 1,
+      "overall_score": 0.5,
+      "pass_rate": 0.5,
+      "trajectory_case_count": 2,
+      "trajectory_failed_count": 1,
+      "trajectory_pass_rate": 0.5,
+      "critical_case_count": 2,
+      "critical_failed_count": 1,
+      "critical_pass_rate": 0.5,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 2,
+        "score_sum": 1.0,
+        "failed_case_count": 1,
+        "overall_score": 0.5,
+        "pass_rate": 0.5,
+        "trajectory_case_count": 2,
+        "trajectory_failed_count": 1,
+        "trajectory_pass_rate": 0.5,
+        "critical_case_count": 2,
+        "critical_failed_count": 1,
+        "critical_pass_rate": 0.5,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 0.5
+      },
+      "failures": [
+        "overall_score 0.5000 < 0.8500",
+        "trajectory_pass_rate 0.5000 < 0.9500",
+        "critical hard gate requires zero failed critical cases"
+      ],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 2,
+        "trajectory_case_count": 2,
+        "critical_case_count": 2,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 2,
+      "score_sum": 2.0,
+      "failed_case_count": 1,
+      "overall_score": 1.0,
+      "pass_rate": 0.5,
+      "trajectory_case_count": 2,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 1,
+      "critical_failed_count": 1,
+      "critical_pass_rate": 0.0,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 2,
+        "score_sum": 2.0,
+        "failed_case_count": 1,
+        "overall_score": 1.0,
+        "pass_rate": 0.5,
+        "trajectory_case_count": 2,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 1,
+        "critical_failed_count": 1,
+        "critical_pass_rate": 0.0,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [
+        "critical hard gate requires zero failed critical cases"
+      ],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 2,
+        "trajectory_case_count": 2,
+        "critical_case_count": 1,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 1,
+      "score_sum": 1.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 1,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 1,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {
+      "baseline_metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 1,
+        "score_sum": 0.0,
+        "failed_case_count": 1,
+        "overall_score": 0.0,
+        "average_score": 1.0,
+        "pass_rate": 0.0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 1,
+        "trajectory_pass_rate": 0.0,
+        "critical_case_count": 1,
+        "critical_failed_count": 1,
+        "critical_pass_rate": 0.0,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null
+      }
+    },
+    "expected": {
+      "status": "pass",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 1,
+        "score_sum": 1.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 1,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 1,
+        "trajectory_case_count": 1,
+        "critical_case_count": 1,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 10,
+      "score_sum": 10.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 10,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 10,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {
+      "thresholds": {
+        "future_metric": 0.0
+      }
+    },
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 10,
+        "score_sum": 10.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 10,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 10,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [
+        "unsupported gate thresholds: future_metric"
+      ],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 10,
+        "trajectory_case_count": 10,
+        "critical_case_count": 10,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 10,
+      "score_sum": 10.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 10,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 10,
+      "critical_failed_count": 0,
+      "critical_pass_rate": null,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 10,
+        "score_sum": 10.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 10,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 10,
+        "critical_failed_count": 0,
+        "critical_pass_rate": null,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [
+        "critical_pass_rate must be a finite number in [0, 1]"
+      ],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 10,
+        "trajectory_case_count": 10,
+        "critical_case_count": 10,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 10,
+      "score_sum": 10.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 10,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 10,
+      "critical_failed_count": 1,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 10,
+        "score_sum": 10.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 10,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 10,
+        "critical_failed_count": 1,
+        "critical_pass_rate": 0.9,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [
+        "critical_pass_rate is inconsistent with critical case counts",
+        "critical_failed_count exceeds failed_case_count",
+        "critical hard gate requires zero failed critical cases"
+      ],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 10,
+        "trajectory_case_count": 10,
+        "critical_case_count": 10,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 10,
+      "score_sum": 8.0,
+      "failed_case_count": 2,
+      "overall_score": 1.0,
+      "pass_rate": 0.8,
+      "trajectory_case_count": 10,
+      "trajectory_failed_count": 1,
+      "trajectory_pass_rate": 0.9,
+      "critical_case_count": 2,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 1,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": 1.0
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 10,
+        "score_sum": 8.0,
+        "failed_case_count": 2,
+        "overall_score": 0.8,
+        "pass_rate": 0.8,
+        "trajectory_case_count": 10,
+        "trajectory_failed_count": 1,
+        "trajectory_pass_rate": 0.9,
+        "critical_case_count": 2,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "stateful_case_count": 1,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": 1.0,
+        "average_score": 0.8
+      },
+      "failures": [
+        "overall_score is inconsistent with score_sum and case_count",
+        "overall_score 0.8000 < 0.8500",
+        "trajectory_pass_rate 0.9000 < 0.9500"
+      ],
+      "skipped_thresholds": [],
+      "coverage": {
+        "case_count": 10,
+        "trajectory_case_count": 10,
+        "critical_case_count": 2,
+        "stateful_case_count": 1,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 10,
+      "score_sum": 8.0,
+      "failed_case_count": 2,
+      "overall_score": 0.8,
+      "pass_rate": 0.8,
+      "trajectory_case_count": 10,
+      "trajectory_failed_count": 1,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 2,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 1,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": 1.0
+    },
+    "options": {},
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 10,
+        "score_sum": 8.0,
+        "failed_case_count": 2,
+        "overall_score": 0.8,
+        "pass_rate": 0.8,
+        "trajectory_case_count": 10,
+        "trajectory_failed_count": 1,
+        "trajectory_pass_rate": 0.9,
+        "critical_case_count": 2,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "stateful_case_count": 1,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": 1.0,
+        "average_score": 0.8
+      },
+      "failures": [
+        "trajectory_pass_rate is inconsistent with trajectory case counts",
+        "overall_score 0.8000 < 0.8500",
+        "trajectory_pass_rate 0.9000 < 0.9500"
+      ],
+      "skipped_thresholds": [],
+      "coverage": {
+        "case_count": 10,
+        "trajectory_case_count": 10,
+        "critical_case_count": 2,
+        "stateful_case_count": 1,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 1,
+      "score_sum": 1.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 1,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 999,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0,
+      "stateful_case_count": 999,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": 1.0
+    },
+    "options": {
+      "require_critical_coverage": true,
+      "require_stateful_coverage": true
+    },
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 1,
+        "score_sum": 1.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 999,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "stateful_case_count": 999,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": 1.0,
+        "average_score": 1.0
+      },
+      "failures": [
+        "critical_case_count exceeds case_count",
+        "stateful_case_count exceeds case_count"
+      ],
+      "skipped_thresholds": [],
+      "coverage": {
+        "case_count": 1,
+        "trajectory_case_count": 1,
+        "critical_case_count": 999,
+        "stateful_case_count": 999,
+        "critical_required": true,
+        "stateful_required": true
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 3,
+      "score_sum": 3.0,
+      "failed_case_count": 1,
+      "overall_score": 1.0,
+      "pass_rate": 0.6667,
+      "trajectory_case_count": 3,
+      "trajectory_failed_count": 1,
+      "trajectory_pass_rate": 0.6667,
+      "critical_case_count": 3,
+      "critical_failed_count": 1,
+      "critical_pass_rate": 0.6667,
+      "stateful_case_count": 0,
+      "stateful_failed_count": 0,
+      "stateful_pass_rate": null
+    },
+    "options": {
+      "thresholds": {
+        "overall_score": 0.0,
+        "trajectory_pass_rate": 0.0,
+        "critical_pass_rate": 0.0,
+        "stateful_pass_rate": 0.0,
+        "baseline_tolerance": 0.0
+      }
+    },
+    "expected": {
+      "status": "pass",
+      "thresholds": {
+        "overall_score": 0.0,
+        "trajectory_pass_rate": 0.0,
+        "critical_pass_rate": 0.0,
+        "stateful_pass_rate": 0.0,
+        "baseline_tolerance": 0.0
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 3,
+        "score_sum": 3.0,
+        "failed_case_count": 1,
+        "overall_score": 1.0,
+        "pass_rate": 0.6666666666666666,
+        "trajectory_case_count": 3,
+        "trajectory_failed_count": 1,
+        "trajectory_pass_rate": 0.6666666666666666,
+        "critical_case_count": 3,
+        "critical_failed_count": 1,
+        "critical_pass_rate": 0.6666666666666666,
+        "stateful_case_count": 0,
+        "stateful_failed_count": 0,
+        "stateful_pass_rate": null,
+        "average_score": 1.0
+      },
+      "failures": [],
+      "skipped_thresholds": [
+        "stateful_pass_rate:no_stateful_cases"
+      ],
+      "coverage": {
+        "case_count": 3,
+        "trajectory_case_count": 3,
+        "critical_case_count": 3,
+        "stateful_case_count": 0,
+        "critical_required": false,
+        "stateful_required": false
+      }
+    }
+  },
+  {
+    "metrics": {
+      "schema_version": "eval-gate-metrics/v2",
+      "case_count": 1,
+      "score_sum": 1.0,
+      "failed_case_count": 0,
+      "overall_score": 1.0,
+      "pass_rate": 1.0,
+      "trajectory_case_count": 1,
+      "trajectory_failed_count": 0,
+      "trajectory_pass_rate": 1.0,
+      "critical_case_count": 1,
+      "critical_failed_count": 0,
+      "critical_pass_rate": 1.0
+    },
+    "options": {
+      "require_stateful_coverage": true
+    },
+    "expected": {
+      "status": "fail",
+      "thresholds": {
+        "overall_score": 0.85,
+        "trajectory_pass_rate": 0.95,
+        "critical_pass_rate": 1.0,
+        "stateful_pass_rate": 1.0,
+        "baseline_tolerance": 0.02
+      },
+      "metrics": {
+        "schema_version": "eval-gate-metrics/v2",
+        "case_count": 1,
+        "score_sum": 1.0,
+        "failed_case_count": 0,
+        "overall_score": 1.0,
+        "pass_rate": 1.0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_case_count": 1,
+        "critical_failed_count": 0,
+        "critical_pass_rate": 1.0,
+        "average_score": 1.0
+      },
+      "failures": [
+        "release gate requires non-zero stateful case coverage"
+      ],
+      "skipped_thresholds": [],
+      "coverage": {
+        "case_count": 1,
+        "trajectory_case_count": 1,
+        "critical_case_count": 1,
+        "stateful_case_count": null,
+        "critical_required": false,
+        "stateful_required": true
+      }
+    }
+  }
+]

@@ -1,0 +1,83 @@
+{
+  "schema_version": "codex-refresh-api-acceptance/v1",
+  "marker": "CODEX_REFRESH_5E11FA196A57",
+  "scope": "supplementary_local_api",
+  "browser_verified": false,
+  "runtime_identity_verified_by_script": false,
+  "model": "qwen3.7-plus",
+  "checks": {
+    "health": {
+      "status": "PASS",
+      "http_ok": true
+    },
+    "login": {
+      "status": "PASS",
+      "authenticated": true
+    },
+    "models": {
+      "status": "PASS",
+      "count": 22,
+      "requested_model_visible": true
+    },
+    "tools_catalog": {
+      "status": "PASS",
+      "count": 22,
+      "required_tools_visible": true
+    },
+    "knowledge_catalog": {
+      "status": "PASS",
+      "returned_count": 11,
+      "claim": "catalog_availability_only"
+    },
+    "thread_create": {
+      "status": "PASS",
+      "thread_id": "01a0c9f4-1ef1-7743-acb4-c307d88b0276",
+      "session_id": "9f9f1b20-214f-4dc3-95ad-9cf9afc14818"
+    },
+    "first_turn": {
+      "status": "PASS",
+      "turn_id": "9044ecf8-d215-4455-89a7-bec7d82762f4",
+      "terminal_verified": true,
+      "marker_exact": true,
+      "event_count": 19,
+      "last_sequence": 37,
+      "duplicate_events_ignored": 0,
+      "tool_seen": false,
+      "cancelled": false
+    },
+    "resume_second_turn": {
+      "status": "PASS",
+      "turn_id": "00020bba-776d-4666-be27-e5ef7b259102",
+      "terminal_verified": true,
+      "marker_exact": true,
+      "event_count": 30,
+      "last_sequence": 79,
+      "duplicate_events_ignored": 0,
+      "tool_seen": false,
+      "cancelled": false
+    },
+    "history": {
+      "status": "FAIL",
+      "code": "HISTORY_MARKERS_NOT_PERSISTED"
+    },
+    "readonly_tool": {
+      "status": "FAIL",
+      "code": "SYNTHETIC_MARKER_MISMATCH"
+    },
+    "cancel": {
+      "status": "PASS",
+      "turn_id": "72cc5a3b-1767-4fb9-b26f-39f0cd9dedd5",
+      "terminal_verified": true,
+      "marker_exact": false,
+      "event_count": 2,
+      "last_sequence": 180,
+      "duplicate_events_ignored": 0,
+      "tool_seen": false,
+      "cancelled": true
+    },
+    "knowledge_retrieve": {
+      "status": "NOT_RUN",
+      "reason": "explicit_synthetic_dataset_required"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+
+running 6 tests
+test usage_recorder::stage_receipts::quarantine_conflict_tests::safe_then_uncertain_then_safe_never_restores_replay_authority ... ok
+test usage_recorder::stage_receipts::quarantine_conflict_tests::malformed_flags_fail_closed_and_unrelated_receipts_are_rejected ... ok
+test usage_recorder::stage_receipts::tests::uncertain_trace_and_unkeyed_failures_are_manual_and_errors_are_sanitized ... ok
+test usage_recorder::stage_receipts::quarantine_conflict_tests::merge_is_monotonic_idempotent_and_order_independent_for_all_flag_pairs ... ok
+test usage_recorder::stage_receipts::tests::equal_deltas_from_distinct_cumulative_observations_do_not_collide ... ok
+test usage_recorder::stage_receipts::tests::exact_observation_stage_and_tenant_are_bound_to_receipt ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 186 filtered out; finished in 0.01s
+

@@ -1,0 +1,32 @@
+{
+  "domain": "software-engineering",
+  "passed": true,
+  "system": "openclaw",
+  "task_id": "engineering.inventory_reservation_patch",
+  "turns": [
+    {
+      "duration_seconds": 19.768,
+      "metadata": {
+        "model": "qwen3.7-plus",
+        "provider": "dashscope",
+        "session_id_sha256": "9aab67715125075da681ceca0e17e0bafaab9cfd4bd3c2b2fce3ef3a97727f3c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "usage": {
+          "cacheRead": 29696,
+          "input": 2339,
+          "output": 1280,
+          "total": 16545
+        }
+      },
+      "ordinal": 1,
+      "output": "{\"patched_source\": \"def reserve(stock: int, requested: int):\\n    if not isinstance(stock, int) or not isinstance(requested, int):\\n        raise TypeError('inputs must be integers')\\n    if requested < 0:\\n        raise ValueError('requested must be non-negative')\\n    accepted = requested <= stock\\n    if accepted:\\n        stock -= requested\\n    return {'accepted': accepted, 'remaining': stock}\"}",
+      "output_sha256": "0c97feb746152dcc501edeb6113cd212f60fcac88a3490b5fe1dd1b83d5e4e3f",
+      "parsed_output": {
+        "patched_source": "def reserve(stock: int, requested: int):\n    if not isinstance(stock, int) or not isinstance(requested, int):\n        raise TypeError('inputs must be integers')\n    if requested < 0:\n        raise ValueError('requested must be non-negative')\n    accepted = requested <= stock\n    if accepted:\n        stock -= requested\n    return {'accepted': accepted, 'remaining': stock}"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "stop"
+    }
+  ]
+}

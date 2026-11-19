@@ -1,0 +1,33 @@
+{
+  "run_id": "6360ed29-8f57-4a70-a466-57d8f637b2e3",
+  "thread_id": "01a0c9ee-6e6b-7cb1-b9b3-34c37787e351",
+  "run_status": "failed",
+  "session_id": "51fc4288-237c-4476-9951-b81fd0d2ed25",
+  "captured_at": "2026-09-22T16:44:11.678375+00:00",
+  "finished_at": "2026-09-22T16:40:27.79187+00:00",
+  "run_created_at": "2026-09-22T16:39:51.908177+00:00",
+  "terminal_events": [
+    {
+      "status": "failed",
+      "sequence": 310,
+      "event_type": "compat/v1/run_error"
+    }
+  ],
+  "created_provider": "ai-platform-gateway",
+  "model_call_count": 0,
+  "active_model_leases": 0,
+  "gateway_snapshot_wire": "responses_v1",
+  "current_metadata_provider": "openai",
+  "gateway_snapshot_provider": "dashscope",
+  "runtime_log_excerpt": [
+    "2026-09-22T16:39:54.282583Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:39:55.740569Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:39:57.267541Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:39:58.967557Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:40:01.152222Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:40:04.071533Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses",
+    "2026-09-22T16:40:08.409379Z ERROR codex_api::endpoint::responses_websocket: failed to connect to websocket: HTTP error: 401 Unauthorized, url: wss://api.openai.com/v1/responses"
+  ],
+  "finding": "Cold resume selected the OpenAI websocket provider without a Gateway model-plane call. Not a passing recovery or a Qwen transport-only failure.",
+  "investigator_actions": "Read-only Docker logs and PG; no provider request issued by this investigation."
+}

@@ -1,0 +1,75 @@
+# Native workload TLS SDK entrypoint. Select alongside workload-security.yml;
+# do not combine with the legacy sdk-agent-worker.yml listener. No provider env.
+services:
+  gateway:
+    environment:
+      SDK_AGENT_WORKER_URL: https://sdk-workload:8456
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/agent-runtime,spiffe://agentforge.internal/service/agent-capability-worker,spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker,spiffe://agentforge.internal/service/sdk
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://agent-runtime-workload:8454":
+        "spiffe://agentforge.internal/service/agent-runtime", "https://agent-capability-worker-workload:8455":
+        "spiffe://agentforge.internal/service/agent-capability-worker", "https://knowledge-service-workload:8452":
+        "spiffe://agentforge.internal/service/knowledge", "https://sdk-workload:8456":
+        "spiffe://agentforge.internal/service/sdk"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://agent-runtime-workload:8454": "spiffe://agentforge.internal/service/agent-runtime",
+        "https://agent-capability-worker-workload:8455": "spiffe://agentforge.internal/service/agent-capability-worker",
+        "https://knowledge-service-workload:8452": "spiffe://agentforge.internal/service/knowledge",
+        "https://sdk-workload:8456": "spiffe://agentforge.internal/service/sdk"}'
+    volumes: []
+  sdk-agent-worker:
+    image: ${SDK_AGENT_WORKER_IMAGE:?Select the admitted SDK worker image}
+    profiles:
+    - sdk-agents
+    networks:
+      app:
+        aliases:
+        - sdk-workload
+    depends_on:
+      gateway:
+        condition: service_started
+    environment:
+      SDK_AGENT_WORKER_BIND: 0.0.0.0:8096
+      SDK_AGENT_STATE_ROOT: /var/lib/sdk-agent
+      SDK_AGENT_RETENTION_SECONDS: ${SDK_AGENT_RETENTION_SECONDS:?Select finite SDK
+        retention}
+      SDK_AGENT_GATEWAY_URL: https://gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: sdk-workload:8456
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/sdk
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443": "spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443": "spiffe://agentforge.internal/service/gateway"}'
+    volumes:
+    - sdk-agent-state:/var/lib/sdk-agent
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select workload generations}/sdk-agent-worker
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    read_only: true
+    user: 10001:10001
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=1777
+    pids_limit: 128
+    cpus: '1.0'
+    mem_limit: 768m
+    init: true
+    restart: unless-stopped
+    expose:
+    - '8456'
+    healthcheck:
+      test:
+      - CMD
+      - /usr/local/bin/sdk-agent-worker
+      - health
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+volumes:
+  sdk-agent-state: {}

@@ -1,0 +1,10 @@
+{
+  "schema_version": "platformctl/build-targets/v1",
+  "targets": [
+    {"name": "linux-x64", "runner": "ubuntu-24.04", "rust_target": "x86_64-unknown-linux-gnu", "binary": "platformctl", "archive": "tar.gz", "machine": 62},
+    {"name": "linux-arm64", "runner": "ubuntu-24.04-arm", "rust_target": "aarch64-unknown-linux-gnu", "binary": "platformctl", "archive": "tar.gz", "machine": 183},
+    {"name": "darwin-x64", "runner": "macos-15-intel", "rust_target": "x86_64-apple-darwin", "binary": "platformctl", "archive": "tar.gz", "machine": 16777223},
+    {"name": "darwin-arm64", "runner": "macos-14", "rust_target": "aarch64-apple-darwin", "binary": "platformctl", "archive": "tar.gz", "machine": 16777228},
+    {"name": "win32-x64", "runner": "windows-2022", "rust_target": "x86_64-pc-windows-msvc", "binary": "platformctl.exe", "archive": "zip", "machine": 34404}
+  ]
+}

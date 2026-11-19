@@ -1,0 +1,11 @@
+{
+  "user_id": "model_tester_1",
+  "original_roles": [
+    "model_tester"
+  ],
+  "purpose": "temporary ordinary member fixture for R1 source rights; no credentials or tenant change",
+  "current_roles": [
+    "model_tester"
+  ],
+  "restored": true
+}

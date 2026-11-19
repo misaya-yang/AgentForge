@@ -1,0 +1,48 @@
+diff --git a/es/Dom/dynamicCSS.js b/es/Dom/dynamicCSS.js
+index f616a155b630da1a58189a88369d87b0e40f9019..5020d8e4b3768e18763cf8ebcd9bdd15a786c501 100644
+--- a/es/Dom/dynamicCSS.js
++++ b/es/Dom/dynamicCSS.js
+@@ -51,7 +51,7 @@ export function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp?.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -135,8 +135,8 @@ export function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp?.nonce) {
+       existNode.nonce = option.csp?.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }
+diff --git a/lib/Dom/dynamicCSS.js b/lib/Dom/dynamicCSS.js
+index 89f939247c743f41db1e956549a0f951ed8306f9..d1362bf854c49bbbe8f44a06043f9657ac716ad8 100644
+--- a/lib/Dom/dynamicCSS.js
++++ b/lib/Dom/dynamicCSS.js
+@@ -61,7 +61,7 @@ function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp?.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -145,8 +145,8 @@ function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp?.nonce) {
+       existNode.nonce = option.csp?.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }

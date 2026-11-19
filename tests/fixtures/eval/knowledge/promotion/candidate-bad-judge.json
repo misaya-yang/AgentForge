@@ -1,0 +1,47 @@
+{
+  "schema": "knowledge-measurements/v1",
+  "provenance": "fixture",
+  "collector": "fixture",
+  "source_sha": "1111111111111111111111111111111111111111",
+  "evaluator_sha256": "b7d537705cbf39a1a74d831c053510f4582f5255fc2181941c50797994eebf52",
+  "profiles": [
+    {
+      "suite": "retrieval-starter",
+      "profile": "native-hybrid",
+      "version": "fixture-v1",
+      "configuration": {
+        "path": "tests/fixtures/eval/knowledge/promotion/profile-fixture.json",
+        "sha256": "59bfa8612b4c9436d5b9984dbc1f17a5076caacbadfd71602eb6dbc57f0964ff"
+      },
+      "dataset_version": "2026-08-28.1-fixture",
+      "golden_sha256": "dee0b0507dbbddb65e58b6ec140bfc105962f1a792ac659f7df5c0ac212502c3",
+      "observations": {
+        "path": "tests/fixtures/eval/knowledge/promotion/retrieval.jsonl",
+        "sha256": "b8e4e902ac9d2d6d190e31c43d8d09d03d6b1b310fff0a4987d19ba030129bc7"
+      }
+    },
+    {
+      "suite": "parse-starter",
+      "profile": "native-parser",
+      "version": "fixture-v1",
+      "configuration": {
+        "path": "tests/fixtures/eval/knowledge/promotion/profile-fixture.json",
+        "sha256": "59bfa8612b4c9436d5b9984dbc1f17a5076caacbadfd71602eb6dbc57f0964ff"
+      },
+      "dataset_version": "parse-fixture-v1",
+      "golden_sha256": "eb47f3e7387820fbf933a73509151e42b165a445467353528b44b7a3729bd111",
+      "observations": {
+        "path": "tests/fixtures/eval/knowledge/promotion/parsing.jsonl",
+        "sha256": "1ebe77de123f3637493cf1cd5f36bddc762626e97f5e2d1562a193ba1a46f925"
+      }
+    }
+  ],
+  "calibration": {
+    "judge_model": "fixture-only",
+    "prompt_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "scores": {
+      "path": "tests/fixtures/eval/knowledge/promotion/judge-scores-regression.json",
+      "sha256": "85738e5f57fa6c3c96add7fb867bd7a9f50a38f6de3341ae230a84af79fc6c48"
+    }
+  }
+}

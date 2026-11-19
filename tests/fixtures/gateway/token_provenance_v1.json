@@ -1,0 +1,533 @@
+{
+  "schema": "gateway-token-provenance/v1",
+  "input_text": "abcdefghijklmnop",
+  "output_text": "abcdefghijkl",
+  "cases": [
+    {
+      "name": "absent",
+      "usage": null,
+      "stream_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "sync_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "stream_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "derived"
+      },
+      "sync_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "derived"
+      }
+    },
+    {
+      "name": "explicit_zero",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0
+      },
+      "stream_counts": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0
+      },
+      "sync_counts": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      }
+    },
+    {
+      "name": "provider_reported",
+      "usage": {
+        "input_tokens": 8,
+        "output_tokens": 9,
+        "total_tokens": 17
+      },
+      "stream_counts": {
+        "input_tokens": 8,
+        "output_tokens": 9,
+        "total_tokens": 17
+      },
+      "sync_counts": {
+        "input_tokens": 8,
+        "output_tokens": 9,
+        "total_tokens": 17
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      }
+    },
+    {
+      "name": "partial_input",
+      "usage": {
+        "input_tokens": 8
+      },
+      "stream_counts": {
+        "input_tokens": 8,
+        "output_tokens": 3,
+        "total_tokens": 11
+      },
+      "sync_counts": {
+        "input_tokens": 8,
+        "output_tokens": 3,
+        "total_tokens": 8
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "estimated",
+        "total_tokens": "derived"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "estimated",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "partial_total",
+      "usage": {
+        "total_tokens": 100
+      },
+      "stream_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 100
+      },
+      "sync_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 100
+      },
+      "stream_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "upstream"
+      }
+    },
+    {
+      "name": "both_components_total_absent",
+      "usage": {
+        "input_tokens": 8,
+        "output_tokens": 9
+      },
+      "stream_counts": {
+        "input_tokens": 8,
+        "output_tokens": 9
+      },
+      "sync_counts": {
+        "input_tokens": 8,
+        "output_tokens": 9,
+        "total_tokens": 17
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "derived"
+      }
+    },
+    {
+      "name": "invalid_values",
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": false,
+        "total_tokens": -2
+      },
+      "stream_counts": {
+        "input_tokens": null,
+        "output_tokens": false,
+        "total_tokens": -2
+      },
+      "sync_counts": {
+        "input_tokens": null,
+        "output_tokens": false,
+        "total_tokens": -2
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "fractional_string_counts",
+      "usage": {
+        "input_tokens": 1.5,
+        "output_tokens": "8",
+        "total_tokens": 9.5
+      },
+      "stream_counts": {
+        "input_tokens": 1.5,
+        "output_tokens": "8",
+        "total_tokens": 9.5
+      },
+      "sync_counts": {
+        "input_tokens": 1.5,
+        "output_tokens": "8",
+        "total_tokens": 9.5
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "invalid_label",
+      "usage": {
+        "input_tokens": 2,
+        "output_tokens": 3,
+        "total_tokens": 5,
+        "token_provenance": {
+          "input_tokens": [],
+          "output_tokens": "measured",
+          "total_tokens": true
+        }
+      },
+      "stream_counts": {
+        "input_tokens": 2,
+        "output_tokens": 3,
+        "total_tokens": 5
+      },
+      "sync_counts": {
+        "input_tokens": 2,
+        "output_tokens": 3,
+        "total_tokens": 5
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "labelled_estimate",
+      "usage": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7,
+        "token_provenance": {
+          "input_tokens": "estimated",
+          "output_tokens": "estimated",
+          "total_tokens": "derived"
+        }
+      },
+      "stream_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "sync_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "stream_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "derived"
+      },
+      "sync_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "derived"
+      }
+    },
+    {
+      "name": "aliases_remain_distinct",
+      "usage": {
+        "prompt_tokens": 8,
+        "completion_tokens": 9,
+        "total_tokens": 17
+      },
+      "stream_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 17
+      },
+      "sync_counts": {
+        "input_tokens": 8,
+        "output_tokens": 9,
+        "total_tokens": 17
+      },
+      "stream_provenance": {
+        "input_tokens": "estimated",
+        "output_tokens": "estimated",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      }
+    },
+    {
+      "name": "unknown_marker",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+        "token_provenance": {
+          "input_tokens": "unknown",
+          "output_tokens": "unknown",
+          "total_tokens": "unknown"
+        }
+      },
+      "stream_counts": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0
+      },
+      "sync_counts": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "invalid_marker_object",
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+        "token_provenance": []
+      },
+      "stream_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "sync_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "boolean_derived_total",
+      "usage": {
+        "input_tokens": false,
+        "output_tokens": 2
+      },
+      "stream_counts": {
+        "input_tokens": false,
+        "output_tokens": 2
+      },
+      "sync_counts": {
+        "input_tokens": false,
+        "output_tokens": 2,
+        "total_tokens": 2
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "upstream",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "reserved_numeric_collision",
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+        "token_provenance": {
+          "input_tokens": 100,
+          "output_tokens": 200,
+          "total_tokens": 300
+        }
+      },
+      "stream_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "sync_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "reserved_identity_collision",
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+        "token_provenance": {
+          "model": "nested-model",
+          "provider": "nested-provider",
+          "assistant_id": "nested-assistant"
+        }
+      },
+      "stream_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "sync_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      }
+    },
+    {
+      "name": "reserved_array_collision",
+      "usage": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+        "token_provenance": [
+          {
+            "input_tokens": 100,
+            "output_tokens": 200,
+            "total_tokens": 300,
+            "model": "array-model",
+            "provider": "array-provider",
+            "assistant_id": "array-assistant"
+          }
+        ]
+      },
+      "stream_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "sync_counts": {
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3
+      },
+      "stream_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      },
+      "sync_provenance": {
+        "input_tokens": "unknown",
+        "output_tokens": "unknown",
+        "total_tokens": "unknown"
+      }
+    },
+    {
+      "name": "reported_equal_to_estimates",
+      "usage": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "stream_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "sync_counts": {
+        "input_tokens": 4,
+        "output_tokens": 3,
+        "total_tokens": 7
+      },
+      "stream_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      },
+      "sync_provenance": {
+        "input_tokens": "upstream",
+        "output_tokens": "upstream",
+        "total_tokens": "upstream"
+      }
+    }
+  ]
+}

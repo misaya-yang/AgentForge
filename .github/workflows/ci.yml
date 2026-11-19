@@ -1,0 +1,737 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_BUILD_JOBS: "1"
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+permissions:
+  contents: read
+
+# Explicit `shell: bash` runs steps as `bash --noprofile --norc -eo pipefail`,
+# so `cmd 2>&1 | tee log` fails the step when `cmd` fails (the implicit default
+# shell is `bash -e` without pipefail, which silently masked gate failures).
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  script-contracts:
+    name: Script Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+
+      - name: Verify Knowledge Service image lock
+        run: make kb-image-lock-gate
+
+      - name: Check shell script syntax
+        run: |
+          bash -n scripts/new/migrate.sh
+          bash -n scripts/new/setup-dev.sh
+          bash -n scripts/new/validate-env.sh
+          bash -n scripts/new/seed-demo-data.sh
+
+      - name: Run focused Rust formatting
+        run: cargo fmt --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools -p ai-platform-release -- --check
+
+      - name: Run focused script tests
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test deployment_script_contracts
+
+      - name: Run upstream sync offline L0 and rejection fixtures
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/upstream-sync-l0"
+          mkdir -p "$evidence"
+          command -v platform-tools
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml \
+            -p ai-platform-tools --bin platform-tools upstream_sync::tests \
+            -- --test-threads=1 2>&1 | tee "$evidence/unit-tests.log"
+          reject() {
+            local label="$1"
+            shift
+            local status=0
+            platform-tools "$@" >"$evidence/$label.stdout" 2>"$evidence/$label.stderr" || status=$?
+            test "$status" -eq 1
+          }
+          reject unknown-operation upstream-sync fabricated-window
+          reject duplicate-option upstream-sync inspect --package first --package second
+          reject unsupported-flag upstream-sync inspect --apply
+          reject missing-window upstream-sync verify --repo-root "$GITHUB_WORKSPACE" \
+            --window "$evidence/absent-window.json"
+          grep -F 'upstream-sync {begin|compare|record-gate|verify|inspect}' "$evidence/unknown-operation.stderr"
+          grep -F 'unknown or duplicate upstream-sync option' "$evidence/duplicate-option.stderr"
+          grep -F 'requires one operation and explicit valued options' "$evidence/unsupported-flag.stderr"
+          test ! -e "$evidence/absent-window.json"
+          printf '%s\n' 'L0 only: no real monthly window, replay, network, or acceptance claim.' >"$evidence/scope.txt"
+
+      - name: Save upstream sync L0 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: upstream-sync-l0
+          path: ${{ runner.temp }}/upstream-sync-l0
+          if-no-files-found: error
+
+  compose-and-harness:
+    name: Compose and Harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+      - name: Verify harness contract
+        run: make harness-check
+
+      - name: Verify platform fitness and rejection fixtures
+        run: |
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools platform_fitness::tests
+          make platform-fitness-gate
+
+      - name: Save platform fitness evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platform-fitness
+          path: ${{ runner.temp }}/platform-fitness.json
+          if-no-files-found: error
+
+      - name: Verify database service privilege boundaries
+        run: make database-identity-gate
+
+      - name: Install checksum-pinned Helm
+        env:
+          HELM_ARCHIVE_SHA256: 0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --max-time 120 \
+            https://get.helm.sh/helm-v4.3.1-linux-amd64.tar.gz --output "$RUNNER_TEMP/helm.tar.gz"
+          printf '%s  %s\n' "$HELM_ARCHIVE_SHA256" "$RUNNER_TEMP/helm.tar.gz" | sha256sum --check -
+          tar -xzf "$RUNNER_TEMP/helm.tar.gz" -C "$RUNNER_TEMP" linux-amd64/helm
+          printf '%s\n' "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+
+      - name: Verify native Helm render contracts
+        run: make helm-native-gate
+
+      - name: Verify split Valkey source policy
+        run: make valkey-deployment-gate
+
+      - name: Verify CI gate enforcement wiring and negative cases
+        run: make ci-gate-enforcement-selftest
+
+      - name: Validate public example config
+        run: |
+          mkdir -p tmp/gate-evidence
+          make validate-example-config 2>&1 | tee tmp/gate-evidence/validate-example-config.log
+
+      - name: Validate compose config
+        run: docker compose --env-file .env.example config --quiet
+
+      - name: Check deploy script syntax
+        run: |
+          bash -n scripts/new/doctor.sh
+          bash -n scripts/new/deploy.sh
+          bash -n scripts/new/init-env.sh
+          bash -n scripts/new/status.sh
+
+      - name: Upload Compose and harness evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: compose-and-harness-evidence
+          path: tmp/gate-evidence/*
+          if-no-files-found: warn
+
+  frontend:
+    name: Frontend Typecheck, Lint, Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.11.1"
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 12.11.2
+          run_install: false
+
+      - name: Install frontend dependencies
+        run: pnpm -C web install --frozen-lockfile
+
+      - name: Typecheck
+        run: |
+          mkdir -p tmp/gate-evidence/frontend
+          pnpm -C web type-check 2>&1 | tee tmp/gate-evidence/frontend/type-check.log
+
+      - name: Run Node unit tests
+        run: pnpm -C web test 2>&1 | tee tmp/gate-evidence/frontend/node-tests.log
+
+      - name: Lint
+        run: pnpm -C web lint 2>&1 | tee tmp/gate-evidence/frontend/lint.log
+
+      - name: Build
+        run: pnpm -C web build 2>&1 | tee tmp/gate-evidence/frontend/build.log
+
+      - name: i18n keys
+        run: pnpm -C web i18n:check 2>&1 | tee tmp/gate-evidence/frontend/i18n.log
+
+      - name: Install Playwright browser
+        run: pnpm -C web exec playwright install --with-deps chromium
+
+      - name: Open-source route smoke
+        run: pnpm -C web e2e:opensource
+
+      - name: Upload Frontend gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: frontend-gate-evidence
+          path: tmp/gate-evidence/frontend/*.log
+          if-no-files-found: warn
+
+  eval-regression-gate:
+    name: Eval Contract Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.11.1"
+
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+        with:
+          version: 12.11.2
+          run_install: false
+
+      - name: Install frontend dependencies for the eval branch gate
+        run: pnpm -C web install --frozen-lockfile
+
+      - name: Run deterministic Agent and RAG Eval E1 fixture contracts
+        run: |
+          mkdir -p tmp/gate-evidence
+          make eval-e1-gate 2>&1 | tee tmp/gate-evidence/eval-e1-gate.log
+
+      - name: Run the named RAG fixture contract
+        run: make rag-eval-fixture-contract 2>&1 | tee tmp/gate-evidence/rag-eval-fixture-contract.log
+
+      - name: Upload Eval E1 contract reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eval-e1-contract-reports
+          path: |
+            tmp/eval-regression/latest.json
+            tmp/eval-regression/latest.md
+            tmp/eval-e1/rag-latest.json
+          if-no-files-found: warn
+
+      - name: Run Agent Eval core gate
+        run: make agent-eval-core-gate
+
+      - name: Run Knowledge Base unit gate
+        run: make kb-unit-gate 2>&1 | tee tmp/gate-evidence/kb-unit-gate.log
+
+      - name: Run Knowledge Base development-fixture structure gate
+        run: make kb-golden-gate 2>&1 | tee tmp/gate-evidence/kb-golden-gate.log
+
+      - name: Run gateway KB boundary gate
+        run: make gateway-kb-boundary-gate 2>&1 | tee tmp/gate-evidence/gateway-kb-boundary-gate.log
+
+      - name: Run eval supporting unit tests
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test eval_online_outbox_contract
+
+      - name: Run Runtime dependency gate
+        run: make runtime-dependency-gate 2>&1 | tee tmp/gate-evidence/runtime-dependency-gate.log
+
+      - name: Run full eval branch gate
+        run: make verify-eval-dev 2>&1 | tee tmp/gate-evidence/verify-eval-dev.log
+
+      - name: Upload named eval gate logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: eval-named-gate-logs
+          path: tmp/gate-evidence/*.log
+          if-no-files-found: warn
+
+  kb-migration-gate:
+    name: KB Migration Gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-postgres
+          POSTGRES_DB: kb_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kb_migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+
+      - name: Install PostgreSQL dump/restore client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      # Explicit permission is confined to the disposable hosted PostgreSQL service.
+      - name: Run KB migration gate
+        env:
+          KB_MIGRATION_TEST_ALLOW_CREATE_DATABASE: "1"
+          KB_MIGRATION_TEST_ADMIN_DSN: "postgresql://postgres:ci-postgres@127.0.0.1:5432/postgres"
+        run: |
+          mkdir -p tmp/gate-evidence
+          make kb-migration-gate 2>&1 | tee tmp/gate-evidence/kb-migration-gate.log
+
+      - name: Upload KB migration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kb-migration-gate-evidence
+          path: tmp/gate-evidence/kb-migration-gate.log
+          if-no-files-found: warn
+
+  agent-runtime-contracts:
+    name: Agent Runtime Offline Contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-postgres
+          POSTGRES_DB: agent_runtime_contract_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_runtime_contract_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+
+      # The single-kernel contract includes the real ThreadStore migration
+      # suite. Point its repo-local dotenv loader at this throwaway service so
+      # a clean runner does not depend on an undeclared developer .env file.
+      - name: Configure Agent Runtime contract database
+        run: |
+          cat > .env <<'EOF'
+          POSTGRES_HOST=127.0.0.1
+          POSTGRES_PORT=5432
+          POSTGRES_USER=postgres
+          POSTGRES_PASSWORD=ci-postgres
+          POSTGRES_DB=agent_runtime_contract_test
+          EOF
+
+      - name: Verify Agent Runtime source contract
+        id: source_contract
+        continue-on-error: true
+        run: |
+          mkdir -p tmp/gate-evidence
+          make agent-runtime-source-contract 2>&1 | tee tmp/gate-evidence/agent-runtime-source-contract.log
+
+      - name: Verify Agent Runtime image identity contract
+        id: image_contract
+        continue-on-error: true
+        run: make agent-runtime-contract 2>&1 | tee tmp/gate-evidence/agent-runtime-contract.log
+
+      - name: Verify Agent Runtime read-only capabilities
+        id: readonly_contract
+        continue-on-error: true
+        run: make agent-runtime-readonly-gate 2>&1 | tee tmp/gate-evidence/agent-runtime-readonly-gate.log
+
+      - name: Verify single-kernel contract
+        id: single_kernel_contract
+        continue-on-error: true
+        run: make agent-runtime-single-kernel-gate 2>&1 | tee tmp/gate-evidence/agent-runtime-single-kernel-gate.log
+
+      - name: Enforce Agent Runtime contract outcomes
+        if: always()
+        env:
+          SOURCE_CONTRACT_OUTCOME: ${{ steps.source_contract.outcome }}
+          IMAGE_CONTRACT_OUTCOME: ${{ steps.image_contract.outcome }}
+          READONLY_CONTRACT_OUTCOME: ${{ steps.readonly_contract.outcome }}
+          SINGLE_KERNEL_CONTRACT_OUTCOME: ${{ steps.single_kernel_contract.outcome }}
+        run: |
+          failed=0
+          for result in \
+            "$SOURCE_CONTRACT_OUTCOME" \
+            "$IMAGE_CONTRACT_OUTCOME" \
+            "$READONLY_CONTRACT_OUTCOME" \
+            "$SINGLE_KERNEL_CONTRACT_OUTCOME"; do
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Upload Agent Runtime contract evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agent-runtime-contract-evidence
+          path: tmp/gate-evidence/agent-runtime-*.log
+          if-no-files-found: warn
+
+  sdk-sse:
+    name: SDK SSE Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.11.1"
+
+
+      - name: Install CLI SDK dependencies
+        run: npm --prefix sdk/cli ci
+
+      - name: Run SDK SSE contract
+        run: |
+          mkdir -p tmp/gate-evidence
+          make sdk-sse-contract 2>&1 | tee tmp/gate-evidence/sdk-sse-contract.log
+
+      - name: Upload SDK SSE evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-sse-contract-evidence
+          path: tmp/gate-evidence/sdk-sse-contract.log
+          if-no-files-found: warn
+
+  independent-cli:
+    name: Independent Agent CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.11.1"
+          cache: npm
+          cache-dependency-path: sdk/cli/package-lock.json
+
+      - name: Install CLI dependencies
+        run: npm --prefix sdk/cli ci
+
+      - name: Run independent CLI gate
+        run: |
+          mkdir -p tmp/gate-evidence
+          make independent-cli-gate 2>&1 | tee tmp/gate-evidence/independent-cli-gate.log
+
+      - name: Upload independent CLI evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: independent-cli-gate-evidence
+          path: tmp/gate-evidence/independent-cli-gate.log
+          if-no-files-found: error
+
+  architecture-gates:
+    name: Architecture Contract Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-native
+
+
+      - name: Run static import boundary gate
+        id: architecture_boundary
+        continue-on-error: true
+        run: make architecture-boundary-gate
+
+      - name: Run Git-bound core inventory gate
+        id: core_boundary
+        continue-on-error: true
+        run: make core-boundary-gate
+
+      - name: Enforce Gateway and Agent Runtime single-instance topology
+        id: single_instance_guard
+        continue-on-error: true
+        run: make single-instance-guard
+
+      - name: Run offline OpenAPI contract gate
+        id: openapi_offline
+        continue-on-error: true
+        run: make verify-openapi-contract
+
+      - name: Run repository hygiene gate
+        id: hygiene
+        continue-on-error: true
+        run: make hygiene-check
+
+      - name: Run LOC no-growth gate
+        id: loc_no_growth
+        continue-on-error: true
+        run: make loc-no-growth-gate
+
+      - name: Enforce architecture gate outcomes
+        if: always()
+        env:
+          ARCHITECTURE_BOUNDARY_OUTCOME: ${{ steps.architecture_boundary.outcome }}
+          CORE_BOUNDARY_OUTCOME: ${{ steps.core_boundary.outcome }}
+          SINGLE_INSTANCE_GUARD_OUTCOME: ${{ steps.single_instance_guard.outcome }}
+          OPENAPI_OFFLINE_OUTCOME: ${{ steps.openapi_offline.outcome }}
+          HYGIENE_OUTCOME: ${{ steps.hygiene.outcome }}
+          LOC_NO_GROWTH_OUTCOME: ${{ steps.loc_no_growth.outcome }}
+        run: |
+          failed=0
+          for result in \
+            "$ARCHITECTURE_BOUNDARY_OUTCOME" \
+            "$CORE_BOUNDARY_OUTCOME" \
+            "$SINGLE_INSTANCE_GUARD_OUTCOME" \
+            "$OPENAPI_OFFLINE_OUTCOME" \
+            "$HYGIENE_OUTCOME" \
+            "$LOC_NO_GROWTH_OUTCOME"; do
+            if [ "$result" != "success" ]; then
+              failed=1
+            fi
+          done
+          exit "$failed"
+
+      - name: Upload architecture gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: architecture-gate-evidence
+          path: tmp/gate-evidence/*.json
+          if-no-files-found: warn
+
+  gateway-units:
+    name: Gateway Unit Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+
+
+      - name: Run offline Gateway units
+        run: |
+          mkdir -p tmp/gate-evidence
+          make gateway-unit-gate 2>&1 | tee tmp/gate-evidence/gateway-unit-gate.log
+
+      - name: Upload Gateway unit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: gateway-unit-gate-evidence
+          path: tmp/gate-evidence/gateway-unit-gate.log
+          if-no-files-found: warn
+
+  rust-changed-crate:
+    name: Rust Changed Crate Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    env:
+      AI_PLATFORM_RUST_GATE_HOSTED_CI: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
+        with:
+          toolchain: 1.95.0
+      - uses: ./.github/actions/setup-native
+        with:
+          capacity-profile: hosted
+          packages: ai-platform-tools
+          nextest: 'true'
+      - name: Run Rust gate fail-closed contract tests
+        run: cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools rust_gate::tests
+
+      - name: Resolve diff base
+        id: diff_base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          base="$PR_BASE_SHA"
+          if [ -z "$base" ]; then
+            base="$PUSH_BEFORE_SHA"
+          fi
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Test changed Rust crates and doctests
+        env:
+          AI_PLATFORM_RUST_GATE_FETCH_PUBLIC_SOURCE: ${{ runner.temp }}/ai-platform-rust-gate-source
+          BASE_SHA: ${{ steps.diff_base.outputs.base }}
+        run: make rust-changed-crate-gate BASE_SHA="$BASE_SHA"
+
+      - name: Upload Rust gate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rust-changed-crate-gate-evidence
+          path: |
+            tmp/gate-evidence/rust-changed-crate-gate.json
+            tmp/gate-evidence/ci-capacity.json
+          if-no-files-found: warn
+
+  gate-enforcement:
+    name: Required Gate Result Enforcement
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - script-contracts
+      - compose-and-harness
+      - frontend
+      - eval-regression-gate
+      - kb-migration-gate
+      - agent-runtime-contracts
+      - sdk-sse
+      - independent-cli
+      - architecture-gates
+      - gateway-units
+      - rust-changed-crate
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+
+      - name: Resolve diff base
+        id: diff_base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          base="$PR_BASE_SHA"
+          if [ -z "$base" ]; then
+            base="$PUSH_BEFORE_SHA"
+          fi
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-parse HEAD^)"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+
+      - name: Select gates for the diff
+        id: affected_gates
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.diff_base.outputs.base }}
+        run: make affected-gates BASE_SHA="$BASE_SHA"
+
+      - name: Require every selected CI result
+        if: always()
+        env:
+          CI_JOB_RESULTS_JSON: ${{ toJSON(needs) }}
+        run: make ci-gate-enforcement
+
+      - name: Upload selector and enforcement evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ci-gate-enforcement-evidence
+          path: |
+            tmp/gate-evidence/affected-gates.json
+            tmp/gate-evidence/ci-gate-enforcement.json
+          if-no-files-found: warn
+
+  release-ready:
+    name: Release Readiness
+    runs-on: ubuntu-latest
+    needs:
+      - script-contracts
+      - compose-and-harness
+      - frontend
+      - eval-regression-gate
+      - kb-migration-gate
+      - agent-runtime-contracts
+      - sdk-sse
+      - independent-cli
+      - architecture-gates
+      - gateway-units
+      - rust-changed-crate
+      - gate-enforcement
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+
+      - name: Verify public release docs
+        run: |
+          test -s LICENSE
+          test -s CONTRIBUTING.md
+          test -s SECURITY.md
+          test -s CODE_OF_CONDUCT.md
+          test -s SUPPORT.md
+          test -s RELEASE.md
+          test -s deploy/runbooks/open-source-env-readiness-todo.md
+
+      - name: Verify demo seed dry run
+        run: scripts/new/seed-demo-data.sh --dry-run

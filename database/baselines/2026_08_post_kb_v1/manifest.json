@@ -1,0 +1,70 @@
+{
+  "acl_sha256": "9f2400d21e7b14617186428ccd65586efa541001d0b2eccba094b4ddc1186674",
+  "baseline_id": "2026_08_post_kb_v1",
+  "extensions_sha256": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+  "files_sha256": {
+    "cutover_convergence.sql": "878512b97b6012216cdc96c64ac731da5eeeb2d46bb4628bd84aa2725f937216",
+    "grants.sql": "3a6722dfd3e0b5d9f949f46f4860ac2b9d3a58ec7ebb582d057bd3a3fa79608a",
+    "init.sql": "750094aecc48514ab33284f6e72f62f4f7f7191d5f2d4ac594ee805e45d05a6a",
+    "reference_data.sql": "d2ff4d253115e9a4aeaca8ce78bfcbbc34e10e554bd4368ef4d5201fa5a0a9f3",
+    "verify.sql": "19e806da96353774c5fe9cc0f1ecba06a334412d3757d51173eca0cb6688431b"
+  },
+  "generated_at": "2026-08-30T08:04:02-04:00",
+  "generator": "scripts/database/freeze_baseline.py",
+  "generator_sha256": "52e71b2fa15e2c32a10de55fd1fde989289fefb5b012783565744e4a7086ba79",
+  "last_legacy_change": "112_kb_document_progress_retention.sql",
+  "pg_dump_version": "16.15",
+  "policy_files_sha256": {
+    "data-access-inventory.json": "069c734bf7658c78c799050146b60426a99f83f785e01beab2301c36efe729aa",
+    "grants-policy.json": "473f856a5102b892e31ad7cb62352e1bdcd2c80473dc25a289ae7e9af6e41da8",
+    "ownership-policy.json": "742585d52891e881155178665d26f02d814f7bd76a86ca3af1d4f45e3a1fd49f"
+  },
+  "postgres_version": "16.15",
+  "reference_data": [
+    {
+      "immutable_columns": [
+        "name",
+        "description",
+        "category",
+        "resource",
+        "action",
+        "is_system"
+      ],
+      "natural_key": [
+        "permission_code"
+      ],
+      "table": "gateway.permissions",
+      "where": "is_system IS TRUE"
+    },
+    {
+      "immutable_columns": [
+        "description",
+        "permissions",
+        "is_system"
+      ],
+      "natural_key": [
+        "role_name"
+      ],
+      "table": "gateway.rbac_roles",
+      "where": "is_system IS TRUE"
+    },
+    {
+      "immutable_columns": [
+        "role_name",
+        "permission_code"
+      ],
+      "natural_key": [
+        "role_name",
+        "permission_code"
+      ],
+      "table": "gateway.role_permissions",
+      "where": "role_name IN (SELECT role_name FROM gateway.rbac_roles WHERE is_system IS TRUE)"
+    }
+  ],
+  "reference_data_sha256": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318",
+  "schema": "migration-authority/baseline-manifest/v1",
+  "schema_revision": "112",
+  "source_git_sha": "386344c6c15e92547cabe32b07fad304afbf4a98",
+  "state": "frozen",
+  "structural_sha256": "1cb97bebe4aef680d61f88b46321ddf097a0404afc906be4f36b846e40140d39"
+}

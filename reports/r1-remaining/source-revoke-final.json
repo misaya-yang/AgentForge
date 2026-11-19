@@ -1,0 +1,21 @@
+{
+  "session_id": "628848f3-59e0-403d-809b-3ea258aa21b3",
+  "runs": [
+    {
+      "run_id": "d4f75f86-b3fe-4adb-ab47-5177bcda3131",
+      "status": "succeeded"
+    },
+    {
+      "run_id": "0464fa26-d157-473e-b7eb-4dc389b9d1da",
+      "status": "failed"
+    }
+  ],
+  "execution_count": 2,
+  "approvals": [
+    {
+      "status": "rejected",
+      "count": 1
+    }
+  ],
+  "temporary_viewer_grant_revoked": true
+}

@@ -1,0 +1,923 @@
+{
+  "observed_at": "2026-09-22",
+  "platform_base_sha": "305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6",
+  "upstream_base_sha": "94cbbddafc1776d5e377bca1b05932c697e82238",
+  "upstream_target_sha": "279ba894152b2c01c5294cc0723b463b209bdca4",
+  "target_scope": "provided local checkout snapshot, not a claim of latest remote HEAD",
+  "commits_in_range": 1159,
+  "upstream_changed_paths_no_renames": 5045,
+  "overlay_counts": {
+    "both_changed": 23,
+    "platform_added": 82,
+    "platform_only": 2
+  },
+  "overlay_files": [
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/Cargo.lock",
+      "upstream_path": "codex-rs/Cargo.lock",
+      "classification": "both_changed",
+      "base_bytes": 373210,
+      "target_bytes": 404384,
+      "overlay_bytes": 416106,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 13
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/Cargo.toml",
+      "upstream_path": "codex-rs/Cargo.toml",
+      "classification": "both_changed",
+      "base_bytes": 18318,
+      "target_bytes": 20166,
+      "overlay_bytes": 18893,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/BUILD.bazel",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/BUILD.bazel",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 101
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/Cargo.toml",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/Cargo.toml",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 1851
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/container-entrypoint.sh",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/container-entrypoint.sh",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 757
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/approval_control.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 30519
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_execution.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/capability_execution.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 35727
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_plane.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/capability_plane.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 11513
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_worker.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/capability_worker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 16276
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/approvals.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/approvals.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 2306
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 40753
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/events.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/events.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 5529
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/projection.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/projection.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 6443
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/security.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/security.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 3557
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/thread_lifecycle.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/thread_lifecycle.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 10897
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/thread_lifecycle_tests.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/thread_lifecycle_tests.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 6120
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/threads.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/threads.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 7954
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service/turns.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 20102
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/http_service.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 14351
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/kernel_tests.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/kernel_tests.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 4654
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/lib.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/lib.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 8005
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/main.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/main.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 7197
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/main_tests.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/main_tests.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 1189
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 26778
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/events.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store/events.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 10292
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 5808
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 9026
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store/thread_store.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 5248
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 15552
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store_contract_tests.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/postgres_store_contract_tests.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 17045
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/readonly_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/readonly_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 49598
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/readonly_extension.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/readonly_extension.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 3452
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/test_support.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/test_support.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 732
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/tool_lifecycle.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/tool_lifecycle.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 19393
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/trace_context.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/trace_context.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 6182
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/v1_projector.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/v1_projector.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 15092
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/v1_projector_tests.rs",
+      "upstream_path": "codex-rs/ai-platform-agent-runtime/src/v1_projector_tests.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 12236
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/Cargo.toml",
+      "upstream_path": "codex-rs/ai-platform-capability-contract/Cargo.toml",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 337
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/src/lib.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-contract/src/lib.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 60897
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/Cargo.toml",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/Cargo.toml",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 1580
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/attachment_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/attachment_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 12263
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/bin/health_probe.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/bin/health_probe.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 928
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/bin/python_supervisor.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/bin/python_supervisor.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 141
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/confluence_write_broker.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/confluence_write_broker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 9546
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/external_write_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/external_write_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 31359
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/catalog.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service/catalog.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 1516
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/events.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service/events.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 734
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/execution.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service/execution.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 11509
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/execution_run.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service/execution_run.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 34456
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/recovery.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service/recovery.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 3799
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/http_service.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 26808
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/image_write_broker.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/image_write_broker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 8999
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/lib.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/lib.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 49798
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/local_node_broker.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/local_node_broker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 24327
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/main.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/main.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 12652
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/office_artifact_broker.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/office_artifact_broker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 9788
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/office_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/office_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 18564
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/platform_catalog.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 26450
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/platform_catalog_v1.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 54902
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/postgres_store.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 34083
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/python_artifact_broker.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/python_artifact_broker.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 23172
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/python_code_execution.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/python_code_execution.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 32154
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/python_supervisor.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/python_supervisor.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 11519
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/quiz_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/quiz_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 22244
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities/executor.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities/executor.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 19499
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities/fs.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities/fs.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 17045
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities/proof.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities/proof.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 7539
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities/web.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities/web.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 4411
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities/working_memory.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities/working_memory.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 13205
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/read_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 12251
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/trace_context.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/trace_context.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 6073
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/src/write_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 42127
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/attachment_read_request_v1.json",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/tests/fixtures/attachment_read_request_v1.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 459
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/attachment_zip_bomb_manifest.json",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/tests/fixtures/attachment_zip_bomb_manifest.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 369
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/fixtures/mcp_read_request_v1.json",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/tests/fixtures/mcp_read_request_v1.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 394
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/platform_catalog.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/tests/platform_catalog.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 4733
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/tests/read_capabilities.rs",
+      "upstream_path": "codex-rs/ai-platform-capability-worker/tests/read_capabilities.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 22179
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/Cargo.toml",
+      "upstream_path": "codex-rs/ai-platform-office/Cargo.toml",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 642
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/en_semantic.json",
+      "upstream_path": "codex-rs/ai-platform-office/fixtures/en_semantic.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 411
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/visual_input.json",
+      "upstream_path": "codex-rs/ai-platform-office/fixtures/visual_input.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 364
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/fixtures/zh_semantic.json",
+      "upstream_path": "codex-rs/ai-platform-office/fixtures/zh_semantic.json",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 377
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/src/lib.rs",
+      "upstream_path": "codex-rs/ai-platform-office/src/lib.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 72988
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ai-platform-office/tests/semantic_goldens.rs",
+      "upstream_path": "codex-rs/ai-platform-office/tests/semantic_goldens.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 10942
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/extensions.rs",
+      "upstream_path": "codex-rs/app-server/src/extensions.rs",
+      "classification": "both_changed",
+      "base_bytes": 26278,
+      "target_bytes": 24521,
+      "overlay_bytes": 26511,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 1
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/host_runtime.rs",
+      "upstream_path": "codex-rs/app-server/src/host_runtime.rs",
+      "classification": "platform_added",
+      "base_bytes": null,
+      "target_bytes": null,
+      "overlay_bytes": 3500
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/in_process.rs",
+      "upstream_path": "codex-rs/app-server/src/in_process.rs",
+      "classification": "both_changed",
+      "base_bytes": 45534,
+      "target_bytes": 46976,
+      "overlay_bytes": 49559,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 6
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/lib.rs",
+      "upstream_path": "codex-rs/app-server/src/lib.rs",
+      "classification": "both_changed",
+      "base_bytes": 57342,
+      "target_bytes": 65230,
+      "overlay_bytes": 57444,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 2
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/mcp_refresh.rs",
+      "upstream_path": "codex-rs/app-server/src/mcp_refresh.rs",
+      "classification": "both_changed",
+      "base_bytes": 15944,
+      "target_bytes": 15916,
+      "overlay_bytes": 15999,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 1
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/message_processor.rs",
+      "upstream_path": "codex-rs/app-server/src/message_processor.rs",
+      "classification": "both_changed",
+      "base_bytes": 70277,
+      "target_bytes": 79949,
+      "overlay_bytes": 71899,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 4
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/message_processor_tracing_tests.rs",
+      "upstream_path": "codex-rs/app-server/src/message_processor_tracing_tests.rs",
+      "classification": "both_changed",
+      "base_bytes": 24928,
+      "target_bytes": 25739,
+      "overlay_bytes": 25004,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 1
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/thread_processor.rs",
+      "upstream_path": "codex-rs/app-server/src/request_processors/thread_processor.rs",
+      "classification": "both_changed",
+      "base_bytes": 240346,
+      "target_bytes": 249398,
+      "overlay_bytes": 241653,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 3
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/turn_processor.rs",
+      "upstream_path": "codex-rs/app-server/src/request_processors/turn_processor.rs",
+      "classification": "both_changed",
+      "base_bytes": 66246,
+      "target_bytes": 67040,
+      "overlay_bytes": 66579,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server/tests/suite/v2/remote_thread_store.rs",
+      "upstream_path": "codex-rs/app-server/tests/suite/v2/remote_thread_store.rs",
+      "classification": "both_changed",
+      "base_bytes": 22137,
+      "target_bytes": 24504,
+      "overlay_bytes": 27757,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/app-server-client/src/lib.rs",
+      "upstream_path": "codex-rs/app-server-client/src/lib.rs",
+      "classification": "both_changed",
+      "base_bytes": 79928,
+      "target_bytes": 83855,
+      "overlay_bytes": 86334,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 1
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/agent/control/spawn.rs",
+      "upstream_path": "codex-rs/core/src/agent/control/spawn.rs",
+      "classification": "both_changed",
+      "base_bytes": 53568,
+      "target_bytes": 57201,
+      "overlay_bytes": 54627,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/codex_thread.rs",
+      "upstream_path": "codex-rs/core/src/codex_thread.rs",
+      "classification": "both_changed",
+      "base_bytes": 36529,
+      "target_bytes": 41169,
+      "overlay_bytes": 37667,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/session/mod.rs",
+      "upstream_path": "codex-rs/core/src/session/mod.rs",
+      "classification": "both_changed",
+      "base_bytes": 180071,
+      "target_bytes": 204424,
+      "overlay_bytes": 180420,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/handlers/dynamic.rs",
+      "upstream_path": "codex-rs/core/src/tools/handlers/dynamic.rs",
+      "classification": "platform_only",
+      "base_bytes": 7964,
+      "target_bytes": 7964,
+      "overlay_bytes": 8066
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/handlers/mcp.rs",
+      "upstream_path": "codex-rs/core/src/tools/handlers/mcp.rs",
+      "classification": "both_changed",
+      "base_bytes": 30035,
+      "target_bytes": 33129,
+      "overlay_bytes": 30521,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/lifecycle.rs",
+      "upstream_path": "codex-rs/core/src/tools/lifecycle.rs",
+      "classification": "both_changed",
+      "base_bytes": 4511,
+      "target_bytes": 5563,
+      "overlay_bytes": 4697,
+      "text_merge_probe": "conflict",
+      "conflict_hunks": 1
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/tools/registry.rs",
+      "upstream_path": "codex-rs/core/src/tools/registry.rs",
+      "classification": "both_changed",
+      "base_bytes": 30683,
+      "target_bytes": 31154,
+      "overlay_bytes": 32598,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/core/src/turn_metadata.rs",
+      "upstream_path": "codex-rs/core/src/turn_metadata.rs",
+      "classification": "both_changed",
+      "base_bytes": 19576,
+      "target_bytes": 20666,
+      "overlay_bytes": 24679,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ext/extension-api/src/contributors/tool_lifecycle.rs",
+      "upstream_path": "codex-rs/ext/extension-api/src/contributors/tool_lifecycle.rs",
+      "classification": "both_changed",
+      "base_bytes": 7094,
+      "target_bytes": 8426,
+      "overlay_bytes": 7461,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ext/extension-api/src/contributors.rs",
+      "upstream_path": "codex-rs/ext/extension-api/src/contributors.rs",
+      "classification": "both_changed",
+      "base_bytes": 14659,
+      "target_bytes": 15589,
+      "overlay_bytes": 15104,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/ext/extension-api/src/lib.rs",
+      "upstream_path": "codex-rs/ext/extension-api/src/lib.rs",
+      "classification": "both_changed",
+      "base_bytes": 4109,
+      "target_bytes": 4335,
+      "overlay_bytes": 4226,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/tools/src/lib.rs",
+      "upstream_path": "codex-rs/tools/src/lib.rs",
+      "classification": "both_changed",
+      "base_bytes": 4755,
+      "target_bytes": 4815,
+      "overlay_bytes": 4790,
+      "text_merge_probe": "clean",
+      "conflict_hunks": 0
+    },
+    {
+      "overlay_path": "rust/agent-runtime-overlay/kernel-rs/tools/src/tool_executor.rs",
+      "upstream_path": "codex-rs/tools/src/tool_executor.rs",
+      "classification": "platform_only",
+      "base_bytes": 4659,
+      "target_bytes": 4659,
+      "overlay_bytes": 4987
+    }
+  ],
+  "text_merge_probe_counts": {
+    "conflict": 10,
+    "clean": 13
+  },
+  "probe_scope": "Read-only three-way text merge using old upstream, current overlay, and target upstream; not compilation or semantic compatibility."
+}

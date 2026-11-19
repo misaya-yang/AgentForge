@@ -1,0 +1,15 @@
+{
+  "quiz_id": "01a0dc92-e0ea-7293-9e8c-286bd273ed1c",
+  "original_run_id": "ce285f59-1723-4a16-88b0-b88a914f5e44",
+  "fixture": "existing real C4 ordinary Quiz; no provider re-execution",
+  "authenticated_read_status": 200,
+  "create_status": 200,
+  "share_id": "f532dddd-8056-4365-9f15-e7588aea8419",
+  "public_read_status": 200,
+  "answers_absent_before_submit": true,
+  "duplicate_submit_same_attempt": true,
+  "duplicate_cached": true,
+  "revoke_status": 200,
+  "after_revoke_read_status": 404,
+  "original_quiz_execution_count": 1
+}

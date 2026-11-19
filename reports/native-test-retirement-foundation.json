@@ -1,0 +1,1186 @@
+{
+  "schema": "ai-platform/native-test-retirement-lane-review/v1",
+  "lane": "foundation-auth-authority",
+  "reviewed_at": "2026-10-15T14:07:00Z",
+  "purpose": "Exact scoped counterpart/function mapping for coordinator merge; no shared-map modification or retirement authorization.",
+  "new_regression": {
+    "path": "rust/platform-native/crates/platform-gateway/tests/auth_jwt_integrity.rs",
+    "package": "ai-platform-gateway",
+    "target": "--test auth_jwt_integrity",
+    "filter": "actual_decoder_enforces_signature_expiry_audience_issuer_and_algorithm",
+    "execution": "Not run by this lane; root queued."
+  },
+  "method": "Read original test assertions and concrete Rust test bodies/functions. Missing means no equivalent assertion located in this scoped review, not missing production implementation. Partial coverage never authorizes whole-file retirement.",
+  "entries": [
+    {
+      "legacy_source": "tests/core/auth/test_jwt.py",
+      "source_sha256": "cbe26cf0fc58b27dbca86119d73c73b7ee354005703a25aacca70c31e831da0d",
+      "legacy_test_functions": [
+        "test_valid_token",
+        "test_expired_token",
+        "test_invalid_signature",
+        "test_malformed_token",
+        "test_audience_valid",
+        "test_audience_mismatch",
+        "test_issuer_valid",
+        "test_issuer_mismatch",
+        "test_custom_claims_preserved",
+        "test_no_audience_validation_when_none"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway/tests/auth_jwt_integrity.rs",
+          "package": "ai-platform-gateway",
+          "target": "--test auth_jwt_integrity",
+          "test_functions": [
+            "actual_decoder_enforces_signature_expiry_audience_issuer_and_algorithm"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Valid signature and preserved user/tier/tenant claims; expired/malformed/wrong-key denial; audience/issuer valid and mismatch; optional audience; additionally missing configured claims and disallowed algorithm."
+      ],
+      "remaining_assertion_obligations": [
+        "Python exception message regex wording is not asserted; native decoder intentionally returns bounded Invalid token. Session allowlisting/database account state are separate tests."
+      ],
+      "risk": "high",
+      "execution": "New single native regression; formatted, not run by this lane; root queued execution.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_api_key_self_service_security.py",
+      "source_sha256": "81095b07c5b5a24c2235fb8916c6607249745be6b926a23ff94c39f3fc010058",
+      "legacy_test_functions": [
+        "test_self_service_api_key_rejects_privileged_or_management_scopes",
+        "test_self_service_api_key_ignores_forged_tier_and_uses_caller_tier",
+        "test_api_key_management_routes_always_apply_authenticated_tenant"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/tests/self_service_key_contract.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--test self_service_key_contract",
+          "test_functions": [
+            "mounted_routes_success_authority_and_secret_projection",
+            "owner_scope_and_issuance_restrictions_are_not_expanded"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Actual mounted API rejects disallowed issuance scopes before backend writes; forged user/tenant/tier ignored; Fixture::create asserts verified tier and identity; list/get/revoke/delete assert authenticated tenant."
+      ],
+      "remaining_assertion_obligations": [
+        "Original complete parameterized disallowed-scope vocabulary is broader than the native arbitrary:write case; expand that matrix before claiming complete assertion equivalence."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_connectors_oauth_state.py",
+      "source_sha256": "91911c6a9c9bd3d24bea7d6b9e5847b533a30dfaeece2e47fa761009c5633ab2",
+      "legacy_test_functions": [
+        "test_oauth_console_redirect_uses_explicit_console_origin",
+        "test_oauth_console_redirect_is_relative_without_valid_explicit_origin",
+        "test_oauth_callback_rejects_unissued_state_before_token_exchange",
+        "test_oauth_state_is_stored_in_redis_with_ttl_and_consumed_once",
+        "test_oauth_callback_rejects_state_provider_mismatch_without_user",
+        "test_oauth_init_decodes_json_string_extra_config",
+        "test_oauth_callback_decrypts_secret_and_uses_safe_form_post",
+        "test_refresh_uses_safe_form_post_with_decrypted_secret",
+        "test_denial_mounted_callback_validates_state_and_never_exchanges",
+        "test_malformed_denial_stays_http_error",
+        "test_denial_rejects_expired_or_mismatched_issued_state",
+        "test_published_callback_query_contract_matches_production_route",
+        "test_denial_state_storage_failure_does_not_redirect",
+        "test_token_exchange_failure_stays_http_error_without_retry",
+        "test_concurrent_callbacks_consume_once",
+        "test_nonatomic_legacy_adapter_is_rejected_without_using_it",
+        "test_production_redis_adapter_emits_one_getdel",
+        "test_malformed_record_is_burned_before_decode"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/tests/connector_return.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--test connector_return",
+          "test_functions": [
+            "oauth_return_uses_personal_connections_and_explicit_console_origin",
+            "oauth_return_stays_relative_without_a_valid_console_origin",
+            "mounted_denial_returns_fixed_hint_without_credentials_and_rejects_replay",
+            "mounted_malformed_denials_preserve_http_errors",
+            "mounted_expired_and_binding_mismatch_denials_do_not_redirect",
+            "mounted_valid_success_reaches_existing_database_failure_without_redirect",
+            "mounted_success_still_exchanges_once_and_saves_issued_identity",
+            "mounted_denial_storage_failures_remain_unavailable",
+            "concurrent_callbacks_consume_once_before_exchange",
+            "source_owned_personal_success_shapes_match_service_projection",
+            "source_owned_callback_status_and_media_match_actual_router",
+            "source_owned_callback_retains_plaintext_internal_error"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/src/connector_oauth_state.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--lib",
+          "test_functions": [
+            "oauth_atomic_adapter_uses_exactly_one_getdel_for_both_profiles"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Actual callback routes: explicit/safe console redirect; no reflected credentials; malformed, unissued, expired and binding-mismatch states; denial consumes state before exchange; concurrent callbacks only exchange once; storage failure is error; Redis command exactly one GETDEL."
+      ],
+      "remaining_assertion_obligations": [
+        "Refresh decrypted-secret form-post details, malformed-record burn-before-decode, and rejection of non-atomic legacy adapter require their own exact native assertions; do not infer them from success callbacks."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_tasks_authorization.py",
+      "source_sha256": "63c21dcd6b138f3f60425de9b1942d01ed88266809619d239770d0d7fea414ec",
+      "legacy_test_functions": [
+        "test_task_routes_conceal_denied_resources_before_result_or_cancel",
+        "test_task_routes_preserve_owner_and_same_tenant_admin",
+        "test_task_list_stays_owner_and_tenant_scoped_for_every_role",
+        "test_task_routes_keep_missing_resource_404_without_side_effects"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/src/task_http_authorization_tests.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--lib",
+          "test_functions": [
+            "task_resource_handlers_deny_cross_tenant_admin_before_result_or_cancel",
+            "task_resource_handlers_preserve_owner_and_same_tenant_admin",
+            "task_resource_handlers_do_not_invent_role_or_permission_aliases",
+            "task_resource_handlers_cannot_cancel_cross_tenant_pending_task",
+            "task_resource_handlers_reject_empty_tenant_and_conceal_missing_task"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Production-used task handlers conceal cross-tenant resources, preserve owner/same-tenant admin, reject alias escalation and empty tenant, and avoid cancel/result side effects on denied/missing tasks."
+      ],
+      "remaining_assertion_obligations": [
+        "Dedicated HTTP task-list all-role owner-and-tenant matrix is not proved by these resource-specific tests."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/security/test_management_api_authorization.py",
+      "source_sha256": "74729756513cc2d4c7b529c84c62ba599b93313f10798df8711b5f5afb92a034",
+      "legacy_test_functions": [
+        "test_skills_list_rejects_user_without_skill_read_permission",
+        "test_skills_upload_rejects_user_without_skill_write_permission",
+        "test_mcp_inventory_rejects_user_without_mcp_read_permission",
+        "test_provider_inventory_rejects_user_without_provider_read_permission",
+        "test_provider_templates_rejects_user_without_provider_read_permission",
+        "test_provider_get_rejects_user_without_provider_read_permission",
+        "test_skills_get_rejects_user_without_skill_read_permission",
+        "test_dashboard_timeseries_rejects_user_without_metrics_permission",
+        "test_dashboard_summary_rejects_user_without_metrics_permission",
+        "test_dashboard_websocket_accepts_metrics_read_permission",
+        "test_dashboard_websocket_closes_without_metrics_permission",
+        "test_provider_create_rejects_user_without_provider_write_permission",
+        "test_dashboard_realtime_rejects_user_without_metrics_permission"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway/tests/agent_studio_authorization.rs",
+          "package": "ai-platform-gateway",
+          "target": "--test agent_studio_authorization",
+          "test_functions": [
+            "skills_list_and_get_require_skill_read",
+            "skills_upload_requires_skill_write",
+            "mcp_inventory_requires_mcp_read",
+            "provider_inventory_template_and_get_require_provider_read",
+            "provider_create_requires_provider_write",
+            "dashboard_timeseries_summary_realtime_require_metrics",
+            "dashboard_websocket_accepts_metrics_permission_and_connects",
+            "dashboard_websocket_denies_without_metrics_permission_before_upgrade",
+            "dashboard_websocket_session_limit_survives_upgrade_and_releases_on_disconnect",
+            "dashboard_websocket_idle_peer_releases_session_budget"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Mounted Skills/MCP/Provider/Dashboard denial/success assertions use real router and fail if denied backend touched. Real WebSocket handshake/pong/permission rejection plus session-budget/idle cleanup."
+      ],
+      "remaining_assertion_obligations": [
+        "Test collaborators substitute backend data; this does not prove live provider/DB authority."
+      ],
+      "risk": "high",
+      "execution": "gateway-native45.log: entire target10 passed.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_agent_runtime_thread_store_migration.py",
+      "source_sha256": "cbabcd592aad113554e3aed4aadc221c2f9ec71c2728a6a78ee5706f7578c8d4",
+      "legacy_test_functions": [
+        "test_migration_is_additive_and_has_atomic_append_contract",
+        "test_session_runtime_assignment_is_scope_bound_and_immutable",
+        "test_legacy_import_is_idempotent_and_cross_tenant_scoped",
+        "test_legacy_import_refuses_in_flight_run",
+        "test_legacy_import_refuses_approved_unconsumed_approval",
+        "test_legacy_import_preserves_paired_tool_history_and_hashed_approval_receipt",
+        "test_ready_legacy_import_rejects_source_history_drift",
+        "test_legacy_import_rejects_unpaired_tool_history_atomically",
+        "test_atomic_append_is_idempotent_gap_free_and_scope_bound",
+        "test_snapshots_items_and_run_identity_fail_closed",
+        "test_runtime_model_lease_is_atomic_bounded_and_replay_safe"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--test runtime_thread_store_migration",
+          "test_functions": [
+            "migration_is_additive_and_has_atomic_append_contract",
+            "session_runtime_assignment_is_scope_bound_and_immutable",
+            "legacy_import_is_idempotent_and_cross_tenant_scoped",
+            "legacy_import_refuses_in_flight_run_and_unconsumed_approval",
+            "legacy_import_preserves_paired_tool_history_and_hashed_approval_receipt",
+            "ready_legacy_import_rejects_source_history_drift",
+            "legacy_import_rejects_unpaired_tool_history_atomically",
+            "atomic_append_is_idempotent_gap_free_and_scope_bound",
+            "snapshots_items_and_run_identity_fail_closed",
+            "runtime_model_lease_is_atomic_bounded_and_replay_safe"
+          ],
+          "live_ignored": true
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "All11 named source scenarios have native SQL counterparts; two refusal cases combine into legacy_import_refuses_in_flight_run_and_unconsumed_approval. Includes scope/immutable assignment, import drift/tool pairing, append idempotence/gaps, snapshot/run fencing and model lease replay."
+      ],
+      "remaining_assertion_obligations": [
+        "Native target is explicitly ignored and live-unrun under code-first policy; do not count compiled or ignored cases as passes."
+      ],
+      "risk": "high",
+      "execution": "Explicit isolated PostgreSQL target; not run by this lane.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_kb_migration_full_chain.py",
+      "source_sha256": "ca69240349b4b908ffa2eb44a4a59ec0869f9dc43802836c30c374cfe8e57afd",
+      "legacy_test_functions": [
+        "test_fresh_schema_replays_current_upgrade_forward_chain",
+        "test_100_to_112_full_chain_uses_one_idempotent_public_ledger",
+        "test_112_bounds_document_progress_retention"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--test kb_migration_contract",
+          "test_functions": [
+            "full_chain_100_to_112_keeps_single_idempotent_ledger_and_schema_ownership",
+            "fresh_upgrade_from_97_and_progress_retention_are_observable"
+          ],
+          "live_ignored": true
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Fresh/upgrade forward chain, 100..112 filename ledger idempotence, schema ownership/FKs, bounded10000 progress retention and old-row cleanup."
+      ],
+      "remaining_assertion_obligations": [
+        "Explicit isolated PostgreSQL test code; no current live execution. Specialized KB artifact/embedding/publication cases are separate obligations."
+      ],
+      "risk": "high",
+      "execution": "Ignored/live target, unrun.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_kb_migration_101_restore.py",
+      "source_sha256": "7cfc869830719c77a1a611b6c3da61c9c6b10dd2195ad81cbe9fa3b568b8b234",
+      "legacy_test_functions": [
+        "test_101_requires_dump_restore_before_returning_to_n_minus_one"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--test kb_migration_contract",
+          "test_functions": [
+            "migration_101_requires_dump_restore_for_old_writer_contract"
+          ],
+          "live_ignored": true
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Actual pg_dump/pg_restore fixture demonstrates old2-column writer fails after101, new3-column writer works, restore recovers old writer."
+      ],
+      "remaining_assertion_obligations": [
+        "Requires explicit disposable DB plus PostgreSQL tools; remains unrun."
+      ],
+      "risk": "high",
+      "execution": "Ignored/live target, unrun.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_runner_concurrency.py",
+      "source_sha256": "e05267828dfaf0732b49ad8e4d817d8cf4f1e0771fa0c5b920aeab435304c99a",
+      "legacy_test_functions": [
+        "test_two_authority_entrypoints_serialize_one_legacy_change",
+        "test_authority_cli_crash_releases_lock_without_ghost_change"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--test kb_migration_contract",
+          "test_functions": [
+            "cli_and_library_serialize_one_legacy_change",
+            "authority_crash_releases_lock_without_ghost_change"
+          ],
+          "live_ignored": true
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Two actual native authority entrypoints contend for same advisory lock; spawned CLI crash releases lock without success ledger; canonical rerun succeeds."
+      ],
+      "remaining_assertion_obligations": [
+        "Runnable code only; same-lock/crash behavior not proved by nonlive unit success."
+      ],
+      "risk": "high",
+      "execution": "Ignored/live target, unrun.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_manifest_legacy.py",
+      "source_sha256": "de3613770630f64c0f56a84a100a4ba9922bc5fe6b0084b13d813e599b36a97e",
+      "legacy_test_functions": [
+        "test_checked_in_epoch_and_legacy_manifests_are_valid_and_complete",
+        "test_legacy_keeps_the_numeric_reconciliation_public_seam",
+        "test_epoch_ledger_id_allows_leading_digits_but_must_match_directory",
+        "test_epoch_manifest_rejects_extra_sql_and_checksum_drift",
+        "test_epoch_manifest_rejects_unsafe_execution_contracts",
+        "test_legacy_manifest_rejects_extra_sql_and_checksum_drift",
+        "test_numeric_016_accepts_known_historical_name_checksum_overwrite",
+        "test_numeric_031_bare_or_data_only_row_is_blocked_without_price_replay",
+        "test_numeric_031_absence_is_blocked_instead_of_replaying_prices",
+        "test_numeric_031_last_sibling_proves_order_without_comparing_mutable_prices",
+        "test_numeric_030_forward_is_proven_but_rollback_and_mixed_states_block",
+        "test_numeric_nonduplicate_rows_fail_closed_on_untrusted_history",
+        "test_numeric_unique_bare_and_historical_alias_rows_remain_supported",
+        "test_049_executes_without_runner_transaction",
+        "test_transactional_legacy_strips_only_outer_control_and_records_atomically",
+        "test_transaction_control_rejects_unpaired_nested_or_rollback",
+        "test_all_manifest_legacy_sql_has_safe_transaction_control",
+        "test_049_invalid_crash_artifact_is_removed_before_retry",
+        "test_049_postcondition_precedes_ledger_and_crash_retry_is_idempotent",
+        "test_049_failed_postcondition_never_records_ledger",
+        "test_049_rejects_non_idempotent_sql_before_execution",
+        "test_numeric_evidence_queries_bind_complete_objects_not_names_only",
+        "test_reconciliation_evidence_is_written_only_to_explicit_path",
+        "test_command_returns_and_explicitly_writes_proven_receipt",
+        "test_command_preserves_blocked_receipt_at_explicit_output",
+        "test_numeric_reconciliation_runs_before_duplicate_chain_validation"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/manifest.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "ids_and_conditions_match_contract",
+            "current_source_manifests_validate"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/legacy.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "outer_transactions",
+            "source_manifest"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/numeric.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "ordered_overwrite_is_only_accepted_mixed_identity",
+            "bare_ambiguous_unknown_and_invalid_checksum_block",
+            "title_description_matches_python",
+            "missing_price_migration_is_never_replayed",
+            "unique_alias_and_version_only_are_supported",
+            "dirty_duplicate_and_unknown_rows_block",
+            "rollback_and_mixed_effective_state_block",
+            "complete_effective_state_proves_selected_identity",
+            "all_sql_matches_immutable_source_digests"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Checked-in manifests/inventory, transaction control, numeric016 overwrite identity,031 absent blocked rather than price replay, unique aliases, dirty/unknown duplicates, rollback/mixed effective state and SQL digests."
+      ],
+      "remaining_assertion_obligations": [
+        "Dedicated filesystem checksum/extra-SQL tamper matrices;049 nontransactional crash cleanup, postcondition-before-ledger and ledger atomicity; reconciliation explicit-output side effects are not all directly exercised."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_baseline_manifest.py",
+      "source_sha256": "ce5d3baed8b2b65f47cbdb382221458e861ddc298e24de69cb27ed26140bfcc7",
+      "legacy_test_functions": [
+        "test_baseline_manifest_binds_every_required_sql_file",
+        "test_baseline_manifest_rejects_checksum_drift_and_extra_sql",
+        "test_baseline_git_provenance_requires_a_prior_unchanged_source_commit",
+        "test_frozen_provenance_allows_epoch_additions_but_not_integrated_mutation",
+        "test_baseline_git_provenance_rejects_fake_or_self_containing_source",
+        "test_baseline_manifest_rejects_ambiguous_metadata",
+        "test_load_baseline_rejects_freeze_point_mismatch",
+        "test_baseline_ready_requires_cutover_contract",
+        "test_baseline_ready_rejects_pending_live_freeze",
+        "test_verify_contract_rejects_writes_multiple_statements_and_zero_checks"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/manifest.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "current_source_manifests_validate"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/commands.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "pending_baseline_is_legacy_only_until_complete_freeze"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Actual checked-in frozen baseline loads; pending-live-freeze does not activate; required-file readiness checked."
+      ],
+      "remaining_assertion_obligations": [
+        "Negative baseline checksum/extra SQL and ambiguous metadata matrix; prior-commit/git provenance immutability, epoch-only extensions, freeze-point mismatch, and verify read-only/write/multistatement/zero-check rejection are not all native-tested."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_fingerprints.py",
+      "source_sha256": "d1fbbbe4e4db737ea3786d8cf57632f24b7cf5c44e6aa1b2a44b40fdadba6c0d",
+      "legacy_test_functions": [
+        "test_like_role_prefix_is_literal_not_a_wildcard",
+        "test_structural_queries_filter_temporary_schemas",
+        "test_acl_covers_all_owner_acl_classes_and_default_privileges",
+        "test_reference_row_serialization_has_no_delimiter_or_type_collisions",
+        "test_reference_serialization_rejects_unknown_driver_types",
+        "test_extension_fingerprint_binds_schema_owner_and_allowlist",
+        "test_reference_fingerprint_rows_preserve_column_boundaries",
+        "test_reference_fingerprint_is_independent_of_database_collation_order",
+        "test_compute_fingerprints_always_returns_the_four_named_classes",
+        "test_existing_adoption_marker_must_match_every_frozen_field",
+        "test_migrate_rejects_existing_marker_manifest_drift_before_epoch",
+        "test_migrate_routes_empty_database_to_frozen_fresh_baseline",
+        "test_migrate_rejects_ledgerless_schema_without_adoption_or_legacy_replay",
+        "test_ledgerless_cutover_requires_explicit_mode_and_base_objects",
+        "test_legacy_base_schema_never_replays_schema_snapshot",
+        "test_cutover_matching_existing_marker_is_a_read_only_noop",
+        "test_verify_is_read_only_and_rejects_source_marker_drift"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/fingerprint.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "literal_role_prefix",
+            "catalog_inventory",
+            "internal_char_frozen_repr"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/fingerprint/values.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "python_float_hex",
+            "decimal_normalization",
+            "array_preserves_types",
+            "binary_and_unicode",
+            "digest_empty",
+            "original_python_value_fixtures"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/commands.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "frozen_baseline_and_every_epoch_verification_bind_current_files",
+            "unknown_or_tampered_epoch_history_fails_before_execution"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Literal role-prefix escaping,28-query inventory, internal-char representation and static original Python value fixtures; delimiter/type/Unicode/binary/decimal/array encoding; four fingerprint classes through epoch history and tampered history rejection."
+      ],
+      "remaining_assertion_obligations": [
+        "Query class coverage/temp-schema exclusions/collation ordering need negative fixtures; adopted-marker field mutation, read-only verify, ledgerless cutover modes and no schema-snapshot replay are not proved by value goldens."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_runner_recovery.py",
+      "source_sha256": "feba5643544d186534ab9be6b0b7528c4f4c2381b0444c03148431567e1f85cb",
+      "legacy_test_functions": [
+        "test_direct_adoption_rejects_every_existing_marker_drift",
+        "test_direct_adoption_accepts_only_one_exact_existing_marker",
+        "test_direct_adoption_rechecks_marker_after_conflicting_insert",
+        "test_fresh_install_rolls_back_partial_init_and_is_reentrant",
+        "test_fresh_install_wrong_nonempty_database_fails_before_sql",
+        "test_fresh_install_failed_verify_rolls_back_before_marker",
+        "test_fresh_install_existing_marker_requires_complete_ledger",
+        "test_runner_digest_binds_the_executable_state_machine_source",
+        "test_transactional_ddl_and_success_ledger_share_one_transaction",
+        "test_checkpoint_parser_rejects_duplicate_reserved_and_empty_segments",
+        "test_nontransactional_change_requires_executable_recovery_contract",
+        "test_nontransactional_change_rejects_embedded_transaction",
+        "test_transaction_control_parser_ignores_sql_bodies_and_expressions",
+        "test_quote_like_tokens_in_comments_or_strings_cannot_hide_transaction_control",
+        "test_transaction_parser_rejects_unterminated_lexical_bodies",
+        "test_transaction_control_parser_rejects_top_level_controls",
+        "test_authority_constructor_rejects_unsafe_role_prefix",
+        "test_active_nontransactional_attempt_cannot_be_stolen",
+        "test_succeeded_attempt_without_success_ledger_fails_closed",
+        "test_expired_attempt_calls_resume_handler_and_starts_after_checkpoint",
+        "test_expired_attempt_without_resume_handler_transitions_failed_and_repairs",
+        "test_unknown_checkpoint_fails_before_claim_or_sql",
+        "test_nontransactional_success_waits_for_all_postconditions",
+        "test_lost_fence_blocks_resume",
+        "test_epoch_rejects_unknown_or_gapped_success_ledger"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/sql.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "transaction_guard_preserves_real_boundaries"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/recovery.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "checkpoints_preserve_preamble_and_exact_order"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/credentials.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "role_prefix_is_bounded_and_sql_safe"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Transaction guard real lexical boundaries; checkpoint preamble/order; unsafe role-prefix rejection."
+      ],
+      "remaining_assertion_obligations": [
+        "Direct adoption conflicting-insert/marker field drift; fresh partial-init rollback/reentrancy; failed verify no marker; nontransactional crash/resume ledger state and startup support windows lack complete equivalent failure-path tests."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_runner_contract.py",
+      "source_sha256": "5290ffc46774dd3e11eae15c1b622dba32cddffe7c1eba50bcfb64f8daf2d2c7",
+      "legacy_test_functions": [
+        "test_discovery_never_collects_rollback_files",
+        "test_new_duplicate_numeric_versions_fail_before_database_access",
+        "test_repository_chain_only_grandfathers_exact_filename_ledger_duplicates",
+        "test_compatibility_entrypoints_have_no_independent_ledger_writer",
+        "test_100_to_110_and_both_canonical_runners_are_knowledge_first",
+        "test_retired_single_file_runner_has_no_database_execution_surface",
+        "test_only_authority_owns_the_migration_lock",
+        "test_102_and_103_are_single_transaction_migrations",
+        "test_cross_dataset_and_tenant_constraints_are_validated"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/legacy.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "source_manifest",
+            "outer_transactions"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/tests/kb_migration_contract.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--test kb_migration_contract",
+          "test_functions": [
+            "full_chain_100_to_112_keeps_single_idempotent_ledger_and_schema_ownership"
+          ],
+          "live_ignored": true
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Legacy forward-manifest transaction control; ignored actual full-chain single-ledger ownership and validated-FK assertions."
+      ],
+      "remaining_assertion_obligations": [
+        "Every old Python entrypoint has no independent ledger writer is a source-language topology assertion needing a native entrypoint inventory, not blanket obsolete classification; duplicate pre-DB rejection and exact102/103 transaction boundaries need explicit assertions."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_roles_grants.py",
+      "source_sha256": "276b6e9790a240c8527885a9c99b728ce74f0627b1edefe9c44e0404bbe6e99d",
+      "legacy_test_functions": [
+        "test_roles_sql_forces_attributes_ownership_and_no_application_create",
+        "test_extensions_have_one_explicit_owner_controlled_target_schema",
+        "test_roles_contract_negative_self_tests",
+        "test_nonadmin_authority_verifies_preprovisioned_roles_without_role_ddl",
+        "test_nonadmin_authority_fails_before_role_ddl_when_bootstrap_is_incomplete",
+        "test_role_bootstrap_rejects_public_schema_create_even_when_named_roles_are_safe",
+        "test_role_bootstrap_rejects_public_database_create",
+        "test_role_bootstrap_rejects_unexpected_search_path_schema",
+        "test_schema_authority_never_uses_its_admin_connection_for_role_ddl",
+        "test_explicit_admin_role_provisioning_verifies_its_postcondition",
+        "test_explicit_admin_extension_provisioning_closes_public_routines",
+        "test_cutover_covers_public_types_schema_default_acl_and_definers",
+        "test_cutover_contract_negative_self_tests",
+        "test_grants_generation_is_deterministic_explicit_and_never_broad",
+        "test_grants_generation_lists_all_unresolved_owner_mappings",
+        "test_grants_generation_rejects_unproven_generic_write_privilege",
+        "test_grants_cli_never_writes_partial_sql_when_policy_is_blocked",
+        "test_grants_cli_check_detects_stale_or_hand_edited_sql",
+        "test_legacy_duplicate_reconciliation_is_lossless_and_fail_closed",
+        "test_legacy_structural_reconciliation_matches_frozen_scope",
+        "test_roles_and_cutover_contract_on_explicit_scratch_postgres"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/grants.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "frozen_grants_exact"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/policy.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "domains_fail_closed",
+            "knowledge_sql_is_not_gateway_owned"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Frozen grants reproduce exact SQL bytes; native policy rejects unknown domains and does not attribute Knowledge-owned SQL to Gateway."
+      ],
+      "remaining_assertion_obligations": [
+        "Role attribute/ownership/public CREATE/search_path mutation matrices and nonadmin-no-DDL; extension PUBLIC-routine ACL cleanup and incomplete bootstrap refusal require exact negative execution fixtures."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_baseline_freeze_tools.py",
+      "source_sha256": "2962049109ac7576e240cb5d2ee0bbc5ea2dc5fee87faac66eb13261ba22133a",
+      "legacy_test_functions": [
+        "test_frozen_baseline_is_bound_and_activates",
+        "test_static_policy_and_sql_regenerate_exactly",
+        "test_ownership_and_grant_inputs_fail_closed_on_drift",
+        "test_pg_dump_normalization_rejects_acl_and_ledger_bypass",
+        "test_pg_dump_uses_secret_free_argv_and_libpq_environment",
+        "test_pg_dump_rejects_non_uri_source_dsn",
+        "test_reference_policy_excludes_admin_editable_catalogs"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/freeze.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "dump_noise_and_guards",
+            "literal_and_uri"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/render_contract.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "renders_exact_frozen_sql_without_python",
+            "rejects_empty_matrix_and_bad_markers"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/grants.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "frozen_grants_exact"
+          ],
+          "live_ignored": false
+        },
+        {
+          "path": "rust/platform-native/crates/platform-migration-authority/src/source_tools/policy.rs",
+          "package": "ai-platform-migration-authority",
+          "target": "--lib",
+          "test_functions": [
+            "literals_preserve_sql",
+            "knowledge_sql_is_not_gateway_owned",
+            "canonical_arguments",
+            "builds_reviewed_native_policy_from_source",
+            "domains_fail_closed"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Dump-noise and transaction guards, source DSN URI shape, exact frozen render/grants and native ownership policy generation."
+      ],
+      "remaining_assertion_obligations": [
+        "No captured child-process argv/environment assertion proving dump secrets absent; full ownership/grant drift and editable-catalog exclusion matrices remain unverified."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_credentials.py",
+      "source_sha256": "ee846913109569b90e8c59b09cd69c9bf519aff1ef2df79d85489e3735fb4bca",
+      "legacy_test_functions": [
+        "test_role_dsn_resolution_has_no_shared_fallback",
+        "test_role_dsns_reject_credential_reuse_without_disclosing_values",
+        "test_role_connection_probe_verifies_all_distinct_effective_users",
+        "test_role_connection_probe_rejects_wrong_database"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Production credentials.rs implements dedicated-role DSNs/no shared fallback, distinct DSNs, correct current/session user, database and role attributes, but only prefix syntax currently has a test. All four original DSN/effective-user negative assertions need native regression coverage."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_sql_runner.py",
+      "source_sha256": "c4cf37733613a8e21f6221414e69ed3225d7e4853e0c640244d6fbec99b22b07",
+      "legacy_test_functions": [
+        "test_failed_role_sql_preserves_original_error_without_reset",
+        "test_empty_preflight_ignores_only_allowlisted_extension_members"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Original failed-role SQL preserves original error without reset and allowlisted-extension-only empty preflight are not covered by lexical SQL-parser tests. Native implementations exist; negative execution assertions remain."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_source_kind.py",
+      "source_sha256": "110d2fa23e17fb8106656f014f26417bbcdd0eb9c1806375d307ef0ef36966be",
+      "legacy_test_functions": [
+        "test_source_kind_is_stable_and_read_only"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Native source-kind classifier exists, but read-only connection/output/cleanup matrix for adopted/empty/tracked/ledgerless states has no exact native test located."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/database/test_migration_authority_per_service_manifest.py",
+      "source_sha256": "312fe7f726e85e9873d9e58998ef9a3ce31076a7b6a9d37983ff84b0260c89cb",
+      "legacy_test_functions": [
+        "test_checked_in_per_service_manifest_is_complete_and_conservative",
+        "test_per_service_manifest_rejects_extra_sql_and_checksum_drift",
+        "test_per_service_historical_phase_markers_are_atomic_adoption_evidence",
+        "test_per_service_sql_and_checksum_receipt_commit_atomically",
+        "test_per_service_unknown_global_bootstrap_and_checksum_drift_block",
+        "test_per_service_recorded_state_requires_an_exact_historical_receipt"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Per-service adoption implementation exists; exact historical marker receipt, checksum drift, unknown global bootstrap and SQL+receipt transaction atomicity assertions were not located in native tests."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_auth_jit_security.py",
+      "source_sha256": "e78e33d8d26de232b4f855dbc25de1a5245bb310df5bcede9511c03b07ab78b3",
+      "legacy_test_functions": [
+        "test_login_does_not_jit_create_missing_user_with_default_password"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "AuthService::login missing-user path audits then returns401 without creation. No native observable missing-user audit/no-account-write regression located; contract DTO tests do not establish this."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_auth_tenant_identity.py",
+      "source_sha256": "4ac5eeb44cc4bd5c37de93a156ce5c950ed1c91a82bb3d1a637f98c5e323941a",
+      "legacy_test_functions": [
+        "test_auth_me_returns_tenant_from_verified_credentials",
+        "test_thread_expected_tenant_fails_before_any_session_access"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Native request identities and auth/me DTO carry tenant; need actual JWT/API-key mode matrix plus expected-tenant refusal before any session access. Serialized DTO schema alone is insufficient."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/api/test_api_key_permission_merge.py",
+      "source_sha256": "c2bf2826e516fbae3835e19435ef9e82f0aa0d2b0df65f1e4826a32657876e93",
+      "legacy_test_functions": [
+        "test_api_key_permissions_are_merged_into_auth_context"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Need exact API-key permissions→auth/user roles+permissions projection assertion; general Rbac role expansion or auth/me schema is not the same seam."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/core/auth/test_api_key.py",
+      "source_sha256": "0d017dbc12c702927c70d13ac0f6f4cdf5c1be69536ffa35830d670e804dba12",
+      "legacy_test_functions": [
+        "test_valid_key",
+        "test_valid_key_among_many",
+        "test_invalid_key_raises",
+        "test_empty_valid_keys_raises",
+        "test_empty_key_against_valid_raises",
+        "test_single_valid_key"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Actual configured API-key list positive/negative/empty matrix has no directly matching native unit located; DB-bound key authorization is a different contract."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/core/auth/test_jwt_config.py",
+      "source_sha256": "548f630c8f44d96415a38f4242649261aefb237cf158601cea32f220d51b2030",
+      "legacy_test_functions": [
+        "test_configured_secret_returned",
+        "test_none_raises_outside_dev_mode",
+        "test_empty_returns_dev_secret_in_explicit_dev_mode",
+        "test_warning_logged_once",
+        "test_configured_algorithms",
+        "test_none_returns_default",
+        "test_empty_list_returns_default"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Explicit dev fallback/production refusal and warn-once semantics differ across native configuration boundaries; no one-to-one matrix found. Must review intentional native contract, not declare framework-only."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/core/auth/test_permissions.py",
+      "source_sha256": "c3da5f451e8e4ba82d4dfbe796f1bf3850e9ed3d00dc7cbe474c6c7652bd364d",
+      "legacy_test_functions": [
+        "test_agent_invoke",
+        "test_service_list_read",
+        "test_service_config_write",
+        "test_all_canonical_permissions_are_seeded_by_migrations",
+        "test_includes_canonical_and_legacy",
+        "test_canonical_is_first",
+        "test_metrics_read_excludes_dashboard_view_alias",
+        "test_gateway_write_permissions_imply_matching_read",
+        "test_allowed_via_role",
+        "test_denied",
+        "test_allowed_via_legacy_alias",
+        "test_allowed_via_admin_wildcard",
+        "test_permissions_param_merged",
+        "test_metrics_read_denied_via_dashboard_view_role",
+        "test_allowed_returns_decision",
+        "test_denied_raises",
+        "test_structure",
+        "test_custom_message"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Canonical/legacy capability aliases, metrics alias exclusion, write→read implications and full denied-detail shape require direct tests of auth::rbac; mounted management denials cover only a subset."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/core/auth/test_rbac.py",
+      "source_sha256": "c01882fab804e21ed595d4a5d9fcccbf1228cbbbf305a78104e22401a1e16c5b",
+      "legacy_test_functions": [
+        "test_single_role",
+        "test_multiple_roles_merged",
+        "test_unknown_role_ignored",
+        "test_empty_roles",
+        "test_exact_match",
+        "test_no_match",
+        "test_admin_wildcard_matches_anything",
+        "test_hierarchical_wildcard",
+        "test_direct_permission_in_roles_list",
+        "test_mixed_roles_and_permissions",
+        "test_allowed",
+        "test_denied_raises"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Generic role union, unknown roles, direct-permission input and wildcard matching have no direct native unit matrix located. Studio object ACL tests are not a substitute."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/core/auth/test_service_access.py",
+      "source_sha256": "bd32851eb4612e5142d4be622f664921f60128b97177626fcc93a37126b5f732",
+      "legacy_test_functions": [
+        "test_comma_separated",
+        "test_list",
+        "test_tuple",
+        "test_none",
+        "test_empty_string",
+        "test_deduplication",
+        "test_non_iterable",
+        "test_exact_match",
+        "test_no_match",
+        "test_global_wildcard",
+        "test_prefix_wildcard",
+        "test_prefix_wildcard_no_match",
+        "test_empty_scope_matches_all",
+        "test_empty_candidates_no_match",
+        "test_no_metadata",
+        "test_allowlist_auto_detected",
+        "test_explicit_mode",
+        "test_denied_services",
+        "test_all_mode_allows",
+        "test_denied_by_policy",
+        "test_allowlist_allows_matching",
+        "test_allowlist_denies_non_matching",
+        "test_empty_allowlist_denies",
+        "test_normalizes_and_dedupes",
+        "test_empty"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Scope normalization/deduplication, deny precedence, allowlist and empty-scope/empty-candidate semantics need direct native policy matrix; endpoint routing tests alone are insufficient."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/services/test_usage_parser.py",
+      "source_sha256": "3665d43f70fae97b6e7a5cd277387f42632131691ed862a903ef318791be4f01",
+      "legacy_test_functions": [
+        "test_extract_token_usage_from_langgraph_updates_payload",
+        "test_extract_token_usage_from_openai_shape",
+        "test_extract_string_fields_from_nested_payload"
+      ],
+      "status": "coverage_obligation_not_yet_verified",
+      "native_counterparts": [],
+      "reviewed_observable_coverage": [],
+      "remaining_assertion_obligations": [
+        "Three direct nested LangGraph/OpenAI token-usage and string-field extraction cases have production native functions but no same-case test located. truncate_text unit is unrelated."
+      ],
+      "risk": "medium",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/services/test_database_session_manager.py",
+      "source_sha256": "682847e2063818fcd0ccdf7835b8f18eb4b3e40ff5b591f7225395f08f7e5d95",
+      "legacy_test_functions": [
+        "test_client_selected_session_id_uses_atomic_insert",
+        "test_client_selected_session_id_defaults_to_atomic_insert",
+        "test_client_selected_session_id_conflict_does_not_cache",
+        "test_atomic_session_insert_handles_every_unique_constraint",
+        "test_update_config_uses_atomic_patch_and_invalidates_cache",
+        "test_update_metadata_uses_atomic_patch_and_invalidates_cache",
+        "test_memory_cache_is_lru_bounded_and_expires",
+        "test_update_state_invalidates_cache_instead_of_reinserting_stale_snapshot"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/src/session_manager_tests.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--lib",
+          "test_functions": [
+            "projected_history_preserves_python_slicing_cold_and_cached",
+            "snapshots_and_history_results_do_not_alias_cached_record",
+            "cached_projection_touches_lru_without_renewing_cache_deadline",
+            "expired_durable_session_renews_only_on_cache_miss",
+            "storage_failure_and_malformed_record_do_not_populate_cache",
+            "cancelled_cold_projection_does_not_populate_cache_or_start_mutation",
+            "user_append_retains_existing_title_and_invalidates_on_success",
+            "user_append_generates_missing_title_and_keeps_empty_title_error",
+            "append_false_and_storage_error_keep_existing_cache",
+            "assistant_append_does_not_introduce_session_read",
+            "map_updates_preserve_missing_false_error_size_and_invalidation",
+            "get_or_create_retains_tenant_user_and_service_fences",
+            "projected_cache_hit_borrows_the_original_history_allocation",
+            "owner_projection_is_small_independent_and_preserves_full_get",
+            "owner_projection_touches_lru_but_not_cache_deadline",
+            "owner_projection_renews_expired_durable_row_only_on_cache_miss",
+            "owner_projection_missing_malformed_and_storage_error_fail_closed",
+            "cancelling_owner_projection_does_not_populate_cache"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Native production session cache tests exercise LRU/deadline behavior, mutation invalidation, failure/cancellation cache isolation and atomic configuration/metadata patch interfaces."
+      ],
+      "remaining_assertion_obligations": [
+        "Client-selected ID atomic insert and every PostgreSQL unique constraint need explicit concurrent/SQL tests; cache patch tests do not prove no database upsert overwrite."
+      ],
+      "risk": "high",
+      "execution": "Existing target code inspected; execution status is determined by the coordinator logs, not this map.",
+      "retirement_authorized": false
+    },
+    {
+      "legacy_source": "tests/transports/test_message_queue_connector.py",
+      "source_sha256": "d28a969862532aa0fa711ffd8fb2a4136c0a64f9f44a7aa622dd4e6b629c9168",
+      "legacy_test_functions": [
+        "test_message_queue_connector_publishes_by_priority_and_consumes_with_ack",
+        "test_message_queue_connector_routes_failed_message_to_retry_then_dlq",
+        "test_message_queue_connector_empty_consume_is_non_blocking"
+      ],
+      "status": "mapped_native_counterpart_partial",
+      "native_counterparts": [
+        {
+          "path": "rust/platform-native/crates/platform-gateway-foundation/tests/message_queue_transport.rs",
+          "package": "ai-platform-gateway-foundation",
+          "target": "--test message_queue_transport",
+          "test_functions": [
+            "publish_preserves_payload_and_factory_wiring",
+            "retry_priority_and_exactly_one_delivery_even_if_count_large",
+            "atomic_retry_is_idempotent_after_lost_response_and_keeps_business_fields",
+            "full_retry_destination_keeps_pending_then_routes_dead_letter",
+            "reclaimed_delivery_fences_old_handler",
+            "local_inflight_limit_backpressures_and_ack_releases_capacity",
+            "drain_rejects_new_work_but_allows_existing_ack",
+            "drain_timeout_does_not_ack_and_owned_backend_closes",
+            "drain_interrupts_long_poll_and_never_reopens_closed_backend",
+            "invalid_config_payload_and_unknown_settlement_fail_closed",
+            "generic_rest_ack_body_reaches_delivery_settlement_and_shutdown_hook",
+            "receipt_settles_on_another_replica_and_reaps_original_capacity",
+            "receipt_fail_reloads_durable_payload_and_is_idempotent_after_response_loss",
+            "receipt_forgery_wrong_binding_and_reclaimed_owner_fail_closed",
+            "delayed_stale_settlement_does_not_remove_newer_local_lease"
+          ],
+          "live_ignored": false
+        }
+      ],
+      "reviewed_observable_coverage": [
+        "Actual native connector algorithms tested with injected Redis backend: publish/factory priority, one-message receive, ack, retry then DLQ, fencing, cross-replica receipts and drain."
+      ],
+      "remaining_assertion_obligations": [
+        "User-authorized atomic/native architecture replaces original non-atomic behavior intentionally; empty-consume nonblocking assertion should be separately identified. Real Redis Lua atomicity/server crash durability are not proven by fakes."
+      ],
+      "risk": "high",
+      "execution": "foundation-native43.log: target15 passed.",
+      "retirement_authorized": false
+    }
+  ]
+}

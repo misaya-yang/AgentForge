@@ -1,0 +1,185 @@
+{
+  "schema": "agentforge/scoped-code-review/v1",
+  "requirement": "U-GW-03",
+  "reviewed_at": "2026-10-17T08:44:39.198Z",
+  "method": "Independent static source/call-path review using engineering:code-review SKILL.md; no external services",
+  "verdict": "no_confirmed_critical_findings_in_frozen_scope",
+  "critical_findings": [],
+  "source_changes": [],
+  "reviewed_sources": [
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/browser.rs",
+      "sha256": "a67484b599117edf05703b31fdde8f0877a2c0a26e8c400060c47e4ff9756cfc"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/browser_policy.rs",
+      "sha256": "6f1321bf217b75e9addc531a8b3b4f80503e959e745d1fa25564e8eba0c3b0ba"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/browser_authority.rs",
+      "sha256": "87635cc08a7d59bf156887f2c58a33e1acd1970f02da07ffa764c5f06d3857db"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/browser_sessions.rs",
+      "sha256": "78c56a3e449817d5ce4811e6409c0149af1f0ad1a3685a8d572cc95742b385f7"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/access_tokens.rs",
+      "sha256": "8a95e7a843706e87d41adb62b2437622f0b22ea165399a63e0156f176fc0c2a0"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/passwords.rs",
+      "sha256": "e6c95a862ca1502b949a0dda562344021093ca500f0a28723195ece748d69498"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/password_rehash.rs",
+      "sha256": "cf38902f80206ce8a2206a2523f56a493f5b4db8bf4aa69055e90183ac387ae3"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/lib.rs",
+      "sha256": "ba20c76b0f49564eb831fe2fda3b0a0461e137fbfd3d5215ad5e221c4e5361ea"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/service.rs",
+      "sha256": "0f2b466ff975778e8ffa43d2ce843ae9a97d7b569c273a9fa560b4b2731fa196"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/sessions.rs",
+      "sha256": "f1d88d89f80db13052b37d830b60c521113c0bee45fad22528644c6e2fe53c48"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/accounts.rs",
+      "sha256": "a7e2e5a9ccf26dae09ea3ea780096e0303c9fb0af5fff0952bda1f040096be30"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/admission.rs",
+      "sha256": "9c17d3157e05bbd389271ce5976452561b2389db36bb4b64c4269bb9b03b0087"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/api_keys.rs",
+      "sha256": "f12044b040f1d4eba78c5d3e7c04b9795148085cf5d9cfe508ffe00ff6cfb3d5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/http.rs",
+      "sha256": "475a8ffef10159d23a203474dd2ee3585e66bb164a0d6d70ada9dcaaf1969460"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-auth/src/knowledge_actor_verifier.rs",
+      "sha256": "0eea9bd6672e72fd300d6f4e62409f1761d671ad18550ab40b9fef3b31b993d8"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/auth.rs",
+      "sha256": "96b917d152c6ba70033e8f1f614968220cdeb4a6cdcc75ff5c0edf460cb8a9e0"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/bootstrap/process.rs",
+      "sha256": "901c9fed6ad9b305b57626c42e1efcf3325652f388ae66c1bd3364dd693a2335"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/mod.rs",
+      "sha256": "466ff39552cfcbdb0993664f4f303cfc4b4cfc6694f89287391ec2bfa6804242"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs",
+      "sha256": "92ffd89b282dd27985a6369bb07d4ce13167901e65aa252fc7b011061e77657d"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_content/access.rs",
+      "sha256": "53beee0e7958f3236cb4ea7ec3c3cf718a21880261d680bf92dabc76e068aad5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/credential_introspection.rs",
+      "sha256": "623d63e40b4acd953ff9e5c66858993d863bd765ccaed6340593f7a4ccee8cfe"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-gateway/src/migration_host/jwt.rs",
+      "sha256": "986bae13c5a3ff3075219c1ec4effa7cddd70bee709bab135543e0ef6f3723b8"
+    }
+  ],
+  "evidence": [
+    {
+      "topic": "BFF bridge ordering and authenticated host projection",
+      "locations": [
+        "platform-gateway/src/migration_host/bootstrap/process.rs:351-360,382-400",
+        "platform-gateway/src/migration_host/mod.rs:135-148",
+        "platform-auth/src/browser.rs:105-153"
+      ],
+      "observed": "BFF outer bridge validates session/current account and replaces Authorization with request-local signed token before identity and rate middleware; arbitrary identity headers do not create endpoint authority."
+    },
+    {
+      "topic": "Revocation and exact browser lifetime",
+      "locations": [
+        "platform-auth/src/browser_authority.rs:8-9,14-49,75-98",
+        "platform-auth/src/browser_sessions.rs:47-66",
+        "platform-auth/src/service.rs:308-378",
+        "platform-auth/src/browser.rs:176-229,237-284"
+      ],
+      "observed": "Three-hour issued/idle/absolute deadlines are checked without refresh extension; live existing JTI allowlist is atomically compare-and-expired at login; each browser authentication rechecks allowlist, exact password revision and current tenant/account/permissions. Logout/password change cannot restore a revoked JTI."
+    },
+    {
+      "topic": "CSRF, Origin, cookie parser and WebSocket",
+      "locations": [
+        "platform-auth/src/browser_policy.rs:12-108",
+        "platform-auth/src/browser.rs:105-141,155-171"
+      ],
+      "observed": "All cookie methods other than GET/HEAD/OPTIONS require exact allowed Origin and synchronizer token. WebSocket Upgrade requires Origin. Fetch Metadata, duplicate cookies/headers and mixed cookie/Authorization are rejected; fresh password login uses its own Origin+Fetch Metadata policy."
+    },
+    {
+      "topic": "Five-minute EdDSA and legacy separation",
+      "locations": [
+        "platform-auth/src/lib.rs:191-292",
+        "platform-auth/src/access_tokens.rs:36-144",
+        "platform-auth/src/http.rs:181-213"
+      ],
+      "observed": "EdDSA token lifetime is exactly bounded to 300 seconds; issuer/audience required with asymmetric activation; fixed local key ring and kid/window checks reject unknown keys and remote key selectors. Legacy HS verification uses the separate existing symmetric key. EdDSA /auth/me selects AuthService.authenticate rather than HS-only legacy introspection."
+    },
+    {
+      "topic": "File key loading and rotation",
+      "locations": [
+        "platform-gateway/src/migration_host/bootstrap/auth.rs:139-237",
+        "platform-auth/src/access_tokens.rs:36-144"
+      ],
+      "observed": "Final-path no-follow/nonblocking descriptor, regular-file/16KiB bound, private EUID and access bits, at most active+previous public keys, active/private-key match and full signing TTL window checks are present. No actual key files were read."
+    },
+    {
+      "topic": "Argon2 work bounds and bcrypt migration",
+      "locations": [
+        "platform-auth/src/passwords.rs:12-65",
+        "platform-auth/src/lib.rs:76-138",
+        "platform-auth/src/password_rehash.rs:5-25",
+        "platform-auth/src/service.rs:143-225"
+      ],
+      "observed": "Argon2 parameters/password/encoded sizes are bounded. Blocking tasks retain semaphore permits through cancellation. Only a successful bcrypt match triggers Argon2 replacement under tenant/user/hash CAS without changing password revision."
+    }
+  ],
+  "nonblocking_notes": [
+    {
+      "id": "U-GW-03-REVIEW-N1",
+      "location": "rust/platform-native/crates/platform-auth/src/passwords.rs:32-33",
+      "topic": "Legacy bcrypt cost has no application-level upper cap",
+      "impact": "A pre-existing unusually expensive stored bcrypt hash can occupy a bounded password worker for a long time on login or password confirmation. Dependency bcrypt 0.17.1 accepts cost up to31; only Argon2 work parameters have an explicit application ceiling.",
+      "why_not_critical": "No request path reviewed allows an unauthenticated client to supply encoded hash/cost; the input comes from the trusted account database. Exploitation requires an already-present/imported high-cost hash or a separate database write capability. Current live hash costs were not queried.",
+      "next_action": "During the existing consolidated acceptance, assess aggregate legacy cost metadata without exposing hashes; define an explicit compatible maximum before changing accepted legacy credentials. Do not benchmark or execute a cost31 verification.",
+      "source_modified": false
+    }
+  ],
+  "not_reviewed": [
+    "Unfrozen Web auth implementation",
+    "browser_contract.rs currently edited by primary writer",
+    "Unrelated Gateway model-plane modules or repository-wide security"
+  ],
+  "not_run": [
+    "Cargo compilation/unit tests during this independent review",
+    "Redis/PostgreSQL session/rehash race acceptance",
+    "HTTPS browser/WebSocket/rotation service integration",
+    "Private environment, key files or live credential inventory"
+  ],
+  "test_source_observed": [
+    "browser_policy CSRF/Origin/duplicate-cookie/WebSocket negatives",
+    "browser_authority exact expiry/idle/maxTTL checks",
+    "access_tokens rotation overlap/revocation/JWKS coverage",
+    "passwords successful-only rehash and PHC bounds checks",
+    "Gateway private-key-file permission/symlink checks"
+  ],
+  "test_results_claimed": []
+}

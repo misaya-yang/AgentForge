@@ -1,0 +1,1507 @@
+{
+  "schema_version": "arc04-persistence-sql/v1",
+  "generated_at": "2026-08-30T03:46:39Z",
+  "core_package_dir": "packages/ai-gateway-core/src/ai_gateway_core",
+  "known_table_count": 252,
+  "caveats": [
+    "SQL in string constants only; runtime-assembled SQL is invisible",
+    "read entries may include CTE names; unresolved entries are noise",
+    "owner map is a documented claim to review with ARC-03"
+  ],
+  "modules": {
+    "ai_gateway_core.image.image_state": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/image/image_state.py",
+      "home_domain": "image",
+      "write": [
+        {
+          "table": "an",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "assistant.image_blobs",
+          "owner": "image",
+          "known_table": true
+        },
+        {
+          "table": "assistant.image_idempotency",
+          "owner": "image",
+          "known_table": true
+        },
+        {
+          "table": "assistant.image_sessions",
+          "owner": "image",
+          "known_table": true
+        },
+        {
+          "table": "assistant.image_tasks",
+          "owner": "image",
+          "known_table": true
+        },
+        {
+          "table": "assistant.image_turns",
+          "owner": "image",
+          "known_table": true
+        },
+        {
+          "table": "inside",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "of",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.memory.service": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/memory/service.py",
+      "home_domain": "memory",
+      "write": [
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.metrics.context_metrics": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/metrics/context_metrics.py",
+      "home_domain": "other",
+      "write": [
+        {
+          "table": "usage_statistics",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [
+        "platform"
+      ],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.metrics.realtime_metrics": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/metrics/realtime_metrics.py",
+      "home_domain": "other",
+      "write": [
+        {
+          "table": "current",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "queue",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "redis",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.metrics.usage_recorder": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+      "home_domain": "other",
+      "write": [
+        {
+          "table": "billing_events",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "daily",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "hourly",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "quota",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "request_traces",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "the",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "usage_daily_aggregates",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage_hourly_aggregates",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage_records",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "user_quotas",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "api_keys",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "flushed",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "model_pricing",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "request_traces",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "services",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage_daily_aggregates",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage_records",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [
+        "platform"
+      ],
+      "cross_domain_read_only_owners": [
+        "auth"
+      ]
+    },
+    "ai_gateway_core.persistence.database": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/database.py",
+      "home_domain": "platform",
+      "write": [
+        {
+          "table": "a",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "api_keys",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "assistant.sessions",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "audit_logs",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "auth_config",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "langgraph_threads",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "login_audit",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "rate_limit_config",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "rbac_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "role_permissions",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "security_event_daily_aggregates",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "semantic_cache",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "service_health_records",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "services",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "tasks",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "tenants",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "usage_statistics",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_permissions",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "user_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "api_keys",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "audit_logs",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "auth_config",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "langgraph_threads",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "permissions",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "pg_tables",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "rate_limit_config",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "rbac_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "role_permissions",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "security_event_daily_aggregates",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "semantic_cache",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "service_health_records",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "services",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "tasks",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "tenants",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "usage_statistics",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_permissions",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "user_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [
+        "agent-runtime",
+        "auth",
+        "memory"
+      ],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.agent_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py",
+      "home_domain": "agent-studio",
+      "write": [
+        {
+          "table": "agent_api_tokens",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_data_deletion_requests",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_draft_knowledge_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_draft_skill_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_drafts",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_governance_policies",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_members",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_publications",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_publish_events",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_evaluation_events",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_evaluations",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_requests",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_attachments",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_feedback",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_idempotency",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_traces",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_capabilities",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_knowledge_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_skill_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_versions",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agents",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "assistant.sessions",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "assistant_memory_reflections",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "assistant_run_checkpoints",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "assistant_runs",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "audit_logs",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "connector_credential_principals",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_channel_grants",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_connections",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "of",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "semantic_cache",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "agent_api_tokens",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_data_deletion_requests",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_draft_knowledge_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_draft_skill_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_drafts",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_governance_policies",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_members",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_publications",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_publish_events",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_evaluation_events",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_evaluations",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_release_requests",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_attachments",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_idempotency",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_spans",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_traces",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_capabilities",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_knowledge_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_revocations",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_version_skill_bindings",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_versions",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agents",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "assistant_memory_reflections",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "assistant_run_checkpoints",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "assistant_runs",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "assistant_skill_version_revocations",
+          "owner": "skills",
+          "known_table": true
+        },
+        {
+          "table": "assistant_skill_versions",
+          "owner": "skills",
+          "known_table": true
+        },
+        {
+          "table": "assistant_skills",
+          "owner": "skills",
+          "known_table": true
+        },
+        {
+          "table": "audit_logs",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "doomed",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "eval_datasets",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_examples",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "llm_models",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "llm_providers",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "pg_class",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "pg_namespace",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "semantic_cache",
+          "owner": "platform",
+          "known_table": true
+        },
+        {
+          "table": "session_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "user_memory",
+          "owner": "memory",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [
+        "agent-runtime",
+        "auth",
+        "eval-trace",
+        "mcp-connector",
+        "memory",
+        "platform"
+      ],
+      "cross_domain_read_only_owners": [
+        "skills"
+      ]
+    },
+    "ai_gateway_core.persistence.repositories.agent_trace_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_trace_repository.py",
+      "home_domain": "eval-trace",
+      "write": [
+        {
+          "table": "agent_trace_events",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_outbox",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_scores",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_spans",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_traces",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_baseline_promotions",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_datasets",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_evaluators",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_examples",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiment_run_cases",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiment_runs",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiments",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "skip",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [
+        {
+          "table": "agent_data_deletion_requests",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_governance_policies",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "agent_runtime_feedback",
+          "owner": "agent-runtime",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_events",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_outbox",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_scores",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_trace_spans",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agent_traces",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "agents",
+          "owner": "agent-studio",
+          "known_table": true
+        },
+        {
+          "table": "classified_spans",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "eval_datasets",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_evaluators",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_examples",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiment_run_cases",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiment_runs",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "eval_experiments",
+          "owner": "eval-trace",
+          "known_table": true
+        },
+        {
+          "table": "feedback_metrics",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "filtered_traces",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "in_window_traces",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "latest_scores",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "paged_cases",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "picked",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "ranked_scores",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "span_metrics",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "trace_metrics",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "updated_job",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": [
+        "agent-runtime",
+        "agent-studio"
+      ]
+    },
+    "ai_gateway_core.persistence.repositories.api_key_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/api_key_repository.py",
+      "home_domain": "auth",
+      "write": [
+        {
+          "table": "api",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "api_keys",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "api_keys",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.mcp_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/mcp_repository.py",
+      "home_domain": "mcp-connector",
+      "write": [
+        {
+          "table": "connector_credential_principals",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_channel_grants",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_connections",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_schema_diffs",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_servers",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_tool_snapshots",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_tools",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "of",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [
+        {
+          "table": "connector_configs",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "connector_credential_principals",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_channel_grants",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_connections",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_servers",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_tool_snapshots",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "mcp_tools",
+          "owner": "mcp-connector",
+          "known_table": true
+        },
+        {
+          "table": "user_connectors",
+          "owner": "mcp-connector",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.service_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/service_repository.py",
+      "home_domain": "platform",
+      "write": [
+        {
+          "table": "services",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "services",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.session_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/session_repository.py",
+      "home_domain": "agent-runtime",
+      "write": [
+        {
+          "table": "assistant.sessions",
+          "owner": "agent-runtime",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.task_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/task_repository.py",
+      "home_domain": "platform",
+      "write": [
+        {
+          "table": "tasks",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "tasks",
+          "owner": "platform",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.persistence.repositories.user_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/user_repository.py",
+      "home_domain": "auth",
+      "write": [
+        {
+          "table": "user_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "user_roles",
+          "owner": "auth",
+          "known_table": true
+        },
+        {
+          "table": "users",
+          "owner": "auth",
+          "known_table": true
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.quiz.quiz_access_service": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/quiz/quiz_access_service.py",
+      "home_domain": "quiz",
+      "write": [
+        {
+          "table": "assistant.quiz_attempts",
+          "owner": "quiz",
+          "known_table": true
+        },
+        {
+          "table": "assistant.quizzes",
+          "owner": "quiz",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.session.database_manager": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/session/database_manager.py",
+      "home_domain": "agent-runtime",
+      "write": [
+        {
+          "table": "assistant.sessions",
+          "owner": "agent-runtime",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.sharing.artifact_share_manager": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/sharing/artifact_share_manager.py",
+      "home_domain": "sharing",
+      "write": [
+        {
+          "table": "assistant.artifact_share_attempt_tokens",
+          "owner": "sharing",
+          "known_table": true
+        },
+        {
+          "table": "assistant.artifact_share_submitters",
+          "owner": "sharing",
+          "known_table": true
+        },
+        {
+          "table": "assistant.artifact_shares",
+          "owner": "sharing",
+          "known_table": true
+        },
+        {
+          "table": "closes",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [
+        {
+          "table": "stale_tokens",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.skills.artifact_repository": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/artifact_repository.py",
+      "home_domain": "skills",
+      "write": [
+        {
+          "table": "assistant.assistant_skill_versions",
+          "owner": "skills",
+          "known_table": true
+        },
+        {
+          "table": "assistant.assistant_skills",
+          "owner": "skills",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.skills.builder": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/skills/builder.py",
+      "home_domain": "skills",
+      "write": [
+        {
+          "table": "assistant_audit_events",
+          "owner": "agent-runtime",
+          "known_table": true
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [
+        "agent-runtime"
+      ],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.storage.artifact_storage": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+      "home_domain": "artifact",
+      "write": [
+        {
+          "table": "assistant.artifacts",
+          "owner": "artifact",
+          "known_table": true
+        }
+      ],
+      "read": [
+        {
+          "table": "storage",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.tasks.task_manager": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/tasks/task_manager.py",
+      "home_domain": "other",
+      "write": [
+        {
+          "table": "last",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    },
+    "ai_gateway_core.working_memory": {
+      "file": "packages/ai-gateway-core/src/ai_gateway_core/working_memory.py",
+      "home_domain": "other",
+      "write": [
+        {
+          "table": "status",
+          "owner": "unresolved",
+          "known_table": false
+        },
+        {
+          "table": "task",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "read": [
+        {
+          "table": "completing",
+          "owner": "unresolved",
+          "known_table": false
+        }
+      ],
+      "cross_domain_write_owners": [],
+      "cross_domain_read_only_owners": []
+    }
+  },
+  "cross_domain_writes": {
+    "ai_gateway_core.metrics.context_metrics": {
+      "home_domain": "other",
+      "writes_into": [
+        "platform"
+      ],
+      "tables": [
+        "usage_statistics"
+      ]
+    },
+    "ai_gateway_core.metrics.usage_recorder": {
+      "home_domain": "other",
+      "writes_into": [
+        "platform"
+      ],
+      "tables": [
+        "billing_events",
+        "request_traces",
+        "usage_daily_aggregates",
+        "usage_hourly_aggregates",
+        "usage_records",
+        "user_quotas"
+      ]
+    },
+    "ai_gateway_core.persistence.database": {
+      "home_domain": "platform",
+      "writes_into": [
+        "agent-runtime",
+        "auth",
+        "memory"
+      ],
+      "tables": [
+        "api_keys",
+        "assistant.sessions",
+        "audit_logs",
+        "auth_config",
+        "login_audit",
+        "rbac_roles",
+        "role_permissions",
+        "session_memory",
+        "user_memory",
+        "user_permissions",
+        "user_roles",
+        "users"
+      ]
+    },
+    "ai_gateway_core.persistence.repositories.agent_repository": {
+      "home_domain": "agent-studio",
+      "writes_into": [
+        "agent-runtime",
+        "auth",
+        "eval-trace",
+        "mcp-connector",
+        "memory",
+        "platform"
+      ],
+      "tables": [
+        "agent_runtime_attachments",
+        "agent_runtime_feedback",
+        "agent_runtime_idempotency",
+        "agent_traces",
+        "assistant.sessions",
+        "assistant_memory_reflections",
+        "assistant_run_checkpoints",
+        "assistant_runs",
+        "audit_logs",
+        "connector_credential_principals",
+        "mcp_channel_grants",
+        "mcp_connections",
+        "semantic_cache",
+        "session_memory",
+        "user_memory"
+      ]
+    },
+    "ai_gateway_core.skills.builder": {
+      "home_domain": "skills",
+      "writes_into": [
+        "agent-runtime"
+      ],
+      "tables": [
+        "assistant_audit_events"
+      ]
+    }
+  }
+}

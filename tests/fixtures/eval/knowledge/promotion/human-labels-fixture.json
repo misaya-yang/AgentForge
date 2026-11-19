@@ -1,0 +1,9 @@
+{
+  "provenance": "fixture",
+  "reviewer": "synthetic-gate-test",
+  "reviewed_at": "2026-10-16T00:00:00Z",
+  "labels": {
+    "positive": 1.0,
+    "negative": 0.0
+  }
+}

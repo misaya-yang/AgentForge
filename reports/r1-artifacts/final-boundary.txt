@@ -1,0 +1,8 @@
+[ok] all 7 synthetic violations detected, 13 files scanned
+[ok] legal imports (gateway->core, app->core, core->contracts, relative) produce nothing
+[ok] matching dated allowlist entry suppresses exactly its violation
+[ok] stale allowlist entry flagged
+[ok] expired allowlist entry flagged as violation
+SELFTEST OK: synthetic boundary violations fail closed, legal imports pass
+scanned 609 files; 0 violation(s), 0 allowlisted, 0 expired allowlist entry(ies), 0 stale entry(ies)
+OK: import boundary intact (evidence: tmp/gate-evidence/architecture-boundary-gate.json)

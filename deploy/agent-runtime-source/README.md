@@ -1,0 +1,326 @@
+# Agent Runtime source lock and native build
+
+**Last verified:** 2026-10-17 (source/command review; no live acceptance claim).
+
+This directory is the main repository's immutable reference to the separately
+maintained upstream Agent Runtime source. Runtime deployment must never follow a
+branch, mutable tag, local checkout, or unverified App Server schema.
+
+Files:
+
+- `lock.json` pins source, schema, SBOM, license, and separate App Server,
+  Agent Runtime and capability worker OCI identities. One artifact cannot satisfy another's gate.
+- `source-receipt.json` is generated from one clean fork revision and its
+  source-built App Server schema bundle.
+- `sbom.cdx.json` is the deterministic CycloneDX inventory for that revision.
+- `NOTICE.md` preserves upstream attribution and the exact audited hashes.
+- `Dockerfile` builds the Phase 0 source-pinned App Server protocol probe.
+- `Dockerfile.runtime` builds the private Rust HTTP/SSE Agent Runtime after the
+  controlled fork revision and release receipt are updated together. Its final
+  stage uses Debian 13 slim with an explicit runtime-only tool/library inventory;
+  see [runtime-image-dependencies.md](runtime-image-dependencies.md) for the
+  image contract and required unrun acceptance gates.
+
+Generate source evidence from the independent fork (the command runs Cargo metadata and
+hashes the supplied schema directory; it does not compile the schema):
+
+```bash
+platform-tools source-lock generate \
+  --fork /absolute/path/to/agent-runtime-source \
+  --schema-dir /absolute/path/to/source-built-schemas \
+  --receipt deploy/agent-runtime-source/source-receipt.json \
+  --sbom deploy/agent-runtime-source/sbom.cdx.json
+```
+
+The current CLI operations are:
+
+| Operation | Native command | Effect |
+| --- | --- | --- |
+| Validate source and release identity | `platform-tools source-lock validate --repo-root . --lock deploy/agent-runtime-source/lock.json [--require-runnable] [--require-artifact ARTIFACT]` | Read-only validation. `--require-runnable` requires the App Server artifact; `ARTIFACT` is `app_server`, `agent_runtime`, or `capability_worker`. |
+| Verify the Runtime and Worker local images | `platform-tools source-lock verify-local-images --repo-root . --lock deploy/agent-runtime-source/lock.json [--runtime-image IMAGE] [--worker-image IMAGE]` | Inspects the selected Docker images and compares their immutable identities with the lock. |
+| Verify the platform overlay | `platform-tools source-lock verify-overlay --repo-root . [--overlay-dir DIR] [--upstream-sha SHA] [--source-revision SHA] [--source CHECKOUT]` | Verifies the overlay inventory and optional source/preimage bindings. |
+| Generate source receipt and SBOM | `platform-tools source-lock generate --fork CHECKOUT --schema-dir DIR --receipt FILE --sbom FILE` | Requires the existing controlled fork to be clean and a generated schema bundle. |
+| Generate evidence for a composed candidate | `platform-tools source-lock generate-composed --package DIR --upstream CHECKOUT --composed DIR --repo-root . --export-evidence FILE --schema-dir DIR --output NEW_DIR` | Validates the candidate and export evidence, then writes evidence to a new output directory. |
+| Refresh the source lock | `platform-tools source-lock refresh-source-lock --repo-root . --lock deploy/agent-runtime-source/lock.json` | Writes the lock from its source receipt and invalidates all prior image identities. |
+| Refresh overlay identities | `platform-tools source-lock refresh-overlay --repo-root . --lock deploy/agent-runtime-source/lock.json --cargo-workspace DIR [--cargo-metadata FILE]` | Writes the overlay and Worker dependency identities from the exact composed Rust workspace. |
+| Verify a source candidate | `platform-tools source-candidate verify --package DIR --upstream CHECKOUT --repo-root . [--composed-source DIR]` | Read-only validation; does not advance the live lock or admit an image. |
+| Assemble a verified source candidate | `platform-tools source-candidate assemble --package DIR --upstream CHECKOUT --repo-root . --output NEW_DIR` | Writes a new composition directory after validating the source package. |
+| Record a local image | `platform-tools source-lock record-local-image --repo-root . --lock deploy/agent-runtime-source/lock.json --artifact ARTIFACT --image IMAGE` | Inspects the image, then updates the lock with its immutable local identity. `ARTIFACT` is `app_server`, `agent_runtime`, or `capability_worker`. |
+
+These command names and options are implemented by the `source-lock` and
+`source-candidate` branches in `platform-tools/src/main.rs`. For the complete
+native command inventory, see the linked `platform-tools` README. The old
+`agent_runtime_supply_chain.py` and `agent_runtime_source_candidate.py` entry
+points are not part of the current workflow.
+
+Build the private Rust Runtime and capability Worker through the existing
+serialized builder:
+
+```bash
+platform-tools source-lock refresh-source-lock \
+  --repo-root . --lock deploy/agent-runtime-source/lock.json
+AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-source-build-local
+AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/fork make agent-runtime-build-local
+AI_PLATFORM_AGENT_RUNTIME_IMAGE=ai-gateway-agent-runtime:local-<sha> \
+  make agent-runtime-smoke
+make agent-runtime-contract
+```
+
+The script accepts `runtime`, `worker`, `app-server`, or `all`; `all` builds the
+Runtime and Worker serially and checks both image identities against the lock.
+The source checkout is the already controlled fork selected by the operator;
+the build does not publish images. `make agent-runtime-contract` and
+`make agent-runtime-source-contract` run the native source-lock gate and require
+a runnable Runtime artifact. Source-only lock validation does not authorize
+Runtime or Worker startup.
+
+`make quickstart-build` and `scripts/new/deploy.sh --build` use both existing Rust
+builders before Compose builds native Gateway/Knowledge/migrate and Web images. A prebuilt Runtime never
+substitutes for a missing Worker. Deployment verifies the actual selected image
+IDs, platform, source/schema/binary labels and the Worker's full overlay hash
+before stopping or starting application services:
+
+```bash
+platform-tools source-lock verify-local-images \
+  --repo-root . --lock deploy/agent-runtime-source/lock.json \
+  --runtime-image <runtime-tag-or-digest> --worker-image <worker-tag-or-digest>
+```
+
+Source hot-update uses the same pair check and compares container image IDs,
+so replacing an image behind the same tag still recreates the Runtime/Worker
+pair. Native source changes require compiled image replacement; source copying is not
+an update mechanism. `make hot-update` rebuilds selected native/Web images. Its `--no-restart`
+mode builds without replacing services; it is not runtime acceptance. Hot-update does not
+rewrite existing container environment values. Deployment checks an explicit kernel revision
+against the selected source unit before changing application services.
+
+Source identity checks do not claim that native execution, Docker health,
+provider calls, rollback, publication or another platform has been verified.
+
+For a build proxy with an additional public CA, set `AI_PLATFORM_BUILD_CA_BUNDLE`
+to an absolute regular PEM certificate bundle. The wrappers validate it and pass
+it through an optional BuildKit secret for APT/Cargo trust; the bundle is not
+copied into image layers. Omit it to retain system trust. Optional
+`AI_PLATFORM_BUILD_DEBIAN_MIRROR` and `AI_PLATFORM_BUILD_DEBIAN_SECURITY_MIRROR`
+select credential-free HTTPS package mirrors without changing Dockerfile defaults.
+Keep the existing proxy and writable Buildx configuration when selecting a build
+environment; application/provider credentials remain runtime inputs.
+
+### Reuse existing local builder capacity
+
+The resource helper never creates, selects globally, or removes a builder. Its
+default checkout-scoped builder must already exist with the exact container
+memory/CPU limits. An explicit `AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER` instead
+selects an existing single-node `docker` driver in the current local Unix-socket
+context. `DOCKER_HOST` overrides and remote/mismatched endpoints are refused.
+
+For this mode, each build's memory/CPU inputs bound the **shared Docker daemon**,
+including infrastructure. They are not a per-build container limit. The helper
+checks actual `MemTotal` and `NCPU` before building and fails when either exceeds
+the explicit budget. Keep the shared Rust build lock, one Cargo job, host-memory
+guard and adequate daemon headroom. Runtime and Worker builds select the current
+source lock's local platform, `linux/arm64`; image recording and pair verification
+remain mandatory.
+
+For an already capped local daemon of at most 4 GiB and four CPUs:
+
+```sh
+AI_PLATFORM_RUST_EXISTING_BUILDX_BUILDER=desktop-linux \
+AI_PLATFORM_AGENT_RUNTIME_SOURCE=/absolute/pinned-clean-checkout \
+AI_PLATFORM_AGENT_RUNTIME_BUILD_MEMORY=4g \
+AI_PLATFORM_AGENT_RUNTIME_BUILD_CPU_QUOTA=400000 \
+AI_PLATFORM_CAPABILITY_WORKER_BUILD_MEMORY=4g \
+AI_PLATFORM_CAPABILITY_WORKER_BUILD_CPU_QUOTA=400000 \
+CARGO_BUILD_JOBS=1 scripts/rust/build-update.sh --artifact all
+```
+
+No daemon configuration is changed by this command. A missing builder, unknown
+capacity or exceeded ceiling stops the build before image construction.
+
+When the platform overlay or capability migration changes, refresh its derived
+identity and Worker dependency SBOM from the clean, controlled composed source
+workspace. This command reads that workspace and updates the repository lock, overlay manifest and
+derived Worker SBOM; it does not compile or admit an image:
+
+```bash
+platform-tools source-lock refresh-overlay \
+  --repo-root . \
+  --lock deploy/agent-runtime-source/lock.json \
+  --cargo-workspace /absolute/path/to/composed/codex-rs
+```
+
+For a content change with unchanged dependency definitions, add
+`--content-only-from-ref FULL_COMMIT_SHA` to reuse the Worker dependency graph
+already pinned at that immutable platform commit. This verifies the complete old
+lock, receipt, overlay inventory and SBOM, and requires the Cargo manifest/lock,
+toolchain and `.cargo` input inventories and bytes to remain unchanged. It rebinds
+the same graph with the ordinary SBOM generator and revokes prior image identities.
+It records evidence reuse rather than claiming a new Cargo metadata run or image
+build. Changed dependency inputs require the normal metadata path.
+
+The source synchronization policy and kernel decision are recorded in
+`docs/architecture/ADR-006-agent-runtime-single-kernel.md`; model, state, and
+capability boundaries are in `ADR-007-agent-runtime-data-boundaries.md`.
+
+## Non-runnable upstream source candidates
+
+Before a release-input refresh, an external source-candidate package can retain
+a complete reviewed overlay and its actual Cargo-resolved lock without advancing
+the live pin or admitting an image:
+
+```bash
+platform-tools source-candidate verify \
+  --package /absolute/path/to/source-candidate-package \
+  --upstream /absolute/path/to/existing-clean-upstream \
+  --repo-root . \
+  --composed-source /absolute/path/to/composed-source
+```
+
+This read-only, offline gate verifies target Git objects, payload and evidence
+hashes, exact live preimages, and the complete composed source when supplied.
+It rejects changes to its source-only admission flags and never writes a source
+lock or fetches dependencies. Success is source validation, not release admission.
+The supplied package uses `ai-platform/runtime-source-unit/v1`, distinct from the
+release receipt and v2 overlay manifest.
+
+Source-only promotion to `local_source_locked` does not require OCI images, but
+it does require actual compiled schema and matching source/Worker SBOM, receipt,
+license/notice and overlay provenance. Generate those from the exact source unit
+before refreshing the live lock. Keep all artifact startup flags false until
+each corresponding image is built and verified. Never mix target-only overlay
+paths or a target lockfile with the old upstream pin.
+
+### Generate evidence for a verified composed candidate
+
+The shared workload TLS implementation is maintained only in
+`rust/platform-native/crates/platform-service-primitives/src/workload_identity/`.
+Its exact generated source copy lives under the platform-owned capability contract
+at `src/shared_workload_identity/`, so composing the upstream checkout does not
+leave Rust source references outside the reviewed build context. This adds no
+upstream modification or second compiler cache.
+
+After changing that canonical implementation, run `make source-workload-sync`,
+then `make source-workload-check` before regenerating the source unit and its
+receipts. The native synchronizer copies only the seven registered Rust files,
+records their actual SHA-256 values, and refuses independently edited generated
+files, unknown files or symlinks. The source-candidate and platform fitness gates
+check exact equality; a changed copy is not accepted by refreshing metadata.
+All generated files and their provenance are part of the ordinary overlay/source
+identity. Existing image identities remain invalid until the complete source
+evidence and controlled builds are regenerated and verified.
+
+The separate offline `generate-composed` command retains clean immutable upstream
+provenance while deriving dependency identities from the exact reviewed overlay
+and resolved composed lock. It does not relax `generate`'s clean-fork requirement
+or permit a clean upstream-only dependency graph to stand in for platform crates.
+
+```bash
+platform-tools source-lock generate-composed \
+  --package /absolute/path/to/source-candidate-package \
+  --upstream /absolute/path/to/clean-immutable-upstream \
+  --composed /absolute/path/to/composed-source \
+  --repo-root . \
+  --export-evidence /absolute/path/to/export/export.json \
+  --schema-dir /absolute/path/to/generated-schema \
+  --output /absolute/path/to/new-source-evidence
+```
+
+All inputs are read-only. The output must be a new external directory outside
+source, repository, candidate and export inputs. It contains a generated source
+receipt, source SBOM, Worker SBOM and v2 overlay manifest. It contains no source
+lock and grants no image/startup admission. The clean upstream checkout must have
+HEAD equal to the target, the expected tree and official origin. The existing
+candidate gate verifies the exact composed inventory, modes, target blobs,
+overlay payload, evidence and live preimages before any output is written.
+
+An export is admissible only after the compiled protocol example actually exits
+successfully and generates a nonempty schema bundle. Export metadata from that
+same composed workspace with `cargo +<pinned-version> metadata --locked --offline
+--format-version 1`, without platform filtering; retain the exact lock and actual
+Cargo/rustc version outputs. Do not infer generation from `cargo check`, source
+schema files, a killed build, an empty directory, or a previous release's bundle.
+The guarded runner's successful command receipt must include its actual `cwd`;
+the metadata command receipt also binds its captured stdout via `stdout_sha256`.
+
+The export manifest uses `ai-platform/composed-source-export/v1` and contains:
+
+- `source_unit_sha256_before` and `source_unit_sha256_after`: the identical
+  verified source-unit manifest digest before and after exporting
+- `target_commit`, `resolved_lock_sha256`, and `schema_bundle` (the actual
+  `bundle_identity` result: SHA-256, file count and total bytes)
+- `files`: named `cargo_metadata`, `cargo_lock`, `cargo_version`, `rustc_version`,
+  `schema_command_receipt`, and `metadata_command_receipt`; each has a relative
+  `path` below the export manifest directory and the actual file's `sha256`
+
+Command receipts retain their exact command, working directory, exit code and
+stop reason. Schema generation must use the existing `codex-app-server-protocol`
+example `ai_platform_export_schema` with the exact output directory, pinned
+Rust, `--locked` and `--offline`. Metadata command flags are likewise validated.
+Version files, schema, lock, metadata and both receipts are hash-bound; path
+packages must belong to the verified composed tree and each metadata package
+must occur in the resolved lock. An export manifest records observed work; it
+must never be filled in to make unperformed or unsuccessful commands appear valid.
+
+The generated receipt explicitly records that the protocol schema was compiled,
+while Runtime/Worker compilation and Docker image verification remain false.
+After source evidence review, update notice/owning docs and the complete release
+input unit together, then use `refresh-source-lock` to invalidate prior OCI
+identities. Successful generation alone does not authorize live pin refresh,
+service startup, publication, or deployment.
+
+
+## Current stable source lock (upstream selected 2026-10-12)
+
+The source-only update selects official stable `rust-v0.162.1`, immutable target
+`092d3acd6bec3e3a14bdc7e7a2810ab628ab759d`, plus the reviewed platform overlay.
+The current manifest has 148 files (111 platform-owned and 37 upstream modifications).
+The source unit includes the actual resolved Cargo.lock. Its compiled protocol
+schema contains 1,060 files. Source and Worker SBOMs were generated from the
+unfiltered locked composed graph. The receipt records host protocol generation;
+it does not claim a Docker build or linked Runtime/Worker executable.
+
+The state is `local_source_locked`: all three OCI artifact startup flags are
+false and previous image references/digests are cleared. Check source identity
+without weakening the existing runnable gates:
+
+```bash
+platform-tools source-lock validate \
+  --repo-root . --lock deploy/agent-runtime-source/lock.json
+```
+
+`make agent-runtime-source-contract` currently requests a runnable Runtime
+artifact, as does `make agent-runtime-contract`; both must remain blocked until
+matching images exist. A passing source-only CLI check is not a pass for either
+Make target. The measured schema comparison and remaining acceptance scope are
+recorded in [the source-only update report](../../reports/architecture/codex-stable-source-2026-10-12.md).
+
+### Native history compatibility
+
+Persisted rollout items carry compiled upstream/schema writer provenance. The
+release gate now requires the actual native N-1 decode corpus; missing raw
+history evidence blocks release. See
+[history compatibility and rollback](../../docs/design/agent-runtime-history-compatibility.md)
+for decoder build/run inputs, frozen N-1 rollback gating and stop-write/data-restore
+rules. The checked-in corpus manifest is deliberately blocked rather than using
+projection reports or generated turns as historical evidence.
+
+### Compiled plugin source inputs
+
+The Quiz implementation is maintained in `agent-plugins/ai-quiz/native`, with generic
+Python rendering maintained in `platform-python-compat`. Run `make source-plugin-sync`
+after changes and `make source-plugin-check` before source admission. The generated
+sibling crates carry exact source and output SHA-256 inventories; the only manifest
+adaptation binds sibling paths and the composed workspace SQLx version. This keeps
+Worker executor and pool types consistent while excluding the Gateway-only adapter.
+Independent edits in generated inputs are refused and must be preserved and resolved.
+These sources are platform owned; upstream Codex source is unchanged. Source
+synchronization does not admit an image or a signed plugin activation.
+
+The same exact-source gate also packages `data_connection/config.rs` for Runtime
+and Worker file-DSN/DB mTLS initialization. It retains the native role and pool
+identity checks while compiling against the composed workspace SQLx dependency.
+
+The model bridge serves both workload `dual` and `required` modes. The upstream
+model client reaches its explicit loopback endpoint with a dedicated local token;
+the platform bridge performs the actual SVID connection. Remote callers cannot
+use that loopback bridge on either the private TLS listener or the health listener.

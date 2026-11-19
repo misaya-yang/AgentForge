@@ -1,0 +1,19 @@
+# Merge with values.yaml and an owner-reviewed release values file.
+# No credential bytes or image tags belong here.
+global:
+  imagePullPolicy: Always
+gateway:
+  replicaCount: 1
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
+agentRuntime:
+  replicaCount: 1
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
+capabilityWorker:
+  replicaCount: 1
+  autoscaling: {enabled: false, minReplicas: 1, maxReplicas: 1}
+frontend:
+  replicaCount: 3
+  autoscaling: {enabled: true, minReplicas: 3, maxReplicas: 10, targetCPUUtilization: 70}
+knowledgeService:
+  replicaCount: 2
+  autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 8, targetCPUUtilization: 70}

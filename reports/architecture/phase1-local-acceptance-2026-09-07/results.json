@@ -1,0 +1,127 @@
+{
+  "schema_version": "phase1/local-acceptance/v1",
+  "acceptance_scope": "local Docker, in-app browser, real provider and PostgreSQL; not a public release certification",
+  "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+  "branch": "codex/agent-platform-vnext-phase1",
+  "python": {
+    "passed": 3600,
+    "skipped": 8,
+    "failed": 0,
+    "epoch2_matrix_separately_passed": 2
+  },
+  "cli_unit": {
+    "passed": 72,
+    "files": 8
+  },
+  "browser": {
+    "login": true,
+    "dashboard": true,
+    "qwen_reply": "P1_QWEN_OK=133",
+    "reply_restored_after_reload": true,
+    "cancel_terminal": true,
+    "pending_approval_restored_after_reload": true,
+    "approved_python_stdout": "42",
+    "python_cancel_processes_before": [
+      "unshare",
+      "ai-platform-python-supervisor",
+      "python3"
+    ],
+    "python_cancel_processes_after": [],
+    "python_after_cancel_stdout": "P1_SLOT_REUSED",
+    "knowledge_dataset": "kb_257bdf5fc069",
+    "document": "p1-knowledge.txt",
+    "ingestion": "completed",
+    "retrieval": "hybrid: vector + BM25 each hit 1",
+    "rag_model": "qwen3.7-plus",
+    "rag_answer": "北辰项目的紧急联系代码是 P1-ORION-739 [1]。",
+    "citation_count": 1,
+    "qwen37_reply": "P1_QWEN37_INPUT_OK",
+    "changed_model_capabilities": "409 preserved; actionable new-conversation guidance verified in final Web bundle",
+    "eval_comparison": {
+      "rendered": true,
+      "case_quality_baseline": 0,
+      "case_quality_candidate": 1,
+      "regression_gate": "fail",
+      "reasons": [
+        "missing_runtime_fingerprint (legacy prompt/tool hash fields)",
+        "sampling differs",
+        "insufficient_evidence (one paired case)"
+      ],
+      "scope": "comparison UI preserves failing gate; no baseline promotion or quality release claim"
+    }
+  },
+  "fixes_found_live": [
+    "Migration container required current epoch manifest and ai_gateway_contracts package; official Dockerfile corrected.",
+    "Long run/provider/SSE/job lease lifetimes incorrectly polluted HTTP p99 load shedding; separated lifecycle budgets while retaining capacity enforcement.",
+    "Internal Eval candidate now delegates to the persisted run creator after fenced job + same-tenant active-user DB verification, instead of requiring extra external credentials or using a nonexistent virtual user; explicit configured credentials still fail closed.",
+    "Eval capture now reads scoped snapshot/model-call ledger for real model_invocation spans, measured tokens and verified frozen ModelRef; missing evidence stays unknown or fails closed.",
+    "Trace score evaluator_id UUID was not serialized as a string; corrected and actual GET now returns200."
+  ],
+  "external_release_not_verified": [
+    "fresh-machine registry pull/quickstart",
+    "full historical frozen artifact and database rollback",
+    "hosted Rust fmt/check/changed-crate CI",
+    "Darwin/Windows and full multi-architecture native distribution",
+    "native CLI real-provider task and published Linux x64 matrix",
+    "formal Eval regression promotion: legacy full prompt/tool fingerprint plus adequate paired sample evidence"
+  ],
+  "native_cli": {
+    "status": "PASS_FOR_LOCAL_BUILD_LAUNCH_CONTROLLED_EXEC_AND_PACKAGE_PREVIEW",
+    "target": "linux-arm64",
+    "receipt": "native-cli.json",
+    "native_live_provider_journey": "NOT_RUN",
+    "published_linux_x64_matrix": "NOT_RUN",
+    "controlled_responses_exec": "PASS: real native binary emitted P1_NATIVE_CLI_OK and turn.completed with local fixture",
+    "pack_preview": "PASS: 13 files includes native ELF and all provenance/license/SBOM materials"
+  },
+  "eval_http": {
+    "status": "PASS_NORMAL_PROFILE",
+    "details": "eval-http.json",
+    "model": "qwen3.7-plus",
+    "identity": "current fenced job persisted run creator, same tenant active user; /me rechecked; creator current authorization and tool approvals preserved",
+    "case_status": "passed",
+    "sampling": {
+      "temperature": 0.7,
+      "max_tokens": 32768
+    },
+    "output": "EVAL_HTTP_BF15B93A",
+    "measured_tokens": {
+      "input": 13517,
+      "output": 77,
+      "total": 13594
+    },
+    "trace_get_http_status": 200
+  },
+  "merge": {
+    "status": "PASS",
+    "strategy": "fast-forward",
+    "source_branch": "codex/agent-platform-vnext-phase1",
+    "target_branch": "main",
+    "implementation_commit": "5f36974df3a9a58ca6b4fe907389399c32e8a537",
+    "pushed": false
+  },
+  "source_verification": {
+    "gateway_python_files": 452,
+    "knowledge_api_python_files": 271,
+    "knowledge_worker_python_files": 271,
+    "frontend_dist_files": 253,
+    "mismatches": 0,
+    "excluded": "runtime-config.js generated from deployment settings at container start"
+  },
+  "repair_regression": {
+    "passed": 631,
+    "skipped": 3,
+    "failed": 0
+  },
+  "eval_low_budget_profile": {
+    "status": "FAILED_QUALITY_ASSERTIONS",
+    "sampling": {
+      "temperature": 0,
+      "max_tokens": 512
+    },
+    "details": "eval-low-budget-failed.json",
+    "scope": "actual run completed, expected marker absent; original failure preserved. Not attributed to randomness or claimed fixed."
+  },
+  "docker_final": "PASS: final Gateway, Knowledge API/worker, Frontend source layers and paired Runtime/Worker healthy; migration exit0",
+  "text_log_normalization": "ANSI styling and trailing whitespace removed for committed reports; original command logs remain in tmp/agent-platform-vnext-phase1; outcomes unchanged."
+}

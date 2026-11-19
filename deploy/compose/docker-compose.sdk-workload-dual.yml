@@ -1,0 +1,23 @@
+# Only during dual window; remove alongside workload-dual.yml at retirement.
+services:
+  gateway:
+    environment:
+      SDK_AGENT_WORKER_TOKEN_FILE: /run/sdk-token/token
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select purpose-scoped runtime files}/sdk-agent-worker/worker-token
+      target: /run/sdk-token/token
+      read_only: true
+      bind:
+        create_host_path: false
+  sdk-agent-worker:
+    environment:
+      SDK_AGENT_WORKER_TOKEN_FILE: /run/sdk-token/token
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+    volumes:
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select purpose-scoped runtime files}/sdk-agent-worker/worker-token
+      target: /run/sdk-token/token
+      read_only: true
+      bind:
+        create_host_path: false

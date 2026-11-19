@@ -1,0 +1,4 @@
+[
+  "SELECT has_table_privilege(current_user,'assistant.assistant_runtime_thread_owners','SELECT') AND NOT has_table_privilege(current_user,'assistant.assistant_runtime_thread_owners','INSERT,UPDATE,DELETE') AND has_function_privilege(current_user,'assistant.claim_runtime_thread_owner(uuid,uuid,text)','EXECUTE') AND has_function_privilege(current_user,'assistant.assert_runtime_thread_owner_for_run(uuid,uuid,text)','EXECUTE') AND has_function_privilege(current_user,'assistant.heartbeat_runtime_thread_owner(uuid,uuid)','EXECUTE')",
+  "SELECT partition_ops.schema_admitted()"
+]

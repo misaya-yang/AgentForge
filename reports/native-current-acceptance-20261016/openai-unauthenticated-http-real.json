@@ -1,0 +1,26 @@
+{
+  "verified_at": "2026-10-16T09:58:44.034Z",
+  "gateway_pid": 63482,
+  "status": "failed",
+  "checks": [
+    {
+      "route": "/v1/models",
+      "status": 200,
+      "no_response_content": false
+    },
+    {
+      "route": "/v1/chat/completions",
+      "status": 404,
+      "error_code": "model_not_found",
+      "error_type": "invalid_request_error",
+      "no_response_content": true
+    },
+    {
+      "route": "/v1/embeddings",
+      "status": 404,
+      "error_code": "model_not_found",
+      "error_type": "invalid_request_error",
+      "no_response_content": true
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+package_id: R1-RP02
+state: locally_integrated_safe_increment
+base_sha: 1107bd06082d214c29a61bb8f04e16df483c6fce
+implementation_commit: 9373a65005fbbf440937d79433606262c52bd5cc
+source_branch: codex/r1-artifacts-long-tasks
+integration: {target: main, mode: local-fast-forward, pushed: false, branch_deleted: false}
+full_R1_complete: false
+status_label: CANDIDATE_80
+contracts_preserved:
+- Rust owns execution/recovery; Gateway retains model and current-source governance
+- Same original run/thread/tool identities; no automatic unknown-write replay
+- Read immutable ceiling without old write lease; mutating fence/sticky write health unchanged
+- No schema, dependency, authorization expansion, secret copying or shared network change
+automated:
+  python: {passed: 89}
+  node: {passed: 14}
+  docker_rust: {passed: 160, ignored_optional_pg: 2}
+  source_contract: {passed: 18}
+  openapi: {passed: 2}
+  browser_e2e: {passed: 2, split: [real-saved-PDF, controlled-image-history]}
+  gates: [ruff, app-ts, node-ts, affected-eslint, i18n, architecture-boundary, harness, validate, status]
+real_live:
+- Original long Python stop, PID/private mount namespace reclaimed; execution remains side_effect_unknown
+- Same thread pending approval cancelled, approval cancelled, zero executions
+- Expired cancelled owner then new text run succeeded; expired succeeded owner then another new text run succeeded
+- Refresh and reopened history preserve four original run identities, unique bodies, original execution/attempt; no replay
+- Real PDF content, authenticated bytes and Chromium preview at390px; IAB preview entry only
+controlled:
+- Image pending-to-unknown restore with read-only GETs and zero execution POSTs
+- Wan provider response schema and malformed-result regressions
+runtime:
+  overlay_sha256: a55739b4a6c54e1b2f910f574d955c5b8ffe207b3c3d73d4316dc50544a48ee3
+  source_files_verified: 4
+  frontend_assets_verified: 188
+  healthy_release_unit: true
+review: {reviewer: closure_review, result: PASS, remaining_blocker_high: 0, live_operator: primary}
+unverified_or_blocked:
+- Real image success download blocked by CDN Fake-IP DNS; SSRF guard retained
+- Vision, activity1000, extra sharing/narrow and PDF failure combinations not executed
+- IAB native PDF rendering not observable; full Chromium preview is separately verified
+- Core internal unload/no-subscriber extra branch not manufactured; hosted CI not run; optional PG fixtures ignored
+evidence:
+- reports/product/r1-artifacts-long-task-acceptance-2026-09-27.md
+- reports/r1-artifacts/independent-review.md
+- reports/r1-artifacts/followup-invariants.json
+- reports/r1-artifacts/final-runtime-identity.json
+- reports/r1-artifacts/local-main-integration.json
+- reports/r1-artifacts/final-rust-tests.txt
+rollback: Keep C4 images/receipts; restore corresponding three local non-secret pins and use existing release-unit deployment workflow; no data deletion.

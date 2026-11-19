@@ -1,0 +1,15 @@
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_TOPOLOGY_MODE: "compact"
+    deploy:
+      replicas: 1
+  agent-runtime:
+    deploy:
+      replicas: 1
+  knowledge-service:
+    environment:
+      KNOWLEDGE_RUNTIME_ROLE: "all"
+      KNOWLEDGE_QDRANT__API_KEY: "${QDRANT_API_KEY:?Combined Knowledge role requires its worker write key}"
+  knowledge-worker:
+    profiles: [arc06-full-only]

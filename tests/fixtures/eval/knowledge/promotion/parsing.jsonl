@@ -1,0 +1,1 @@
+{"case_id": "parsing.text-table", "status": "succeeded", "document": {"doc_id": "fixture-document", "pages": [{"page_number": 1, "blocks": [{"block_id": "b1", "type": "text", "text": "Fixture paragraph α"}, {"block_id": "b2", "type": "table", "text": "a b", "order": 1, "table": {"markdown": "| a | b |\n|---|---|\n| 1 | 2 |"}}]}]}}

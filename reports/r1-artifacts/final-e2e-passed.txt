@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:89382) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [chromium] › e2e/r1-artifact-recovery.spec.ts:18:1 › real saved PDF opens authenticated preview and downloads identical bytes at 390px (4.8s)
+  ✓  2 [chromium] › e2e/r1-artifact-recovery.spec.ts:54:1 › controlled recovered image observes pending then unknown without any execution POST (3.0s)
+
+  2 passed (9.7s)

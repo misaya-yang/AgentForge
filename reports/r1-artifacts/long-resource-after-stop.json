@@ -1,0 +1,1 @@
+{"original_pids_still_present": [], "original_private_mount_namespace_references": [], "unique_mount_namespace_observed": true, "pid_namespace_was_shared_with_worker": false, "worker_alive": true}

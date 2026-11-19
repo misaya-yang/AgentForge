@@ -1,0 +1,36 @@
+# Integration fragment only: root must mount the new listeners/gates first.
+# Reuse the existing project/networks/volumes. No host ports or CA private mount.
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_WORKLOAD_TLS_BIND: gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/agentforge/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.local/ns/platform/sa/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.local/ns/platform/sa/runtime,spiffe://agentforge.local/ns/platform/sa/knowledge,spiffe://agentforge.local/ns/platform/sa/capability-worker
+      AI_PLATFORM_INTERNAL_TOKEN: ""
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/secrets/internal-token
+    volumes:
+      - ${WORKLOAD_FILES_ROOT:?operator-owned absolute credentials root}/gateway:/run/agentforge/workload:ro
+      - ${INTERNAL_TOKEN_FILE:?operator-owned private token file}:/run/secrets/internal-token:ro
+    networks:
+      app:
+        aliases: [gateway-workload]
+  knowledge-service:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: dual
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-workload:8444
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/agentforge/workload
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.local/ns/platform/sa/knowledge
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.local/ns/platform/sa/gateway,spiffe://agentforge.local/ns/platform/sa/runtime
+      AI_PLATFORM_INTERNAL_TOKEN: ""
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: /run/secrets/internal-token
+    volumes:
+      - ${WORKLOAD_FILES_ROOT:?operator-owned absolute credentials root}/knowledge:/run/agentforge/workload:ro
+      - ${INTERNAL_TOKEN_FILE:?operator-owned private token file}:/run/secrets/internal-token:ro
+    networks:
+      app:
+        aliases: [knowledge-workload]
+# Runtime/Worker source owners configure their existing outbound mTLS loader with
+# CA_FILE=/run/.../current/ca.pem, IDENTITY_FILE=/run/.../current/identity.pem and
+# an exact HTTPS allowed-origin list. Their code/deployment remains separately owned.

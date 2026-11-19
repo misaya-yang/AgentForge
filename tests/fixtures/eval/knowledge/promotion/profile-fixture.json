@@ -1,0 +1,5 @@
+{
+  "version": "fixture-v1",
+  "role": "gate-contract-only",
+  "not_quality_evidence": true
+}

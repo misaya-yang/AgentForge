@@ -1,0 +1,6 @@
+# Opt-in include after operator prepares pgBackRest, its stanza and secret file.
+# Source port/path/stanza/config paths must match the public recovery config.
+wal_level = replica
+archive_mode = on
+archive_timeout = '60s'
+archive_command = '/usr/bin/pgbackrest --config=/etc/agentforge-recovery/pgbackrest.conf --config-include-path=/etc/agentforge-recovery/empty-conf.d --stanza=agentforge archive-push %p'

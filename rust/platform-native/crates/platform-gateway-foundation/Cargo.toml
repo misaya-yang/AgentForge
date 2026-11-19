@@ -1,0 +1,60 @@
+[package]
+name = "ai-platform-gateway-foundation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+tracing = "0.1"
+ai-platform-python-compat = { version = "0.1.0", path = "../platform-python-compat" }
+ai-platform-service-primitives = { version = "0.1.0", path = "../platform-service-primitives"  }
+rustls.workspace = true
+webpki-roots = "1"
+ai-platform-auth = { version = "0.1.0", path = "../platform-auth"  }
+axum = { workspace = true, features = ["multipart", "ws"] }
+serde.workspace = true
+serde_json.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "derive", "rust_decimal", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+reqwest.workspace = true
+tokio.workspace = true
+sha2 = "0.10"
+hmac = "0.12"
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+redis.workspace = true
+jsonschema = { version = "=0.33.0", default-features = false }
+futures-core = "0.3"
+futures-util = { version = "0.3", features = ["sink"] }
+tokio-tungstenite.workspace = true
+fernet = { version = "=0.2.2", default-features = false, features = ["rustcrypto", "fernet_danger_timestamps"] }
+base64 = "0.22"
+# Canonical migration parsers, local SQLite ledger, and host middleware.
+regex = "1"
+jsonwebtoken = "9.3"
+encoding_rs = "0.8"
+zip.workspace = true
+quick-xml = "0.41"
+scraper.workspace = true
+tiktoken-rs = "0.7"
+serde_yaml.workspace = true
+rusqlite = { version = "0.32", features = ["bundled"] }
+libc = "0.2"
+unicode-normalization = "0.1"
+http-body = "1"
+ryu-js = "=1.0.2"
+
+# Source-compatible OSS signing and local file metadata digests.
+sha1 = "0.10"
+md-5 = "0.10"
+unicode-casefold = "0.2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "tiff"] }
+
+[[bin]]
+name = "a2a-card"
+path = "src/bin/a2a_card.rs"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+opentelemetry = { version = "=0.32.0", default-features = false, features = ["trace"] }
+# Exercise the mounted callback Router in-process; already locked transitively.
+tower = { version = "0.5", features = ["util"] }

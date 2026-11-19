@@ -1,0 +1,118 @@
+{
+  "fixture_only": true,
+  "secret": "synthetic-hybrid-contract-only",
+  "python_actor_request": {
+    "method": "POST",
+    "path": "/internal/v2/agent-capabilities/knowledge-actor",
+    "query": "",
+    "body": "{\"tenant_id\": \"tenant\", \"user_id\": \"owner\"}",
+    "headers": {
+      "host": "gateway.example.invalid",
+      "accept": "*/*",
+      "accept-encoding": "gzip, deflate",
+      "connection": "keep-alive",
+      "user-agent": "python-httpx/0.28.1",
+      "content-type": "application/json",
+      "x-gateway-secret": "v2:local:6b0cb3e2dadfa27ee68af1ab42b192f1:1791847725048:56cd7c2562bb0091a5489902f3d15e42e5a8834c60feefa79c5d4cb045a5e608:ccd14679c516bde1f5aa8dd7c135d8d029531de13d62adb1e1dfacb1f76b7579",
+      "content-length": "43"
+    }
+  },
+  "native_requests": [
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/dataset/sources",
+      "query": "",
+      "body": "",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:c078bafd-1c5b-4b2b-a289-ab2f14fe299c:1791847838609:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:64486ebc6389cacf5714418e41556b45586750449a2bbb2cec8ff68fd5e6fd1a",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/dataset/sources/confluence/first/sync",
+      "query": "",
+      "body": "{\"request_id\":\"4fd4c558-18f1-4b33-9314-675cf4907a01\"}",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:79670648-f097-44cb-a9ff-8d951f8a10f8:1791847838610:914a6b3b821bd9fe8b955bbd138face7c41b7ac42472b73d2555ab2996d1c0ab:532cce8837db31439d3796230ce5f873d3eabc69f5e57524de45ea873c95fa64",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/dataset/sources/confluence/first/sync/4fd4c558-18f1-4b33-9314-675cf4907a01",
+      "query": "",
+      "body": "",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:6a613758-1fe4-40dd-9789-0830e1d84d5b:1791847838611:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:c2b6cfd99c0aa4ff5fe1f56f8cbd0ff934a18e8039edc43bb8ef87dc21d41289",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/knowledge/dataset/sources/confluence/connections/connection/control",
+      "query": "",
+      "body": "{\"expected_revision\":\"2026-10-12T00:00:00+00:00\",\"expected_status\":\"active\",\"status\":\"disabled\"}",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:e405cba3-a164-4e9f-a9ff-aec70116dadf:1791852415742:42b241cfe18768766823bc890c948f277607e5dad56112962ee25b785d1af0c0:88b3151609a5f04ec8dc300cffab269ed8ccd3695c99e48493bad85f9d8d69db",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/dataset/sources/confluence/connections/connection/control",
+      "query": "",
+      "body": "",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:2c635ee1-5904-4439-94f2-fbd8f7df7515:1791852415743:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855:6ce1bbd764ca692c4d12ac04dfbd6e94587cfc99749ba4d9d8fe055eccd91d76",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/dataset/sources/confluence/connections/connection/credentials",
+      "query": "",
+      "body": "{\"expected_revision\":\"2026-10-12T00:00:00+00:00\",\"expected_status\":\"active\",\"email\":\"replacement@example.invalid\",\"api_token\":\"synthetic-replacement-only\"}",
+      "headers": {
+        "accept-encoding": "identity",
+        "content-type": "application/json",
+        "x-gateway-secret": "v2:local:11bda005-1090-496b-a65e-ee7c5b608401:1791853512723:3ca7157ca4ae39c9129cf0ed8f359985d1e02bc4239f8c3a258069b3bad2979f:b8f0f8dda0d0b8d7ca4a6436e979d10212b2f05a5bf2293bb07c7e80a9a5888e",
+        "x-tenant-id": "tenant",
+        "x-user-id": "owner",
+        "x-user-roles": "user",
+        "x-user-tier": "normal",
+        "x-user-type": "user"
+      }
+    }
+  ]
+}

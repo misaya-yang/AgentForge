@@ -1,0 +1,6 @@
+{
+  "scenario": "worker_unknown",
+  "result": "INTERRUPTED_HARNESS_WAIT",
+  "run_id": "1cb2d887-ccb0-4861-aab6-d2ea722a7f5e",
+  "reason": "Harness erroneously waited for a pending approval after original approval was already consumed. Actual receipt unknown; positive acceptance rerun in separate case."
+}

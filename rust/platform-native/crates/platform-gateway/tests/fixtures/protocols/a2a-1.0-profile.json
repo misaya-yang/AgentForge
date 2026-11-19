@@ -1,0 +1,125 @@
+{
+  "protocolVersion": "1.0",
+  "source": "https://a2a-protocol.org/latest/specification/",
+  "fixturePurpose": "HTTP+JSON supported text profile; managed turn states and unsupported legacy wire forms",
+  "states": [
+    {
+      "managed": "completed",
+      "a2a": "TASK_STATE_COMPLETED"
+    },
+    {
+      "managed": "succeeded",
+      "a2a": "TASK_STATE_COMPLETED"
+    },
+    {
+      "managed": "failed",
+      "a2a": "TASK_STATE_FAILED"
+    },
+    {
+      "managed": "error",
+      "a2a": "TASK_STATE_FAILED"
+    },
+    {
+      "managed": "rejected",
+      "a2a": "TASK_STATE_REJECTED"
+    },
+    {
+      "managed": "cancelled",
+      "a2a": "TASK_STATE_CANCELED"
+    },
+    {
+      "managed": "canceled",
+      "a2a": "TASK_STATE_CANCELED"
+    },
+    {
+      "managed": "requires_action",
+      "a2a": "TASK_STATE_INPUT_REQUIRED"
+    },
+    {
+      "managed": "waiting_approval",
+      "a2a": "TASK_STATE_INPUT_REQUIRED"
+    },
+    {
+      "managed": "queued",
+      "a2a": "TASK_STATE_SUBMITTED"
+    },
+    {
+      "managed": "pending",
+      "a2a": "TASK_STATE_SUBMITTED"
+    },
+    {
+      "managed": "running",
+      "a2a": "TASK_STATE_WORKING"
+    },
+    {
+      "managed": "in_progress",
+      "a2a": "TASK_STATE_WORKING"
+    },
+    {
+      "managed": "provider_timeout",
+      "a2a": "TASK_STATE_UNSPECIFIED"
+    }
+  ],
+  "accepted": [
+    {
+      "message": {
+        "messageId": "00000000-0000-4000-8000-000000000001",
+        "role": "ROLE_USER",
+        "parts": [
+          {
+            "text": "first"
+          },
+          {
+            "text": "second",
+            "mediaType": "text/plain"
+          }
+        ]
+      },
+      "configuration": {
+        "returnImmediately": true,
+        "acceptedOutputModes": [
+          "text/plain"
+        ],
+        "historyLength": 0
+      }
+    }
+  ],
+  "unsupported": [
+    {
+      "message": {
+        "messageId": "00000000-0000-4000-8000-000000000001",
+        "role": "user",
+        "parts": [
+          {
+            "kind": "text",
+            "text": "legacy"
+          }
+        ]
+      }
+    },
+    {
+      "message": {
+        "messageId": "00000000-0000-4000-8000-000000000001",
+        "role": "ROLE_USER",
+        "parts": [
+          {
+            "text": "hello",
+            "mediaType": "application/json"
+          }
+        ]
+      }
+    },
+    {
+      "message": {
+        "messageId": "00000000-0000-4000-8000-000000000001",
+        "role": "ROLE_USER",
+        "parts": [
+          {
+            "text": "hello"
+          }
+        ],
+        "taskId": "remote-task"
+      }
+    }
+  ]
+}

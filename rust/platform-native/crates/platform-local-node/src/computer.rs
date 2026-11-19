@@ -1,0 +1,27 @@
+//! Provider-neutral computer leases; all input requires fresh observation and approval.
+use crate::{Error,Result,digest,envelope::{Action,PlatformVerifier,ApprovalVerifier},ledger::Ledger};
+use serde::{Serialize,Deserialize};use serde_json::{Value,json};use std::collections::HashSet;
+#[derive(Clone,Serialize,Deserialize)]pub struct Observation{pub observation_id:String,pub app_id:String,pub window_id:String,pub origin:Option<String>,pub width:u32,pub height:u32,pub screenshot_ref:Option<String>,pub accessibility_digest:Option<String>,pub observed_at:f64}
+impl Observation{pub fn digest(&self)->Result<String>{Ok(digest(&serde_json::to_value(self).map_err(|_|Error::Protocol)?))}}
+#[derive(Serialize,Deserialize)]pub struct ComputerAction{pub kind:String,pub observation_id:String,pub arguments:Value}
+pub trait ComputerDriver{fn ready(&mut self)->bool;fn observe(&mut self,app:&str,window:Option<&str>)->Result<Observation>;fn execute(&mut self,action:&ComputerAction)->Result<()>;fn stop(&mut self)->Result<()>;}
+#[derive(Clone)]pub struct Lease{pub lease_id:String,pub session_id:String,pub app_id:String,pub window_id:Option<String>,pub expires_at:f64,token:String}
+impl Lease{pub fn token(&self)->&str{&self.token}}
+#[derive(Serialize,Deserialize)]pub struct ComputerResult{pub action_id:String,pub status:String,pub before_observation_id:String,pub after_observation_id:String,pub after_digest:String}
+pub struct ComputerController<D:ComputerDriver>{pub driver:D,pub allowed_apps:HashSet<String>,pub allowed_origins:HashSet<String>,lease:Option<Lease>,observation:Option<Observation>}
+fn token()->Result<String>{use base64::Engine;let mut bytes=[0u8;32];getrandom::getrandom(&mut bytes).map_err(|_|Error::Denied("OS entropy unavailable"))?;Ok(base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes))}
+fn equal(a:&str,b:&str)->bool{if a.len()!=b.len(){return false}a.bytes().zip(b.bytes()).fold(0u8,|diff,(a,b)|diff|(a^b))==0}
+impl<D:ComputerDriver> ComputerController<D>{
+ pub fn new(driver:D,allowed_apps:HashSet<String>,allowed_origins:HashSet<String>)->Self{Self{driver,allowed_apps,allowed_origins,lease:None,observation:None}}
+ pub fn acquire(&mut self,app:&str,session:&str,window:Option<String>,ttl:u32)->Result<Lease>{if !self.driver.ready()||!self.allowed_apps.contains(app)||session.is_empty()||session.len()>512||ttl==0||ttl>3600||self.lease.as_ref().is_some_and(|l|crate::now()<l.expires_at){return Err(Error::Denied("computer lease unavailable"))}let lease=Lease{lease_id:format!("lease_{}",token()?),session_id:session.into(),app_id:app.into(),window_id:window,expires_at:crate::now()+ttl as f64,token:token()?};self.lease=Some(lease.clone());self.observation=None;Ok(lease)}
+ fn require(&self,token:&str)->Result<Lease>{let l=self.lease.as_ref().ok_or(Error::Denied("computer lease absent"))?;if crate::now()>=l.expires_at||!equal(token,&l.token){return Err(Error::Denied("computer lease expired or invalid"))}Ok(l.clone())}
+ pub fn observe(&mut self,token:&str)->Result<Observation>{let l=self.require(token)?;let o=self.driver.observe(&l.app_id,l.window_id.as_deref())?;if o.app_id!=l.app_id||o.origin.as_ref().is_some_and(|origin|!self.allowed_origins.is_empty()&&!self.allowed_origins.contains(origin)){self.stop(None)?;return Err(Error::Stale)}self.observation=Some(o.clone());Ok(o)}
+ pub fn execute(&mut self,token:&str,input:&ComputerAction,a:&Action,ledger:&mut Ledger,platform:&dyn PlatformVerifier,approval:&dyn ApprovalVerifier)->Result<ComputerResult>{
+  let l=self.require(token)?;if !["click","double_click","type_text","key_press","scroll","drag","wait","open_app","focus_app"].contains(&input.kind.as_str())||a.capability!="app.control"||a.operation!="app.control"||a.session_id!=l.session_id{return Err(Error::Denied("computer action scope"))}
+  let before=self.observation.clone().ok_or(Error::Stale)?;if before.observation_id!=input.observation_id||before.app_id!=l.app_id{return Err(Error::Stale)}a.validate(&json!({"lease_id":l.lease_id,"kind":input.kind,"observation_id":input.observation_id,"arguments":input.arguments}),&l.lease_id,&[l.lease_id.clone(),before.app_id.clone(),before.window_id.clone()],platform)?;
+  let(created,record)=ledger.begin(a,platform)?;if !created{return serde_json::from_value(record.result.ok_or(Error::Conflict)?).map_err(|_|Error::Conflict)}let mut dispatched=false;
+  let result=(||{ledger.transition(&a.action_id,"awaiting_approval",None)?;a.approve(&before.digest()?,approval)?;ledger.transition(&a.action_id,"dispatched",None)?;ledger.transition(&a.action_id,"running",None)?;dispatched=true;self.driver.execute(input)?;let after=self.observe(token)?;ledger.transition(&a.action_id,"observed",None)?;Ok(ComputerResult{action_id:a.action_id.clone(),status:"succeeded".into(),before_observation_id:before.observation_id,after_observation_id:after.observation_id.clone(),after_digest:after.digest()?})})();
+  match result{Ok(r)=>{ledger.transition(&a.action_id,"succeeded",Some(serde_json::to_value(&r).map_err(|_|Error::Protocol)?))?;Ok(r)},Err(e)=>{ledger.transition(&a.action_id,if dispatched{"unknown"}else{"failed"},Some(json!({"error_code":"computer_action_failed","read_back_required":dispatched,"replay_allowed":false})))?;Err(e)}}
+ }
+ pub fn stop(&mut self,token:Option<&str>)->Result<bool>{let Some(l)=&self.lease else{return Ok(false)};if token.is_some_and(|t|!equal(t,&l.token)){return Err(Error::Denied("computer lease token"))}self.lease=None;self.observation=None;self.driver.stop()?;Ok(true)}
+}

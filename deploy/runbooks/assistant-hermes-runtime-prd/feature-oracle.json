@@ -1,0 +1,162 @@
+{
+  "schema_version": "prd-phase-harness/feature-oracle/v1",
+  "instructions": {
+    "allowed_edits": "Coding agents may update only status, evidence, and notes fields unless the user explicitly changes scope.",
+    "completion_rule": "A feature is passing only after actor evidence exists, cites a phase report with Status: passed, and an independent critic artifact approves or waives completion.",
+    "status_values": [
+      "failing",
+      "passing",
+      "blocked",
+      "waived"
+    ]
+  },
+  "features": [
+    {
+      "id": "AHR-F001",
+      "phase_id": "AHR-00",
+      "category": "baseline",
+      "description": "The AI--Platfform vs Hermes technical report plus OpenClaw baseline is frozen with concrete source paths where available, comparison conclusions, validation commands, terminology invariants, and implementation boundaries.",
+      "steps": [
+        "Open deploy/runbooks/assistant-hermes-runtime-prd/product-prd.md and source-packet.md.",
+        "Re-check the cited AI--Platfform and OpenClaw paths before implementation work begins.",
+        "Re-open the local Hermes technical report and record that Hermes line-level source paths are unavailable unless a Hermes source checkout is located.",
+        "Create or update a source matrix that separates product claims, code facts, and implementation hypotheses.",
+        "Update source-packet.md and continuity-ledger.md with any corrected source facts.",
+        "Write reports/ahr-00-comparative-baseline-evidence-report.md and an independent critic verdict."
+      ],
+      "acceptance_gates": [
+        "No speculative AI runtime gap remains without a source path, report citation, or explicit verify-needed note.",
+        "OpenClaw mechanisms are translated into AI--Platfform requirements without importing OpenClaw code or weakening AI--Platfform multi-tenant assumptions.",
+        "Terminology invariants for run, session, thread, turn, trace, checkpoint, memory source, transcript, plugin, skill, tool, evaluator, and gate are recorded.",
+        "Implementation phases name concrete AI--Platfform edit surfaces and protected non-goals.",
+        "Strict harness validation passes."
+      ],
+      "status": "passing",
+      "evidence": "AHR-00 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-00-comparative-baseline-evidence-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-00-comparative-baseline-evidence-critic.md; source matrix, terminology invariants, implementation boundaries, and validation command map written to source-packet.md; strict and phase completion-gate validation passed.",
+      "notes": "AHR-00 re-verified AI--Platfform anchors, the local Hermes report, official Hermes remote source anchors at HEAD 729bbb7a309a3d13d8cc7d1cd2fbab79e7d969f7, and OpenClaw local paths. Corrected stale OpenClaw whitepaper/session-file paths. No runtime code changed; AHR-01 is unlocked."
+    },
+    {
+      "id": "AHR-F002",
+      "phase_id": "AHR-01",
+      "category": "runtime-contract",
+      "description": "Assistant runs expose a durable run/session/turn contract with terminal envelope fields and a context compiler snapshot comparable to Hermes' operational clarity and OpenClaw's capability truthfulness.",
+      "steps": [
+        "Define additive run/session/turn fields for Assistant runtime and stream/non-stream parity.",
+        "Record exit_reason, interrupted, approval_pending, tool_error, max_iterations, checkpoint_id, trace_id, model/provider snapshot, and redaction state.",
+        "Define a context_snapshot_id or hash that records runtime facts used to compile model context.",
+        "Record bootstrap/context inputs with raw bytes, injected bytes, missing markers, truncation reasons, and context tier.",
+        "Ensure prompt-exposed tools, memory snippets, workspace scope, sandbox state, and surface capabilities match actual runtime policy.",
+        "Add tests for stop/cancel, approval pending, tool error, max iteration, resume plan, and terminal stream events."
+      ],
+      "acceptance_gates": [
+        "Existing API compatibility is preserved.",
+        "Turn envelope fields are available to trace/eval and future UI surfaces.",
+        "Tests fail when prompt-exposed capabilities drift from actual registry/tool/sandbox state.",
+        "Tests prove stream and non-stream paths agree on terminal state."
+      ],
+      "status": "passing",
+      "evidence": "AHR-01 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-01-entry-session-and-turn-contract-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-01-entry-session-and-turn-contract-critic.md; validation passed with `uv run --package assistant-service pytest -q --no-cov tests/services/assistant` (1033 passed), changed-file ruff check, and changed-file git diff --check.",
+      "notes": "Implemented additive assistant-turn-contract/v1 context snapshots and terminal envelopes in turn_contract.py. AgentLoop streaming-first now exposes contract fields on run_started, context_budget, streaming_first_completed, run_finished/run_error, approval_required, cancellation, and trace metadata. Non-stream AssistantService.chat returns the same fields and non-agent-loop SSE done forwards them. No DB schema, migration, deployment, UI, Hermes import, or OpenClaw import was added."
+    },
+    {
+      "id": "AHR-F003",
+      "phase_id": "AHR-02",
+      "category": "memory-context",
+      "description": "Assistant memory adopts Hermes-style lifecycle discipline and OpenClaw-style memory layer separation while preserving AI--Platfform's multi-tenant DB-backed memory model.",
+      "steps": [
+        "Harden memory source writes with transactional or atomic semantics, dedup, drift checks, and bounded threat scanning.",
+        "Separate stable user profile facts from daily/reflection/project memory sources.",
+        "Define workspace memory source enumeration rules for MEMORY.md, memory.md, memory/**/*.md, optional extra paths, symlink skipping, and realpath de-duplication where applicable to AI--Platfform.",
+        "Separate session transcript, durable memory, checkpoint summary, trace, and retrieval index responsibilities.",
+        "Define memory provider lifecycle hooks for prefetch, completed-turn sync, session end/switch, pre-compact, write, and flush.",
+        "Define pre-compaction memory flush behavior, one-per-cycle guard, failure handling, skip reasons, and evidence shape.",
+        "Record compaction parent/child lineage and provenance for resume."
+      ],
+      "acceptance_gates": [
+        "Interrupted, cancelled, failed, or approval-pending turns do not sync to long-term memory by default.",
+        "Injected memory snippets include source id/path, source type, score, recency, and untrusted-context marker.",
+        "Session transcript is replay state and does not silently become long-term durable memory.",
+        "Tests cover concurrent writes, duplicate facts, provider failure, workspace source enumeration, transcript/durable memory separation, pre-compaction flush, and compaction resume lineage."
+      ],
+      "status": "passing",
+      "evidence": "AHR-02 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-02-memory-context-and-compaction-lineage-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-02-memory-context-and-compaction-lineage-critic.md; validation passed with `uv run --package assistant-service pytest -q --no-cov tests/services/assistant` (1040 passed), eval golden gate (4 passed), changed-file ruff check, and changed-file git diff --check.",
+      "notes": "Implemented additive assistant-memory-lifecycle/v1 helpers, bounded/deduped source-store write metadata, per-path process locks, profile memory in USER.md, workspace memory source enumeration, completed-turn-only durable sync through AHR-01 terminal_envelope, runtime memory provenance, pre-compaction flush evidence, and compaction parent/child lineage. No DB schema, migration, deployment, UI, Hermes import, or OpenClaw import was added."
+    },
+    {
+      "id": "AHR-F004",
+      "phase_id": "AHR-03",
+      "category": "tool-safety",
+      "description": "Medium/high-risk and confirmation-required tools fail closed unless routed through ExecutionGateway or an equivalent audited approval gateway, and skills/plugins/connectors/tools have separate governance boundaries.",
+      "steps": [
+        "Prevent direct registry execution of risky tools outside explicit test-only bypasses.",
+        "Require tool risk, permission, sandbox profile, audit shape, and redaction policy metadata.",
+        "Separate skill-like knowledge packages from executable plugin, connector, MCP, and internal tool capability.",
+        "Require plugin/connector/tool trust level, owner, prompt-exposure text, and approval class metadata.",
+        "Require prompt mutation hooks to be opt-in, allowlisted, source-tagged, ordered, bounded, and blocked with visible reason when disallowed.",
+        "Canonicalize approval plans and bind them to tenant, user, run, session, tool, normalized args hash, resource scope, env preview hash, and mutable operands when present.",
+        "Fail duplicate or shadowed tool registration by default outside trusted override flow.",
+        "Sanitize MCP and external tool catalog text, including parameter descriptions.",
+        "Redact or hash audit input summaries and checkpoint tool args."
+      ],
+      "acceptance_gates": [
+        "Approval is bound to tenant/user/run/tool/arguments_hash and single-use.",
+        "Denied, timed-out, missing, or DB-unavailable approval stops the risky action.",
+        "Code execution fails closed when Docker/gVisor/sandbox is unavailable.",
+        "Execution decisions expose effective policy, policy source, sandbox profile, approval/elevation state, and denial reason.",
+        "Prompt-exposure text from plugins, MCP, catalogs, webhooks, or external docs is bounded, sanitized, and marked untrusted unless code-owned.",
+        "No raw secrets or full raw tool arguments are written to trace, logs, audit, checkpoint, export, or gate reports."
+      ],
+      "status": "passing",
+      "evidence": "AHR-03 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-03-tool-permission-and-runtime-safety-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-03-tool-permission-and-runtime-safety-critic.md; validation passed with `uv run --package assistant-service pytest -q --no-cov tests/services/assistant` (1058 passed), eval golden gate (4 passed), changed-file ruff check, and git diff --check.",
+      "notes": "Implemented fail-closed direct registry execution for medium/high-risk and confirmation-required tools, duplicate registration failure by default with explicit trusted override, gateway-approved execution metadata, approval DB-failure denial, recursive audit summary redaction, MCP catalog/parameter sanitization, and configured sandbox runtime enforcement for code execution. No DB schema, migration, deployment, UI, Hermes import, or OpenClaw import was added."
+    },
+    {
+      "id": "AHR-F005",
+      "phase_id": "AHR-04",
+      "category": "eval-observability",
+      "description": "The Eval Console becomes a runtime quality cockpit that connects trace, trajectory, safety, review, golden, and gate workflows.",
+      "steps": [
+        "Extend trace capture and metrics for run, model, tool, approval, memory retrieval, checkpoint/resume, errors, and trace write failures.",
+        "Add trace and eval fields for context snapshot, memory index freshness, retrieval source breakdown, session transcript search state, and pre-compaction flush success/failure.",
+        "Add runtime-focused golden cases for approval denial, argument mismatch, sandbox unavailable, interrupted memory skip, stop/resume, and redaction/export.",
+        "Add trajectory scoring inputs for context/tool/memory sequence quality, not only final answer quality.",
+        "Expose overview and detail UI states in /eval without leaking secrets.",
+        "Allow failed traces to enter review, golden, or failure-case workflows."
+      ],
+      "acceptance_gates": [
+        "Assistant is fully enabled; RAG/LangGraph remain wired or partial with accurate state.",
+        "Export and gate reports remain bounded and redacted.",
+        "Frontend type-check and lint pass after UI changes.",
+        "Golden regression includes runtime safety, memory-observability, context capability, and trajectory cases."
+      ],
+      "status": "passing",
+      "evidence": "AHR-04 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-04-observability-eval-and-regression-cockpit-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-04-observability-eval-and-regression-cockpit-critic.md; validation passed with `make verify-eval-dev` (16 golden cases, pass_rate=1.0, critical_pass_rate=1.0, trajectory_pass_rate=1.0), `corepack pnpm@10.33.0 -C web i18n:check`, `corepack pnpm@10.33.0 -C web build`, Playwright eval-trace (2 passed), and git diff --check.",
+      "notes": "Implemented bounded assistant-runtime-trajectory/v1 metadata in trace_writer.py, Eval dashboard runtime_health in agent_trace_repository.py, trace-to-dataset expected_trajectory metadata, runtime trajectory expectations in redacted dataset cases, 16-case golden regression, and Eval UI runtime cockpit/detail surfaces. No DB schema migration, deployment, production mutation, external observability SaaS dependency, Hermes import, or OpenClaw import was added."
+    },
+    {
+      "id": "AHR-F006",
+      "phase_id": "AHR-05",
+      "category": "operating-model",
+      "description": "Assistant runtime release decisions have no-go thresholds, regression reports, waiver policy, terminology invariants, doctor/status output, and a stable local verification entrypoint.",
+      "steps": [
+        "Publish the Assistant runtime operating model, no-go thresholds, and rollback policy.",
+        "Define a read-only Assistant Runtime Doctor covering DB/Redis, assistant-service imports, trace writer metrics, eval outbox, memory index, tool registry, sandbox, safe_fetch, TS contract drift, and redaction/export policy.",
+        "Ensure doctor explains effective tool policy, policy source, sandbox availability, approval/elevation state, and blocked prompt-mutation reasons without exposing secrets.",
+        "Define or dry-run a future verify-assistant-runtime-dev command without making unstable checks mandatory.",
+        "Record JSON and Markdown report output under reports/assistant-runtime-regression/ when implemented.",
+        "Record terminology invariants and source matrix expectations in release gate docs.",
+        "Run strict full-harness validation and document any skipped runtime checks as blockers."
+      ],
+      "acceptance_gates": [
+        "make verify-eval-dev remains the known eval baseline.",
+        "Runtime gate is offline-first before CI adoption.",
+        "Doctor/status output is bounded, redacted, and read-only unless a later phase explicitly approves repair behavior.",
+        "Whole-demand regression covers all passing feature-oracle items.",
+        "No deployment or production migration is performed by the phase."
+      ],
+      "status": "passing",
+      "evidence": "AHR-05 passed: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-05-operating-model-and-release-gate-report.md; critic approved: deploy/runbooks/assistant-hermes-runtime-prd/reports/ahr-05-operating-model-and-release-gate-critic.md; validation passed with `make verify-eval-dev && make eval-regression-gate` (all green), `make verify-assistant-runtime-dev` (5/5 groups, 162 tests + 16 golden cases), ruff check, and git diff --check. Whole-demand regression across AHR-F001 through AHR-F006 confirmed.",
+      "notes": "Published Assistant Runtime Operating Model runbook, implemented offline `make verify-assistant-runtime-dev` regression gate with JSON/Markdown reports under reports/assistant-runtime-regression/, documented CI adoption policy (local/offline stage), waiver policy, no-go thresholds, rollback behavior, terminology invariants, and future read-only doctor/status design. No DB schema migration, deployment, production mutation, Hermes import, or OpenClaw import was added."
+    }
+  ]
+}

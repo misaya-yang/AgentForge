@@ -1,0 +1,22 @@
+{
+  "schema": "ai-platform/canonical-successor-activation/v1",
+  "status": "activated_source_chain",
+  "source_activation": true,
+  "epoch": 20,
+  "baseline_id": "2026_08_post_kb_v1",
+  "source_plan_sha256": "9df8b75bc06048b190136a090b109fc32f39b5bdd9fe953201a5a3399e2fdc92",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "epoch_manifest_sha256": "d526d3c1551c3c4a6f88477b9ac7a5bae59f898e055f4fe85a99ea0dda319d23",
+  "predecessor_manifest_sha256": "4fb04ae84fdf7a128126677ed41c827d35b9fa55c9317e5ae68d9386db5c8d15",
+  "predecessor_package_lock_sha256": "13a31fc7ca785e218f5c799f962226fbe4b393df1c0ef1abd079117cd24baf54",
+  "measurement_receipt_sha256": "0cc2f885fdbf430091b834b3e491f2561cd333e18983402f3db240541558dab2",
+  "verification_refs": {
+    "018_verification.json": "bdb39dce3b92b845846183f92e94d9115fc9667bab398f8e72c48ccd89d12d0b",
+    "019_verification.json": "c2242553ad6579bf633c3bf8f57f55f4c75cfdbfa134342583a0423786e98d4b",
+    "020_verification.json": "ec021f78081800e3ee3b20b186fda536fcec499f71b8d39ae6c2b917e6b1b2b2"
+  },
+  "actual_role_evidence_sha256": "7acf854bd116c8da576b94af680ab0d3b49d2b6acbbfbd4a7fa852c2da9e7b51",
+  "fresh_install_evidence_sha256": "f71e4e1fce18560cda2de020749cabecc951fc618b26bffe3add9cfda61bcb59",
+  "predecessor_live_verify": "all_four_epoch17_fingerprints_passed_before_local_upgrade",
+  "production_deployment": false
+}

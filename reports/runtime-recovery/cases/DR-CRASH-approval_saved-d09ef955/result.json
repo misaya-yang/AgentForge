@@ -1,0 +1,1 @@
+{"scenario":"approval_saved","result":"FAILED_POSITIVE_FIXTURE","reason":"Original model arguments contained extra option key; Worker safely rejected quiz_arguments_invalid. Recovered original identity and one call/output preserved; no Quiz created. Positive artifact expectation not passed; not treated as recovery acceptance PASS."}

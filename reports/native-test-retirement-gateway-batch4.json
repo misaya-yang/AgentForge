@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "source": "tests/api/test_health_auth.py",
+      "original_cases": [
+        "test_basic_health_returns_minimal_info",
+        "test_services_health_requires_auth",
+        "test_services_health_requires_admin_role",
+        "test_admin_user_is_allowed",
+        "test_ops_role_is_allowed",
+        "test_providers_health_requires_admin",
+        "test_services_health_reports_initialized_agent_runtime",
+        "test_admin_health_exposes_private_core_and_optional_degradation",
+        "test_non_admin_cannot_trigger_private_dependency_probe",
+        "test_basic_health_does_not_leak_service_count"
+      ],
+      "native_target": "gateway_migration_parity_health",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Production trusted identity and health orchestration exercised. Rust HealthStatus requires a timestamp whereas the source optional connector fixture used None; that timestamp is not asserted in the original cases."
+      ]
+    },
+    {
+      "source": "tests/proxy/test_admission_metrics.py",
+      "original_cases": [
+        "test_admission_rejection_updates_metrics"
+      ],
+      "native_target": "gateway_migration_parity_admission_metrics::admission_rejection_updates_metrics",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/proxy/test_gateway_priority_queue.py",
+      "original_cases": [
+        "test_service_config_marks_priority_not_enforced",
+        "test_priority_controls_are_disabled_when_backend_is_not_enforcing",
+        "test_agent_capacity_and_load_balancing_are_frontend_configurable"
+      ],
+      "native_target": "gateway_migration_parity_priority",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/contract/test_sdk_sse_fixture_contract.py",
+      "original_cases": [
+        "test_shared_sdk_sse_fixture_defines_inner_envelope_and_terminals",
+        "test_java_and_dart_native_contracts_consume_shared_fixture"
+      ],
+      "native_target": "gateway_migration_parity_sdk_fixture",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "These original assertions inspect shared fixture and Java/Dart sources; they do not execute Java/Dart clients. The native Rust host preserves that exact evidence level."
+      ]
+    },
+    {
+      "source": "tests/proxy/test_rate_limit.py",
+      "original_cases": [
+        "test_default_config",
+        "test_rate_limit_creation",
+        "test_rate_limit_default_values",
+        "test_config_with_all_limits",
+        "test_first_request_allowed",
+        "test_requests_within_limit_allowed",
+        "test_request_exceeding_limit_rejected",
+        "test_limit_resets_after_window",
+        "test_different_tenants_have_separate_limits",
+        "test_tenant_limit_shared_among_users",
+        "test_unknown_tenant_no_limit",
+        "test_user_specific_limit",
+        "test_different_users_different_limits",
+        "test_service_limit_applies",
+        "test_different_services_separate_limits",
+        "test_ip_limit_applies",
+        "test_different_ips_separate_limits",
+        "test_burst_allows_extra_requests",
+        "test_burst_eventually_limits",
+        "test_strictest_limit_applies",
+        "test_all_dimensions_checked",
+        "test_sliding_window_cleanup",
+        "test_concurrent_requests_handled_safely",
+        "test_concurrent_requests_respect_limit",
+        "test_error_contains_key",
+        "test_global_error_message",
+        "test_tenant_error_message",
+        "test_service_rate_limit_from_dict",
+        "test_service_config_rate_limit"
+      ],
+      "native_target": "gateway_migration_parity_rate_limit",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Optional empty Python mapping defaults correspond to native empty BTreeMaps. Time-window cases use actual production injected clock at identical1.1/0.6+0.6 second boundaries, avoiding wall-clock sleeps."
+      ]
+    },
+    {
+      "source": "tests/contract/test_event_schema_evolution.py",
+      "original_cases": [
+        "test_event_envelope_newer_context_fields_are_optional",
+        "test_registered_event_payloads_have_stream_routes",
+        "test_event_schema_versions_match_event_type_suffix"
+      ],
+      "native_target": "gateway_migration_parity_event_schema",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/contract/test_connector_callback_metadata.py",
+      "original_cases": [
+        "test_callback_metadata_preserves_denial_queries_and_real_redirect"
+      ],
+      "native_target": "gateway_migration_parity_connector_metadata",
+      "status": "partial_authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Original exact response key set {302,422} intentionally differs from native source-owned descriptor which additionally declares actual400/404/500/503 and default failures. Parameter/required/default/Location/no-body and optional published candidate equality assertions retained; no full assertion-equivalence claim."
+      ]
+    },
+    {
+      "source": "tests/api/test_tasks_authorization.py",
+      "original_cases": [
+        "test_task_routes_conceal_denied_resources_before_result_or_cancel",
+        "test_task_routes_preserve_owner_and_same_tenant_admin",
+        "test_task_list_stays_owner_and_tenant_scoped_for_every_role",
+        "test_task_routes_keep_missing_resource_404_without_side_effects"
+      ],
+      "native_target": "gateway_migration_parity_task_authorization",
+      "status": "authored_pending_root_compile",
+      "retirement_eligible": false,
+      "residuals": [
+        "Uses real TaskManager/MemoryTaskStorage through actual router; disposable loopback Redis only constructs unused default AuthService. Opt-in execution unrun.",
+        "Original successful DELETE fixture is Completed with unconstrained AsyncMock cancellation; native equivalent authorization fixture uses Pending because real manager forbids terminal cancellation. Native nullable task tenant has already normalized None to empty string, preserving denial. Original mock get_result/cancel count is represented by actual storage read/write effects and unchanged denied records.",
+        "Extra actual authorization-to-cancel replacement race regression uses exact authorized snapshot."
+      ]
+    },
+    {
+      "source": "tests/proxy/test_billing_shutdown.py",
+      "original_cases": [
+        "test_spawn_tracked_flush_registers_and_clears_task",
+        "test_stop_awaits_inflight_flush_tasks",
+        "test_stop_runs_final_flush_after_draining",
+        "test_buffered_records_reach_callback_on_stop",
+        "test_buffer_flush_preserves_billing_metadata_on_stop",
+        "test_inflight_flush_plus_final_flush_do_not_drop_records"
+      ],
+      "native_target": "gateway_migration_parity_billing_shutdown",
+      "status": "partial_authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Actual native UsageRecorder persistence is verified, not yet exported legacy callback API. Original private tracked-task membership and exact three flush-method invocations have no direct current recorder counterpart; four tests establish durable writes, blocking shutdown, preserved metadata and no lost later records."
+      ]
+    },
+    {
+      "source": "tests/proxy/test_billing_failure.py",
+      "original_cases": [
+        "test_db_retry_then_dlq",
+        "test_db_retry_succeeds_on_second_attempt",
+        "test_redis_storage_wrapper_uses_native_client",
+        "test_redis_publish_failure_classified_and_dlq",
+        "test_callback_failure_classified",
+        "test_dlq_push_itself_fails_increments_full_counter",
+        "test_dlq_item_replays_to_database_and_audits_success"
+      ],
+      "native_target": null,
+      "status": "pending_safe_compatibility_bridge",
+      "retirement_eligible": false,
+      "residuals": [
+        "Root requires preservation of native uncertain-commit quarantine and financial idempotency, not unconditional original retries. Proposed deterministic stage receipts in existing billing_events and safe retry/replay connected to actual recorder; larger bridge pending root decision. No new schema or live database calls."
+      ]
+    }
+  ]
+}

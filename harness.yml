@@ -1,0 +1,718 @@
+# =============================================================================
+# AI Gateway — Harness Contract
+# =============================================================================
+# Machine-readable description of how work is done in this repository.
+# Human-readable counterpart: docs/harness/README.md
+# Verified by: make harness-check  (rust/platform-native/crates/platform-tools/src/harness.rs)
+#
+# Keep this file aligned with AGENTS.md, the Makefile, and docs/harness/commands.md.
+# If a command is renamed here it must be renamed in all three.
+# =============================================================================
+
+schema: harness/contract/v1
+project: ai-gateway
+description: >-
+  Open-source enterprise agent platform: LLM gateway, general AI assistant runtime,
+  knowledge-base service, and web console.
+
+# -- Toolchain ----------------------------------------------------------------
+toolchain:
+  rust: "1.99.0"
+  runtime_rust: "1.95.0"
+  package_manager: cargo
+  node: "26.11.1"
+  pnpm: "12.11.2"           # explicit bootstrap; pnpm installs web dependencies
+  docker_compose: v2
+
+# -- Navigation: AGENTS is the entry; other documents are read on demand -------
+entrypoints:
+  contract: AGENTS.md
+  harness: docs/harness/README.md
+  docs_index: docs/README.md
+
+# -- Required documents (existence + non-empty is enforced) -------------------
+required_docs:
+  - AGENTS.md
+  - README.md
+  - DEPLOY.md
+  - CHANGELOG.md
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - docs/README.md
+  - docs/harness/README.md
+  - docs/harness/platform-architecture.md
+  - docs/harness/architecture.md
+  - docs/harness/commands.md
+  - docs/harness/workflow.md
+  - docs/harness/work-packages.md
+  - docs/harness/runtime-and-secrets.md
+  - docs/harness/integration-and-rollback.md
+  - docs/harness/repository-quality.md
+  - docs/harness/codex-upstream-upgrade.md
+  - deploy/runbooks/open-source-env-readiness-todo.md
+
+# -- Instruction-file line budgets --------------------------------------------
+# Long instruction files raise cost without raising task success. Fix the file,
+# not the budget.
+budgets:
+  AGENTS.md: 150
+
+# -- Canonical commands -------------------------------------------------------
+# Each entry must resolve to a real Make target.
+commands:
+  doctor:
+    make: doctor
+    purpose: Preflight the machine — tools, memory, ports, compose ownership.
+  bootstrap:
+    make: quickstart
+    purpose: First run — generate .env, pull versioned images, start, migrate, validate.
+  bootstrap_from_source:
+    make: quickstart-build
+    purpose: Maintainer first run built from the current checkout.
+  validate_config:
+    make: validate-config
+    purpose: Validate .env and Compose rendering without starting containers.
+  validate_runtime:
+    make: validate
+    purpose: Validate config plus the running runtime.
+  validate_public_example:
+    make: validate-example-config
+    purpose: Validate the committed .env.example surface (safe for CI).
+  status:
+    make: status
+    purpose: Health table; nonzero exit on failure, usable as a release gate.
+  hot_update:
+    make: hot-update
+    purpose: Compile native source updates and replace selected service containers.
+  migrate:
+    make: migrate
+    purpose: Run pending database migrations.
+  harness_check:
+    make: harness-check
+    purpose: Verify this contract still matches the repository.
+  runtime_dependency_gate:
+    make: runtime-dependency-gate
+    purpose: Reject reintroduction of the retired Python Agent/docgen execution ownership and stale OpenAPI snapshot entrypoints.
+  gateway_kb_boundary_gate:
+    make: gateway-kb-boundary-gate
+    purpose: Keep the KB domain contract out of the gateway — no KB-table SQL in the data plane, no mirrored knowledge-service request schemas (PRD T8.4).
+  agent_runtime_source_contract:
+    make: agent-runtime-source-contract
+    purpose: Verify the immutable Agent source, schema, SBOM, license, and OCI release identity.
+  agent_runtime_contract:
+    make: agent-runtime-contract
+    purpose: Verify the Rust Agent Runtime has its own immutable runnable OCI identity.
+  agent_runtime_build_local:
+    make: agent-runtime-build-local
+    purpose: Build the Rust Agent Runtime from one clean controlled-fork revision.
+  agent_runtime_smoke:
+    make: agent-runtime-smoke
+    purpose: Verify the Runtime image against isolated PostgreSQL across a process restart.
+  agent_runtime_text_gate:
+    make: agent-runtime-text-gate
+    purpose: Verify native Qwen Responses text, long output, accounting, and restart-resumed context.
+  agent_runtime_single_kernel_gate:
+    make: agent-runtime-single-kernel-gate
+    purpose: Verify every Assistant session and V1/V2 turn is owned by the single Rust Agent Runtime.
+  agent_runtime_readonly_gate:
+    make: agent-runtime-readonly-gate
+    purpose: Verify tenant/revision-bound Context, Knowledge, Tool, MCP, citation, artifact, and office-read contributors.
+  agent_runtime_write_gate:
+    make: agent-runtime-write-gate
+    purpose: Verify approval binding, dispatch fences, idempotency, interruption recovery, and tool pairing.
+  agent_thread_store_contract:
+    make: agent-thread-store-contract
+    purpose: Verify pre-authorized Agent thread creation and durable PostgreSQL history against an isolated schema.
+  agent_capability_worker_build_local:
+    make: agent-capability-worker-build-local
+    purpose: Build the pinned Rust capability worker inside Docker with one Cargo job and resource guards; never invoke host Cargo.
+  agent_python_sandbox_build_local:
+    make: agent-python-sandbox-build-local
+    purpose: Build the independent credential-free Python sandbox with the existing builder, exact digest bases, source/schema admission and shared serial resource lock; never invoke host Cargo.
+  agent_capability_worker_smoke:
+    make: agent-capability-worker-smoke
+    purpose: Verify signed leases, idempotency, scoped events, cancellation, and restart recovery.
+  agent_runtime_source_build_local:
+    make: agent-runtime-source-build-local
+    purpose: Build the pinned App Server inside Docker and verify source/schema labels plus initialize; never invoke host Cargo.
+  agent_runtime_release_gate:
+    make: agent-runtime-release-gate
+    purpose: Serial single-kernel release contract without image builds or provider calls.
+  agent_runtime_rollback_rehearsal:
+    make: agent-runtime-rollback-rehearsal
+    purpose: Digest-pinned current-to-frozen-to-current rollback with session and execution fingerprints.
+  sdk_sse_contract:
+    make: sdk-sse-contract
+    purpose: Verify the shared Python, CLI, Java, and Dart SSE envelope contract.
+  independent_cli_gate:
+    make: independent-cli-gate
+    purpose: Verify the standalone local-Runtime CLI provider config, Responses-to-Chat adapter, launcher, secret isolation, and bundle.
+  agent_runtime_cli_build_local:
+    make: agent-runtime-cli-build-local
+    purpose: Build the lock-pinned composed native Agent CLI inside Docker; never invoke host Cargo.
+  affected_gates:
+    make: affected-gates
+    purpose: Map a BASE_SHA diff onto required gates; unmatched changed paths fail closed.
+  ci_gate_enforcement:
+    make: ci-gate-enforcement
+    purpose: Fail closed unless every diff-selected CI-required gate has a successful job result.
+  architecture_boundary_gate:
+    make: architecture-boundary-gate
+    purpose: Static import boundary between gateway/apps/core/contracts zones.
+  core_boundary_gate:
+    make: core-boundary-gate
+    purpose: Verify the Git-bound core/contracts inventory and compatibility boundary.
+  single_instance_guard:
+    make: single-instance-guard
+    purpose: Keep Gateway and Agent Runtime fail-closed single-instance in generated topology and Helm.
+  verify_openapi_contract:
+    make: verify-openapi-contract
+    purpose: Offline in-process OpenAPI contract gate — no live stack, never skips.
+  live_openapi_contract_gate:
+    make: live-openapi-contract-gate
+    purpose: Live-tier OpenAPI contract check; a skip is reported SKIPPED, never PASS.
+  rag_eval_fixture_contract:
+    make: rag-eval-fixture-contract
+    purpose: Offline dual-track RAG eval fixture replay (no provider, no stack).
+  rag_live_quality_gate:
+    make: rag-live-quality-gate
+    purpose: Live-tier RAG quality gate — golden replay against the running Knowledge Service.
+  kb_unit_gate:
+    make: kb-unit-gate
+    purpose: Native Knowledge production-module unit gate, runs offline.
+  web_quality_gate:
+    make: web-quality-gate
+    purpose: Web type-check, lint, node unit tests, and i18n check.
+  hygiene_check:
+    make: hygiene-check
+    purpose: Test hygiene — empty/self-proving bodies, .only/.fixme scan.
+  evidence_policy_gate:
+    make: evidence-policy-gate
+    purpose: Validate portable evidence and the PRD-bounded quality candidate set.
+  compatibility_manifest_gate:
+    make: compatibility-manifest-gate
+    purpose: Validate the unified release compatibility manifest at draft or candidate level.
+  platform_release_gate:
+    make: platform-release-gate
+    purpose: Run the candidate manifest plus every platform integration/fresh/rollback gate.
+  loc_no_growth_gate:
+    make: loc-no-growth-gate
+    purpose: Oversized files never grow; new files stay under the LOC thresholds.
+  gateway_unit_gate:
+    make: gateway-unit-gate
+    purpose: Offline Gateway unit suites.
+  rust_changed_crate_gate:
+    make: rust-changed-crate-gate
+    purpose: Test only the Rust crates hit by the diff.
+
+# -- Gates: what to run for what you changed ----------------------------------
+# Gate schema (enforced by rust/platform-native/crates/platform-tools/src/harness.rs):
+#   make | shell   : exactly one entrypoint
+#   triggers       : path globs; `make affected-gates BASE_SHA=<sha>` maps every
+#                    changed path to its gates and FAILS CLOSED on unmatched paths
+#   tier           : L0 structural/offline | L1 domain offline/unit
+#                    L2 hosted integration (CI services) | L3 live release/singleton
+#   required_on    : subset of [change, release, manual]
+#                    change  = coverage for a complete candidate diff in CI;
+#                              not a command to rerun after each local edit
+#                    release = mandatory evidence before a release
+#   resource       : offline | hosted-service | live-stack | provider | docker
+#   skip           : never | live-stack | toolchain   (see docs/harness/repository-quality.md)
+#   timeout        : minutes; CI kills the job after this
+#   evidence       : explicit artifact/report path pattern for the gate
+#   ci_job         : CI job that executes the exact entrypoint; use the explicit
+#                    `manual` sentinel only for non-change release/manual gates
+gates:
+  platform_fitness:
+    make: platform-fitness-gate
+    purpose: Enforce recurring source trust, credentials, hardening, dependency, image and singleton constraints with negative tests in CI.
+    triggers: ["rust/platform-native/**", "rust/agent-runtime-overlay/**", "deploy/**", "docker/**", "docker-compose*", ".github/**", "LICENSE", "NOTICE", "harness.yml", "Makefile"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: "${RUNNER_TEMP}/platform-fitness.json"
+    ci_job: compose-and-harness
+  harness:
+    make: harness-check
+    triggers: ["*.md", harness.yml, Makefile, rust/platform-native/crates/platform-tools/src/harness.rs, rust/platform-native/crates/platform-tools/tests/deployment_script_contracts.rs, "docs/**", "deploy/runbooks/**", "deploy/release/**", "reports/**", ".gitignore", ".editorconfig", ".gitattributes", ".pre-commit-config.yaml", ".claude/**", ".agents/**", LICENSE]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/harness-check.json
+    ci_job: compose-and-harness
+  affected_gates:
+    make: affected-gates
+    purpose: Map the diff onto required gates; unmatched paths fail closed.
+    triggers: ["rust/platform-native/crates/platform-tools/src/selection.rs", "rust/platform-native/crates/platform-tools/src/ci.rs", "harness.yml", ".github/**"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/affected-gates.json
+    ci_job: gate-enforcement
+  architecture_boundary:
+    make: architecture-boundary-gate
+    purpose: Static import boundary between gateway/apps/core/contracts zones (negative self-test included).
+    triggers: ["rust/platform-native/**", "rust/platform-native/crates/platform-tools/native-boundary-exceptions.json"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/architecture-boundary-gate.json
+    ci_job: architecture-gates
+  helm_native:
+    make: helm-native-gate
+    purpose: Render public synthetic Helm fixtures and reject non-native identity, credentials, privileged containers and store ownership.
+    triggers: ["deploy/helm/**", "rust/platform-native/crates/platform-tools/src/main.rs"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/helm-native-contract.json
+    ci_job: compose-and-harness
+  core_boundary:
+    make: core-boundary-gate
+    purpose: Rebuild the formal core/contracts inventory from its declared Git object, then enforce no-growth and compatibility boundaries.
+    triggers: ["rust/platform-native/**", "database/**", "reports/inventory/**"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/core-boundary-gate.json
+    ci_job: architecture-gates
+  valkey_deployment:
+    make: valkey-deployment-gate
+    purpose: Reject mixed coordination/cache ownership, insecure Valkey transport and unsafe durability or ACL deployment policy.
+    triggers: ["deploy/compose/valkey/**", "deploy/compose/docker-compose.valkey.yml", "rust/platform-native/crates/platform-service-primitives/src/valkey/**", "rust/platform-native/crates/platform-tools/src/valkey*.rs"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/valkey-deployment.json
+    ci_job: compose-and-harness
+  single_instance_guard:
+    make: single-instance-guard
+    purpose: Reject Gateway/Agent Runtime replica, HPA, or rollout overlap while allowing manifest-declared stateless/worker scale.
+    triggers: ["deploy/helm/ai-gateway/**", "docker-compose*", "rust/platform-native/crates/platform-tools/src/guard.rs", "rust/platform-native/crates/platform-tools/src/topology.rs", "src/core/data/service_topology.json"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/single-instance-guard.json
+    ci_job: architecture-gates
+  openapi_offline:
+    make: verify-openapi-contract
+    purpose: Published projection contract against explicit projection; does not certify native release.
+    triggers: ["rust/platform-native/crates/platform-gateway/src/**", "rust/platform-native/crates/platform-openapi/**", "sdk/openapi.json", "sdk/openapi-profiles.json"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/verify-openapi-contract.json
+    ci_job: architecture-gates
+  openapi_native:
+    make: verify-native-openapi-contract
+    purpose: Native full published contract requires an independent candidate; absent candidate fails closed.
+    triggers: ["rust/platform-native/**", sdk/openapi.json, sdk/openapi-profiles.json]
+    tier: L1
+    required_on: [release, manual]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/verify-native-openapi-contract.json
+    ci_job: manual
+  openapi_live:
+    make: live-openapi-contract-gate
+    purpose: Live OpenAPI contract check against the running stack; skip means SKIPPED, never PASS.
+    triggers: ["rust/platform-native/crates/platform-gateway/src/**", "rust/platform-native/crates/platform-tools/src/live_openapi.rs", "sdk/openapi.json"]
+    tier: L3
+    required_on: [release, manual]
+    resource: live-stack
+    skip: live-stack
+    timeout: 10
+    evidence: tmp/gate-evidence/live-openapi-contract-gate.json
+    ci_job: manual
+  gateway_units:
+    make: gateway-unit-gate
+    purpose: Offline Gateway unit suites (integration-marked and KB/DB suites excluded).
+    triggers: ["rust/platform-native/crates/platform-gateway/**", "rust/platform-native/crates/platform-gateway-foundation/**", "rust/platform-native/crates/platform-gateway-integrations/**", "rust/platform-native/crates/platform-auth/**", "rust/platform-native/crates/platform-tools/**", "rust/platform-native/crates/platform-eval/**", "scripts/new/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 30
+    evidence: tmp/gate-evidence/gateway-unit-gate.log
+    ci_job: gateway-units
+  agent_runtime_source:
+    make: agent-runtime-source-contract
+    triggers: ["deploy/agent-runtime-source/**", "docs/architecture/ADR-006*", "docs/architecture/ADR-007*", "rust/platform-native/crates/platform-tools/src/source*.rs", "rust/agent-runtime-overlay/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 15
+    evidence: tmp/gate-evidence/agent-runtime-source-contract.log
+    ci_job: agent-runtime-contracts
+  agent_runtime_image:
+    make: agent-runtime-contract
+    triggers: [deploy/agent-runtime-source/Dockerfile.runtime, scripts/harness/build_agent_runtime_image.sh, scripts/harness/smoke_agent_runtime_image.sh]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 30
+    evidence: tmp/gate-evidence/agent-runtime-contract.log
+    ci_job: agent-runtime-contracts
+  agent_runtime_readonly:
+    make: agent-runtime-readonly-gate
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_agent/readonly*.rs", "rust/platform-native/crates/platform-gateway/tests/readonly_contributor_gate.rs", "rust/platform-native/crates/platform-tools/src/native_gates.rs"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 15
+    evidence: tmp/gate-evidence/agent-runtime-readonly-gate.log
+    ci_job: agent-runtime-contracts
+  agent_thread_store:
+    make: agent-thread-store-contract
+    triggers: ["database/migrations/089*", "database/migrations/090*", "database/migrations/092*", "database/migrations/093*", "database/migrations/094*", "database/migrations/095*", "rust/platform-native/crates/platform-migration-authority/tests/runtime_thread_store_migration.rs", "scripts/harness/agent_thread_store_contract.sh"]
+    tier: L2
+    required_on: [release, manual]
+    resource: hosted-service
+    skip: never
+    timeout: 30
+    evidence: tmp/gate-evidence/agent-thread-store-contract.log
+    ci_job: manual
+  agent_runtime_single_kernel:
+    make: agent-runtime-single-kernel-gate
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_agent/**", "rust/platform-native/crates/platform-gateway/src/migration_compat/responses.rs", "rust/platform-native/crates/platform-tools/src/native_gates.rs", "database/migrations/095*", "docker-compose.yml"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 30
+    evidence: tmp/gate-evidence/agent-runtime-single-kernel-gate.log
+    ci_job: agent-runtime-contracts
+  service_boundaries:
+    make: test-isolation
+    triggers: ["rust/platform-native/crates/**"]
+    tier: L2
+    required_on: [release, manual]
+    resource: live-stack
+    skip: live-stack
+    timeout: 20
+    evidence: tmp/gate-evidence/service-boundaries.log
+    ci_job: manual
+  assistant_runtime:
+    make: runtime-dependency-gate
+    triggers: ["rust/platform-native/crates/platform-eval/src/runtime_regression.rs", "rust/platform-native/crates/platform-eval/src/scenario_runner.rs", "rust/platform-native/crates/platform-gateway/tests/runtime*.rs"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/runtime-dependency-gate.log
+    ci_job: eval-regression-gate
+  agent_core:
+    make: runtime-dependency-gate
+    triggers: ["rust/platform-native/Cargo.toml", "rust/platform-native/Cargo.lock", "rust/platform-native/crates/platform-agent-plugins/**", "agent-plugins/**", "skills/**", "skills-lock.json"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/runtime-dependency-gate.log
+    ci_job: eval-regression-gate
+  eval_contract:
+    make: eval-e1-gate
+    triggers: ["rust/platform-native/crates/platform-eval/**", "rust/platform-native/crates/platform-gateway/src/migration_compat/eval*.rs", "tests/fixtures/eval/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 40
+    evidence: tmp/gate-evidence/eval-e1-gate.log
+    ci_job: eval-regression-gate
+  eval_branch:
+    make: verify-eval-dev
+    triggers: ["rust/platform-native/crates/platform-gateway/src/migration_compat/eval*.rs", "rust/platform-native/crates/platform-gateway/tests/*eval*.rs", "rust/platform-native/crates/platform-eval/**"]
+    tier: L1
+    required_on: [change]
+    resource: offline
+    skip: never
+    timeout: 40
+    evidence: tmp/gate-evidence/verify-eval-dev.log
+    ci_job: eval-regression-gate
+  kb:
+    make: kb-unit-gate
+    purpose: Real Knowledge unit gate — imports knowledge_service, runs offline.
+    triggers: ["rust/platform-native/crates/platform-knowledge-service/**", "rust/platform-native/crates/platform-knowledge-ops/**", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge*/**", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge*.rs"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 40
+    evidence: tmp/gate-evidence/kb-unit-gate.log
+    ci_job: eval-regression-gate
+  kb_integration_smoke:
+    make: kb-integration-smoke
+    purpose: Qdrant integration smoke; needs the kbms stack, self-skips when it is down.
+    triggers: ["rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/vector*.rs", "rust/platform-native/crates/platform-knowledge-service/tests/*qdrant*.rs"]
+    tier: L2
+    required_on: [manual]
+    resource: live-stack
+    skip: live-stack
+    timeout: 20
+    evidence: tmp/gate-evidence/kb-integration-smoke.log
+    ci_job: manual
+  gateway_kb_boundary:
+    make: gateway-kb-boundary-gate
+    triggers: ["rust/platform-native/crates/platform-gateway/**", "rust/platform-native/crates/platform-gateway-foundation/**", "rust/platform-native/crates/platform-openapi/src/kb_boundary.rs"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/gateway-kb-boundary-gate.log
+    ci_job: eval-regression-gate
+  kb_migrations:
+    make: kb-migration-gate
+    purpose: DB migration gate against a real PostgreSQL service (CI-hosted).
+    triggers: ["database/**", "rust/platform-native/crates/platform-migration-authority/**", "scripts/new/common.sh", "scripts/new/migrate.sh", "rust/platform-native/crates/platform-gateway-integrations/src/migration_knowledge_ingest/**"]
+    tier: L2
+    required_on: [change, release]
+    resource: hosted-service
+    skip: never
+    timeout: 45
+    evidence: tmp/gate-evidence/kb-migration-gate.log
+    ci_job: kb-migration-gate
+  kb_golden:
+    make: kb-golden-gate
+    triggers: ["tests/fixtures/eval/rag/golden/**", "rust/platform-native/crates/platform-eval/src/seed*.rs", "rust/platform-native/crates/platform-eval/src/record*.rs", "rust/platform-native/crates/platform-knowledge-ops/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 15
+    evidence: tmp/gate-evidence/kb-golden-gate.log
+    ci_job: eval-regression-gate
+  kb_release_evidence:
+    make: kb-release-evidence-gate
+    purpose: Fail-closed T0 release evidence; distinct from the development golden fixture gate.
+    triggers: ["tests/fixtures/eval/rag/golden/**", "reports/kb-eval-baseline/**", "rust/platform-native/crates/platform-openapi/src/kb_release.rs", "rust/platform-native/crates/platform-openapi/tests/kb_release_source_matrix.rs"]
+    tier: L1
+    required_on: [release, manual]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: reports/kb-eval-baseline/release-pointer.json
+    ci_job: manual
+  rag_fixture:
+    make: rag-eval-fixture-contract
+    purpose: L1 offline fixture replay — no provider, no live stack.
+    triggers: ["rust/platform-native/crates/platform-eval/src/rag*.rs", "rust/platform-native/crates/platform-eval/tests/rag.rs", "tests/fixtures/eval/rag/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 15
+    evidence: tmp/eval-e1/rag-latest.json
+    ci_job: eval-regression-gate
+  rag_live_quality:
+    make: rag-live-quality-gate
+    purpose: L3 live quality gate — golden set replayed against the running Knowledge Service.
+    triggers: ["rust/platform-native/crates/platform-eval/src/record*.rs", "tests/fixtures/eval/rag/golden/**"]
+    tier: L3
+    required_on: [release, manual]
+    resource: live-stack
+    skip: live-stack
+    timeout: 45
+    evidence: reports/rag-live-quality/latest.json
+    ci_job: manual
+  agent_studio:
+    make: verify-agent-studio
+    triggers: ["web/src/pages/agents/**", "rust/platform-native/crates/platform-gateway/src/migration_agent/**", "rust/platform-native/crates/platform-gateway/tests/agent_studio*.rs"]
+    tier: L2
+    required_on: [release, manual]
+    resource: live-stack
+    skip: live-stack
+    timeout: 60
+    evidence: reports/agent-studio/agent-studio-regression-v1-result.json
+    ci_job: manual
+  deployment:
+    make: validate-example-config
+    triggers: ["docker-compose*", ".env.example", "scripts/new/**", Dockerfile, ".dockerignore", "deploy/**", "docker/**", "config/**", "data/**", "examples/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 10
+    evidence: tmp/gate-evidence/validate-example-config.log
+    ci_job: compose-and-harness
+  frontend:
+    shell: "pnpm -C web type-check && pnpm -C web lint && pnpm -C web test && pnpm -C web build"
+    triggers: ["web/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 30
+    evidence: tmp/gate-evidence/frontend/*.log
+    ci_job: frontend
+  web_quality:
+    shell: "pnpm -C web type-check && pnpm -C web lint && pnpm -C web test && pnpm -C web i18n:check"
+    purpose: Web gate without the production build — type-check, lint, node units, i18n.
+    triggers: ["web/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 20
+    evidence: tmp/gate-evidence/frontend/*.log
+    ci_job: frontend
+  rust_changed_crate:
+    make: rust-changed-crate-gate
+    purpose: In hosted CI, compose the lock-pinned upstream Git object with the current overlay, then run nextest and enabled doctests for changed Rust crates with pinned tools, bounded capacity and a total gate budget.
+    triggers: ["rust/**", "deploy/agent-runtime-source/lock.json", "rust/platform-native/crates/platform-tools/src/rust_gate.rs"]
+    tier: L1
+    required_on: [change, release]
+    resource: hosted-service
+    skip: never
+    timeout: 60
+    evidence: tmp/gate-evidence/rust-changed-crate-gate.json
+    ci_job: rust-changed-crate
+  sdk_sse:
+    make: sdk-sse-contract
+    triggers: ["sdk/**", "rust/platform-native/crates/platform-client/**", "rust/platform-native/crates/platform-sse-contract/**"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: toolchain
+    timeout: 30
+    evidence: tmp/gate-evidence/sdk-sse-contract.log
+    ci_job: sdk-sse
+  independent_cli:
+    make: independent-cli-gate
+    triggers: ["sdk/cli/**", "deploy/agent-runtime-source/Dockerfile.cli", "scripts/harness/build_agent_runtime_cli_package.sh"]
+    tier: L1
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 15
+    evidence: tmp/gate-evidence/independent-cli-gate.log
+    ci_job: independent-cli
+  hygiene:
+    make: hygiene-check
+    purpose: Empty/self-proving tests, .only/.fixme scan (negative self-test included).
+    triggers: ["rust/**", "tests/**", "web/src/**", "web/e2e/**", "sdk/**", "deploy/evidence/**", "deploy/repository-quality/**"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/hygiene-check.json
+    ci_job: architecture-gates
+  compatibility_manifest:
+    make: compatibility-manifest-gate
+    purpose: Bind Git/images/runtime overlay/DB/contracts/topology/toolchains/vector revisions and service version reports into one release unit.
+    triggers: ["deploy/release/**", "rust/platform-native/crates/platform-release/**", "rust/platform-native/crates/platform-gateway/src/migration_host/version.rs", "rust/platform-native/crates/platform-knowledge-service/src/version.rs"]
+    tier: L0
+    required_on: [release, manual]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: deploy/release/compatibility-manifest.json
+    ci_job: manual
+  platform_integration:
+    make: platform-release-gate
+    purpose: Execute actual DB, Agent Execution, Knowledge, fresh-install and rollback gates with zero unexpected skips.
+    triggers: ["deploy/release/integration-gates.json", "rust/platform-native/crates/platform-release/**"]
+    tier: L3
+    required_on: [release, manual]
+    resource: live-stack
+    skip: never
+    timeout: 180
+    evidence: tmp/gate-evidence/all-integration.json
+    ci_job: manual
+  loc_no_growth:
+    make: loc-no-growth-gate
+    purpose: Oversized files never grow; new files stay under threshold; bound to the checked-in ledger.
+    triggers: ["rust/**", "web/src/**", "scripts/**", "tests/**"]
+    tier: L0
+    required_on: [change, release]
+    resource: offline
+    skip: never
+    timeout: 5
+    evidence: tmp/gate-evidence/loc-no-growth.json
+    ci_job: architecture-gates
+
+# -- Workspace hygiene --------------------------------------------------------
+# Agents drop test files and screenshots wherever they happen to be standing.
+# These rules are enforced by `make harness-check`, so the tree stays predictable
+# no matter which machine or which agent produced the change.
+workspace:
+  # Playwright / Vitest specs may only live under these roots.
+  spec_roots: [web/e2e, web/src, sdk]
+  spec_globs: ["*.spec.ts", "*.spec.tsx", "*.test.ts", "*.test.tsx"]
+  # Playwright configs are a web/ concern; nowhere else.
+  playwright_config_root: web
+  # Nothing matching these may sit at the repository root.
+  root_forbidden: ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.har", "*.zip", "*.spec.ts", "*.test.ts", "test_*.py", "check_*.py", "*_debug.py"]
+  # Where run artifacts belong. All are ignored by git; never commit them.
+  artifacts:
+    e2e_specs: web/e2e
+    e2e_helpers: web/e2e/support
+    e2e_fixtures: web/e2e/fixtures
+    e2e_run_output: web/test-results
+    e2e_html_report: web/playwright-report
+    e2e_auth_state: web/.playwright
+    browser_scratch: tmp/browser
+    agent_scratch: tmp
+
+# -- Task loop ----------------------------------------------------------------
+loop:
+  guide: docs/harness/README.md
+  stages: [scope, implement, integrate, verify, deliver]
+  rules:
+    - Complete a module or integrated batch before verification; do not cycle per function or file.
+    - Select checks by required behavior, deduplicate overlapping coverage, and assign one executor.
+    - Reuse applicable results across agents; rerun only for relevant changes or new failure evidence.
+    - Fix the cause before repeating a failed command; continue independent work if its environment is unavailable.
+    - Report actual outcomes and unrun requirements without adding reports or changing acceptance standards.
+    - End the task when its requested outcome and applicable verification are complete; do not create housekeeping work.
+
+# -- Multi-session programs ---------------------------------------------------
+programs:
+  root: deploy/runbooks
+  state_file: loop-state.json
+  # Required files depend on the program's own loop-state schema_version. v4 is the
+  # minimal contract and deliberately dropped v3's plan/report/ledger artifacts, so
+  # asserting v4 on a v3 program produces noise, not signal.
+  required_files_by_schema:
+    prd-phase-harness/loop-state/v4: [README.md, loop-state.json]
+    prd-phase-harness/loop-state/v3: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
+    prd-phase-harness/loop-state/v2: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
+    prd-phase-harness/loop-state/v1: [README.md, loop-state.json, agent-handoff.md, progress-log.md]
+  structural_validator: "platform-tools harness-check --repo-root ."
+  # Older schemas are historical templates, not instructions to create missing
+  # handoff/progress files for current tasks. No unimplemented gate is a prerequisite.
+  convention: docs/harness/workflow.md#4-programs-and-large-changes
+
+# -- Knowledge locations ------------------------------------------------------
+knowledge:
+  design_and_plans: docs/
+  architecture_decisions: docs/architecture/
+  programs: deploy/runbooks/
+  evidence_and_reports: reports/
+  archive: docs/archive/

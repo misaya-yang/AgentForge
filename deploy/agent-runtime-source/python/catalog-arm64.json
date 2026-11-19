@@ -1,0 +1,88 @@
+{
+  "architecture": "arm64",
+  "packages": {
+    "contourpy": {
+      "dependencies": [
+        "numpy"
+      ],
+      "version": "1.4.0"
+    },
+    "cycler": {
+      "dependencies": [],
+      "version": "0.12.1"
+    },
+    "et-xmlfile": {
+      "dependencies": [],
+      "version": "2.0.0"
+    },
+    "fonttools": {
+      "dependencies": [],
+      "version": "4.67.0"
+    },
+    "kiwisolver": {
+      "dependencies": [],
+      "version": "1.5.1"
+    },
+    "matplotlib": {
+      "dependencies": [
+        "contourpy",
+        "cycler",
+        "fonttools",
+        "kiwisolver",
+        "numpy",
+        "packaging",
+        "pillow",
+        "pyparsing",
+        "python-dateutil"
+      ],
+      "version": "3.11.2"
+    },
+    "numpy": {
+      "dependencies": [],
+      "version": "2.5.4"
+    },
+    "openpyxl": {
+      "dependencies": [
+        "et-xmlfile"
+      ],
+      "version": "3.1.5"
+    },
+    "packaging": {
+      "dependencies": [],
+      "version": "26.3"
+    },
+    "pandas": {
+      "dependencies": [
+        "numpy",
+        "python-dateutil"
+      ],
+      "version": "3.0.6"
+    },
+    "pillow": {
+      "dependencies": [],
+      "version": "12.3.0"
+    },
+    "pyparsing": {
+      "dependencies": [],
+      "version": "3.3.3"
+    },
+    "python-dateutil": {
+      "dependencies": [
+        "six"
+      ],
+      "version": "2.9.0.post0"
+    },
+    "scipy": {
+      "dependencies": [
+        "numpy"
+      ],
+      "version": "1.18.1"
+    },
+    "six": {
+      "dependencies": [],
+      "version": "1.17.0"
+    }
+  },
+  "python_minor": "3.14",
+  "schema_version": "python-curated-catalog/v1"
+}

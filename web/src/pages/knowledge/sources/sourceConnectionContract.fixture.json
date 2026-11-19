@@ -1,0 +1,14 @@
+{
+  "request": {
+    "request_id": "6f54b77d-96af-4a3a-a15e-bac5fb09c21c",
+    "name": "Cloud",
+    "domain": "fixture.atlassian.net"
+  },
+  "receipt": {
+    "connection_id": "6f54b77d-96af-4a3a-a15e-bac5fb09c21c",
+    "name": "Cloud",
+    "domain": "fixture.atlassian.net",
+    "status": "active",
+    "sync_mode": "manual"
+  }
+}

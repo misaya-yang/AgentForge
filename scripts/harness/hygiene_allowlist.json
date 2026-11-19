@@ -1,0 +1,5 @@
+{
+  "schema": "ai-gateway/harness/hygiene-allowlist/v1",
+  "policy": "Every entry needs owner + reason + expires (YYYY-MM-DD) and must name the exact test function. hygiene-check fails when an entry is expired or no longer matches a live finding. Entries are for pre-existing backlog only; new code must be clean. ARC-07 clears this backlog.",
+  "entries": []
+}

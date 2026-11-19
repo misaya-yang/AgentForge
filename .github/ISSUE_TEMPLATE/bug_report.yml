@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a reproducible problem in AI Gateway.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste secrets, tokens, provider keys, database URLs, private documents, or production data.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include exact commands, routes, or UI actions.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release version, commit SHA, or branch.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation output
+      description: Paste safe output from checks such as make validate-config, make status, pytest, pnpm, or docker compose config.
+      render: shell
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Gateway/API
+        - Assistant service
+        - Knowledge service
+        - Frontend
+        - SDK/CLI
+        - Docker/CI/deployment
+        - Documentation
+        - Unknown
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed or redacted secrets, tokens, provider keys, database URLs, private documents, and production data.
+          required: true

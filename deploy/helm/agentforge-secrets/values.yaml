@@ -1,0 +1,6 @@
+# Install separately and wait for Ready before installing/upgrading ai-gateway.
+# Names and remote references only. No credential material.
+storeRef:
+  name: ''
+  kind: ClusterSecretStore
+secrets: []

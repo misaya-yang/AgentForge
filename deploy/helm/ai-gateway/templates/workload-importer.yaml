@@ -1,0 +1,9 @@
+{{- if ne .Values.workloadIdentity.mode "disabled" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-workload-importer
+data:
+  import.sh: |-
+{{ .Files.Get "files/workload-import.sh" | indent 4 }}
+{{- end }}

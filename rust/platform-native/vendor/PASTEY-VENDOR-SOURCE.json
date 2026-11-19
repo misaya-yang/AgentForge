@@ -1,0 +1,98 @@
+{
+  "schema": "agentforge/pastey-vendor/v1",
+  "replacement": {
+    "package": "pastey",
+    "version": "0.2.3",
+    "archive_sha256": "2ee67f1008b1ba2321834326597b8e186293b049a023cdef258527550b9935b4",
+    "registry": "https://crates.io/crates/pastey/0.2.3",
+    "alias": "paste",
+    "license": "MIT OR Apache-2.0",
+    "not_vendored": "actual registry dependency; no fabricated paste package/version"
+  },
+  "packages": [
+    {
+      "package": "gemm",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-0.19.0",
+      "archive_sha256": "aa0673db364b12263d103b68337a68fbecc541d6f6b61ba72fe438654709eacb",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 9,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-common",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-common-0.19.0",
+      "archive_sha256": "88027625910cc9b1085aaaa1c4bc46bb3a36aad323452b33c25b5e4e7c8e2a3e",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 14,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-c32",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-c32-0.19.0",
+      "archive_sha256": "086936dbdcb99e37aad81d320f98f670e53c1e55a98bee70573e83f95beb128c",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 8,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-c64",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-c64-0.19.0",
+      "archive_sha256": "20c8aeeeec425959bda4d9827664029ba1501a90a0d1e6228e48bef741db3a3f",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 8,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-f16",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-f16-0.19.0",
+      "archive_sha256": "e3df7a55202e6cd6739d82ae3399c8e0c7e1402859b30e4cb780e61525d9486e",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 8,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-f32",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-f32-0.19.0",
+      "archive_sha256": "02e0b8c9da1fbec6e3e3ab2ce6bc259ef18eb5f6f0d3e4edf54b75f9fd41a81c",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 8,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "gemm-f64",
+      "version": "0.19.0",
+      "path": "rust/platform-native/vendor/gemm-f64-0.19.0",
+      "archive_sha256": "056131e8f2a521bfab322f804ccd652520c79700d81209e9d9275bbdecaadc6a",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 8,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "pulp",
+      "version": "0.22.3",
+      "path": "rust/platform-native/vendor/pulp-0.22.3",
+      "archive_sha256": "046aa45b989642ec2e4717c8e72d677b13edd831a4d3b6cf37d9a3e54912496a",
+      "license": "MIT",
+      "license_sha256": "d64f878c89bd5f1e5ada7e4aad57690b122727cf5229b7b87ea1980c188da1d9",
+      "file_count": 37,
+      "manifest_only_patch": true
+    },
+    {
+      "package": "tokenizers",
+      "version": "0.22.2",
+      "path": "rust/platform-native/vendor/tokenizers-0.22.2",
+      "archive_sha256": "b238e22d44a15349529690fb07bd645cf58149a1b1e44d6cb5bd1641ff1a6223",
+      "license": "Apache-2.0",
+      "license_sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "file_count": 98,
+      "manifest_only_patch": true
+    }
+  ],
+  "scope": "All nine direct paste parents in cargo-deny-native-zip9-current diagnostic; lock/audit refresh remains required"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "adk-ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "dependencies": {
+    "@google/adk": "2.5.0",
+    "@modelcontextprotocol/sdk": "1.26.0"
+  }
+}

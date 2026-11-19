@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "source": "tests/proxy/test_sse_heartbeat.py",
+      "original_cases": [
+        "test_default_interval_is_15s",
+        "test_passthrough_when_producer_is_fast_yields_no_heartbeats",
+        "test_idle_producer_emits_heartbeat_lines",
+        "test_heartbeat_waits_for_sse_frame_boundary",
+        "test_heartbeat_resumes_after_complete_sse_frame",
+        "test_heartbeat_payload_matches_upstream_string_type_when_opted_in",
+        "test_heartbeat_default_is_bytes",
+        "test_producer_exception_propagates",
+        "test_close_failure_does_not_mask_upstream_failure",
+        "test_consumer_disconnect_closes_upstream_cleanly_once",
+        "test_slow_consumer_never_allows_upstream_to_run_more_than_one_chunk_ahead"
+      ],
+      "native_target": "gateway_migration_parity_sse_heartbeat",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Python close failure cannot be returned by Rust Drop; native test preserves primary error and exactly-once owner cleanup. Production uses existing bounded pumps; wrapper itself performs no read-ahead."
+      ]
+    },
+    {
+      "source": "tests/contract/test_native_approval_receipt_readback.py",
+      "original_cases": [
+        "test_both_public_routes_retain_auth_before_receipt_readback",
+        "test_missing_receipt_cannot_fall_through_to_mutation",
+        "test_receipt_mode_cannot_reach_native_resolution_or_wakeup",
+        "test_normal_wire_body_is_unchanged_and_readback_has_no_retry_fallback"
+      ],
+      "native_target": "gateway_migration_parity_approval_readback",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": []
+    },
+    {
+      "source": "tests/api/test_api_key_self_service_security.py",
+      "original_cases": [
+        "test_self_service_api_key_rejects_privileged_or_management_scopes",
+        "test_self_service_api_key_ignores_forged_tier_and_uses_caller_tier",
+        "test_api_key_management_routes_always_apply_authenticated_tenant"
+      ],
+      "native_target": "gateway_migration_parity_api_keys",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Source direct-handler fixture returns only key_id; native API enforces actual response DTO. All issuance, tenant-filter and invalidation security assertions are retained with valid DTO fixture."
+      ]
+    },
+    {
+      "source": "tests/api/test_auth_jit_security.py",
+      "original_cases": [
+        "test_login_does_not_jit_create_missing_user_with_default_password"
+      ],
+      "native_target": "gateway_migration_parity_auth_database::login_does_not_jit_create_missing_user_with_default_password",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Opt-in isolated PostgreSQL/Redis acceptance is authored but unexecuted."
+      ]
+    },
+    {
+      "source": "tests/api/test_assistant_model_access_levels.py",
+      "original_cases": [
+        "test_assistant_request_rejects_unbounded_or_multimodal_kb_scope",
+        "test_assistant_request_rejects_unresumable_plan_confirmation",
+        "test_assistant_request_requires_local_node_device_and_grant_selection",
+        "test_assistant_request_openapi_marks_plan_confirmation_as_false_only",
+        "test_streaming_gateway_rejects_plan_confirmation_before_runtime",
+        "test_gateway_resolves_and_authorizes_omitted_default_model",
+        "test_gateway_denies_omitted_restricted_default_model_before_runtime",
+        "test_user_model_access_preserves_known_access_level_rules",
+        "test_user_model_access_rejects_unknown_access_level_for_every_tier",
+        "test_model_permission_rejects_dirty_database_access_level",
+        "test_v1_chat_edge_rejects_anonymous_callers_before_model_resolution"
+      ],
+      "native_target": "gateway_migration_parity_assistant_access",
+      "status": "authored_pending_root_execution",
+      "retirement_eligible": false,
+      "residuals": [
+        "Only pure normalizer/access-level matrix is authored. Original plan and selector diagnostic phrases, schema false const, actual stream rejection, omitted-default authorization and anonymous edge cases remain."
+      ]
+    },
+    {
+      "source": "tests/api/test_api_key_permission_merge.py",
+      "original_cases": [
+        "test_api_key_permissions_are_merged_into_auth_context"
+      ],
+      "native_target": null,
+      "status": "pending",
+      "retirement_eligible": false,
+      "residuals": [
+        "Current-account database-key authority fixture still needed; no streaming/static-key approximation used."
+      ]
+    },
+    {
+      "source": "tests/api/test_auth_tenant_identity.py",
+      "original_cases": [
+        "test_auth_me_returns_tenant_from_verified_credentials",
+        "test_thread_expected_tenant_fails_before_any_session_access"
+      ],
+      "native_target": "gateway_migration_parity_auth_database::auth_me_returns_tenant_from_verified_credentials_with_and_without_profile",
+      "status": "partial_authored_pending_root_compile",
+      "retirement_eligible": false,
+      "residuals": [
+        "All four introspection mode/profile cases translated through actual native router and dedicated production SQL adapter, including forged headers. Isolated opt-in PostgreSQL/Redis execution remains unrun.",
+        "Thread expected-tenant precondition cases still pending: original missing-profile external identity admission differs from protected native admission. No global admission weakening made."
+      ]
+    },
+    {
+      "source": "tests/proxy/test_response_cache.py",
+      "original_cases": [
+        "test_response_cache_miss_then_hit",
+        "test_response_cache_bypass_for_unsupported_path"
+      ],
+      "native_target": "gateway_migration_parity_auth_database::{response_cache_miss_then_hit_preserves_exact_response_bytes,response_cache_bypasses_unsupported_path_without_database_access}",
+      "status": "authored_pending_root_compile",
+      "retirement_eligible": false,
+      "residuals": [
+        "MISS/save/HIT uses isolated opt-in production PostgreSQL fixture; execution unrun. BYPASS uses lazy disconnected pool and requires no infrastructure."
+      ]
+    }
+  ]
+}

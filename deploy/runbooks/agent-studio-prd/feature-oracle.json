@@ -1,0 +1,210 @@
+{
+  "schema_version": "prd-phase-harness/feature-oracle/v1",
+  "instructions": {
+    "allowed_edits": "Implementation agents may update only status, evidence, and notes unless the user explicitly changes scope.",
+    "completion_rule": "A feature is passing only when the actor report links deterministic validation and an independent critic artifact approves or explicitly records a user waiver.",
+    "status_values": ["failing", "passing", "blocked", "waived"]
+  },
+  "features": [
+    {
+      "id": "AS-F001",
+      "phase_id": "AS-00",
+      "category": "runtime-baseline",
+      "description": "On the chosen implementation branch, a verified capability inventory proves which Assistant capabilities are native, model-native, MCP, Skill, Connector, or Knowledge, and tests prove an Agent allowlist can only reduce the runtime tool set.",
+      "steps": [
+        "Compare the target branch with origin/main and record the exact code baseline.",
+        "Trace every production composition-root registration and reachable management route.",
+        "Run isolation and tool-selection contract tests, including denial of a tool omitted from the Agent allowlist.",
+        "Publish a capability matrix, unresolved wiring defects, and stable interfaces for AS-01 and AS-02."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-00-baseline-runtime-and-capability-contract-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-00-critic-verdict.md"
+      ],
+      "notes": "Post-authorization Actor evidence includes 13 focused tests, 88 adjacent regressions, Ruff, diff hygiene, and make test-isolation with 6 passed and no skips over a memory-bounded local Gateway-to-Assistant runtime. The first authorized run failed 2 login cases on a fresh database and was corrected by creating the local dev admin; it is not counted as a pass. A fresh independent Critic reran every required group, obtained the same passing/no-skip results, and approved AS-F001. The strict AS-00 completion gate then exited zero with quality score 100. No real API Key was read or changed, and the localhost model stub proves transport/contract behavior only. AS-01 is unlocked; AS-F002 through AS-F010 remain failing."
+    },
+    {
+      "id": "AS-F002",
+      "phase_id": "AS-01",
+      "category": "agent-lifecycle-rbac",
+      "description": "An authorized tenant user can create, read, edit with optimistic concurrency, version, share by role, copy, archive, and list Agents without reading or mutating another tenant's Agent or silently overwriting a newer Draft.",
+      "steps": [
+        "Create an Agent and persist a mutable Draft with revision 1.",
+        "Attempt a stale If-Match update and observe AGENT_DRAFT_CONFLICT without lost changes.",
+        "Create an immutable Version and verify later Draft edits do not mutate it.",
+        "Exercise Owner, Editor, Viewer, last-owner, cross-tenant, copy, archive, and soft-delete cases."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-01-agent-domain-model-versioned-spec-and-rbac-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-01-critic-verdict.md"
+      ],
+      "notes": "AS-01 Actor and fresh independent Critic both ran all required checks with no skips: live PostgreSQL migration contract 9 passed, Agent API/RBAC 13 passed, Gateway regression 14 passed, and Ruff passed. Full live Gateway OpenAPI contains nine Agent paths without token_hash or secret_ref; generated-password Agent lifecycle, Viewer and cross-tenant HTTP probes also passed on the repository-owned stack. The independent fresh-context reviewer approved AS-01/AS-F002 after reviewing the frozen migration, repository, API, tests, runtime ownership and memory evidence. The strict AS-01 completion gate exited zero with quality score 100. AS-02 is unlocked; AS-F003 through AS-F010 are still failing."
+    },
+    {
+      "id": "AS-F003",
+      "phase_id": "AS-02",
+      "category": "runtime-isolation",
+      "description": "Each Preview or published conversation is resolved by Gateway into a signed identity/session/body-bound Agent Runtime Envelope, verified by Assistant, pinned to its Agent Version, and limited to capabilities allowed by tenant, version, channel, caller, credential principal and readiness policies.",
+      "steps": [
+        "Start sessions for two Agents with different prompts and capability bindings.",
+        "Verify prompt, memory, tools, idempotency, checkpoints, runs, and traces cannot cross Agent or tenant boundaries.",
+        "Promote a Publication and verify existing sessions stay pinned while new sessions use the new Version.",
+        "Attempt generic-Assistant model/prompt/capability/snapshot/header forgery, signed Snapshot mutation, expired/replayed Envelope and body/session substitution; prove hash recalculation and atomic nonce consumption fail closed with a policy trace."
+      ],
+      "status": "passing",
+    "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-02-runtime-resolver-and-isolation-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-02-critic-verdict.md",
+        "reports/agent-studio/as-02-golden-results.json"
+      ],
+      "notes": "Fresh Critic changes_requested verdicts are preserved as iterations 1 and 2. Actor iteration 3 closed residual C-01 wrong-session finalization and C-05 same-ID capability metadata substitution. The iteration-3 independent Critic reproduced both fixes, confirmed C-02/C-03/C-04, found no new material issue, and approved AS-02 after all five required gates exited zero with no skips: 27/23/45, AHR 28/77/8/98 plus golden, live isolation 6/6 and Ruff clean. Supplemental migration 5, golden 14/14, Docgen 135, scripts 94 and resume/API 45 also passed. Final runtime was 8/8 healthy around 720 MiB, stub=false, provider inputs absent, and Preview failed closed as 503 AGENT_RUNTIME_MODEL_UNAVAILABLE."
+    },
+    {
+      "id": "AS-F004",
+      "phase_id": "AS-03",
+      "category": "mcp-security",
+      "description": "A Tenant Admin can register remote Streamable HTTP MCP and existing Connector connections, explicitly choose service-account or user-delegated principals, discover versioned schemas, and bind authorized tools without SSRF, plaintext secrets, cross-user/anonymous credential fallback, or production schema drift.",
+      "steps": [
+        "Register mock no-auth, bearer, service-account and user-delegated OAuth connections plus an existing Connector; inspect redacted API responses.",
+        "Reject private/disallowed destinations, redirect/DNS rebinding, bad Origin, wrong audience, oversized response, and cross-tenant access.",
+        "Discover tools, publish a schema hash, change the server schema, and observe a blocking diff for the next Version.",
+        "Verify User A/User B/anonymous/public channel separation, timeout, concurrency, circuit breaker, audit, disable, grant expiry and revocation behavior."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-03-mcp-registry-secret-boundary-and-health-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-03-critic-verdict.md",
+        "reports/agent-studio/as-03-mcp-security-matrix.json"
+      ],
+      "notes": "Three preserved changes_requested reviews drove connection-effective DNS pinning, untrusted remote classification removal, exact-schema public Admin grants, conservative recursive schema compatibility and save-time private-destination rejection. On the frozen final source, the Actor and amended iteration-3 independent Critic both ran every required gate with zero skips: API 6, Assistant runtime/policy/Connector 23, security 19, migration 3, Ruff clean, live isolation 6/6 and AHR 28/77/8/98 plus golden. Final Compose was 8/8 healthy around 730.5 MiB, ownership correct, stub=false and host/container source hashes equal. Third-party OAuth remains an explicit no-credential external smoke deferral, not production proof; no required security gate is waived."
+    },
+    {
+      "id": "AS-F005",
+      "phase_id": "AS-04",
+      "category": "skills-knowledge",
+      "description": "An Agent Version executes an exact authorized instruction-only Skill version and normalized Knowledge Dataset bindings, rejects tenant executable entrypoints, records Skill hashes and live-content provenance without claiming replayability, and fails closed on revocation or unavailability.",
+      "steps": [
+        "Upload a valid instruction-only SKILL.md and reject forged source/builtin/path/network/exec entrypoints; bind its normalized exact version, update it, and prove the old Agent Version does not drift.",
+        "Exercise list/read/update/enable/disable across two tenants and prove registry/cache isolation.",
+        "Persist normalized tenant-scoped Draft/Version Dataset bindings, run retrieval with provenance, record the live revision fingerprint, and expose that historical content replay is unavailable unless the Knowledge service supports it.",
+        "Revoke Skill/Dataset access and verify Preview, publish, and runtime denial/degradation behavior."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-04-skills-and-knowledge-version-bindings-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-04-critic-verdict.md",
+        "reports/agent-studio/as-04-skill-kb-golden.json"
+      ],
+      "notes": "Three preserved changes_requested reviews drove authoritative content revision, credential/telemetry-safe retrieval fingerprints, exact per-Dataset auto/tool/off execution, and production DB-backed resource policy wiring. On frozen iteration-4 source, Actor and fresh Critic required gates passed with zero skips: Skill API/isolation 26, exact Skill runtime 6, Knowledge/streaming 45 and Ruff clean; supplemental migration 4, fingerprint 5 and production resolver 8 also passed. A running-container real-PostgreSQL probe proved non-expanding policy and current Dataset revocation, with temporary rows removed. AHR 33/77/8/98 plus golden and explicit local stub isolation 6/6 preserve Assistant compatibility. provider_calls=0 and historical_replayable=false are explicit evidence boundaries, not external-provider readiness claims."
+    },
+    {
+      "id": "AS-F006",
+      "phase_id": "AS-05",
+      "category": "studio-ui",
+      "description": "An Owner can create and configure an Agent in a responsive, keyboard-accessible Studio, understand capability source/risk/setup state, recover from save conflicts, and run a Draft or Version Preview that clearly shows its effective configuration.",
+      "steps": [
+        "Create an Agent from blank and template paths, then configure identity, instructions, model, capabilities, knowledge, memory, and welcome content.",
+        "Observe clean, dirty, saving, saved, validation, conflict, permission, degraded, and network-recovery states.",
+        "Run Preview for a saved Draft and historical Version without hot-swapping an existing session.",
+        "Verify desktop, tablet, mobile, keyboard, screen-reader labels, axe, reduced-motion, console, and network evidence."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-05-agent-studio-frontend-and-preview-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-05-critic-verdict.md",
+        "reports/agent-studio/as-05-browser-matrix.md",
+        "reports/agent-studio/as-05-preview-golden.json"
+      ],
+      "notes": "Two preserved changes_requested reviews drove atomic metadata/spec/revision persistence, closed Agent SSE projection, default-Compose rollback wiring, mobile role actions, real keyboard/focus and executed Editor save/Preview evidence, plus truthful exact viewport receipts. On frozen iteration-3 source, Actor and fresh Critic independently passed all required gates with zero skips: frontend static, Agent E2E 25, full OSS E2E 31, Agent API 9 and Assistant resolver 11. Supplemental runtime-config/Compose 5 plus real PostgreSQL trigger rollback 1, Ruff and diff hygiene also passed. The supported phase claim check exited 0 with structure score 100/100 after its first truthful metadata-drift rejection; the tool explicitly checks metadata only. The built-container false/true rollback and live local provider-unavailable flow preserve Assistant compatibility without claiming external-provider success, deployment, AS-06 publication, or AS-09 whole-demand completion."
+    },
+    {
+      "id": "AS-F007",
+      "phase_id": "AS-06",
+      "category": "eval-publish-rollback",
+      "description": "An Owner can validate and evaluate a Draft, inspect a deterministic diff, publish an immutable Version to a channel, and atomically roll back while failed or stale gates cannot be bypassed by the client.",
+      "steps": [
+        "Run configured golden, trajectory, tool, RAG provenance, safety, latency, and cost gates for a Draft revision.",
+        "Change the Draft after evaluation and prove the stale evaluation cannot publish the newer revision.",
+        "Publish idempotently, verify the immutable Version and append-only promotion audit, then edit Draft without production drift.",
+        "Rollback to a healthy historical Version and verify new versus existing session behavior."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-06-eval-publish-promotion-and-rollback-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-06-critic-verdict-iteration-1.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-06-critic-verdict-iteration-2.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-06-critic-verdict-iteration-3.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-06-critic-verdict-iteration-4.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-06-critic-verdict.md",
+        "reports/agent-studio/as-06-eval-matrix.md",
+        "reports/agent-studio/as-06-publish-atomicity.json",
+        "reports/agent-studio/as-06-screenshots"
+      ],
+      "notes": "Iteration-1 through iteration-3 changes_requested verdicts are preserved. Iteration 3 closed C-06 but reproduced C-07; Actor iteration 4 locks the Dataset parent FOR UPDATE and every manifest example FOR SHARE. Focused real PostgreSQL update and insert cases both remain blocked until Publish commits. Final-source zero-skip gates pass: publish/API/PostgreSQL/gate 35; candidate 13 plus golden 16/16 and Eval 41/116/35/17; frontend static/release 10; AHR 33/77/8/98 plus golden and isolation 6/6. The fresh iteration-4 Critic independently matched 13/13 hashes, reran Ruff, focused 2 and required 35 with zero skips, found no new material blocker and approved C-07 closure. The supported non-legacy claim check then exited 0 with structure score 100/100; it explicitly checks metadata consistency only. AS-F007 is passing and AS-07 is dependency-unlocked."
+    },
+    {
+      "id": "AS-F008",
+      "phase_id": "AS-07",
+      "category": "delivery-channels",
+      "description": "A published Agent can be used through a stable Hosted URL/new window, an origin-restricted iframe/Widget, and a scoped streaming Runtime API without exposing server tokens, internal configuration, disallowed tools, or cross-channel sessions.",
+      "steps": [
+        "Exercise private, tenant, and public Hosted modes with welcome, chat, attachments, citations, errors, quotas, and disabled state.",
+        "Install the Widget on allowed and rejected Origin fixtures; verify the built Hosted page remains anti-framed, the dedicated Embed response has Publication-specific frame-ancestors with no SAMEORIGIN XFO, and postMessage/focus/token/network contracts pass.",
+        "Create, rotate, scope, expire, and revoke a hashed Runtime API token; verify SSE, idempotency, attachment, feedback, and rate-limit contracts.",
+        "Prove anonymous Hosted/Embed sessions are session-memory-only and cannot call high-risk capabilities by default."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-07-hosted-app-embed-widget-and-runtime-api-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-07-critic-verdict-iteration-1.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-07-critic-verdict-iteration-2.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-07-critic-verdict.md",
+        "reports/agent-studio/as-07-channel-security.json",
+        "reports/agent-studio/as-07-browser-network.md",
+        "reports/agent-studio/as-07-screenshots"
+      ],
+      "notes": "The preserved iteration-1 changes_requested verdict identified process-local bypassable quotas, duplicate idempotent execution, and missing Hosted attachment/citation behavior. Actor iteration 2 closed them with one Redis-Lua decision over principal/IP/Publication minute/day buckets and a stable HMAC Embed abuse identity; durable pending/completed/failed idempotency with exact SSE replay and one downstream invocation; and policy-gated opaque attachment handles resolved server-side through shared Gateway/Assistant storage plus typed citation rendering. Final Actor gates are zero-skip: runtime/security 24, real PostgreSQL 3, Hosted/Embed browser 8, deployment headers 5 plus config-only, frontend lint/type/i18n/build, built-image headers, AHR 33/77/8/98 plus golden, current isolation coverage and OSS browser 41. Live Redis atomic and shared-storage probes passed with formal Gateway/Assistant/Frontend healthy and Stub disabled. The fresh iteration-2 Critic independently matched 24/24 fingerprints and reran 40 tests with zero failures/skips plus the config-only header gate, closed C-01 through C-03, and approved. The supported legacy-compatible phase claim check exited 0 with structure score 100/100 and explicitly validates metadata only; current strict certification is unavailable for the v2 Harness. AS-F008 is passing and AS-08 is dependency-unlocked; AS-09 same-build whole-demand completion remains pending."
+    },
+    {
+      "id": "AS-F009",
+      "phase_id": "AS-08",
+      "category": "operations-governance",
+      "description": "Owners and Admins can operate Agents with per-version/channel traces, metrics, audits, quotas, retention and deletion, while additive migration/feature flags preserve the built-in Assistant and a versioned aggregate manifest includes every earlier required gate.",
+      "steps": [
+        "Filter metrics/traces by Agent, Version, Publication, channel and time; verify redaction and retention.",
+        "Exercise audit, quota, archival, token revocation, user deletion, tenant deletion, legal-hold, and cache invalidation paths.",
+        "Run migration idempotency/application rollback and enable/disable flags without losing existing Assistant sessions.",
+        "Contract-test that make verify-agent-studio includes every AS-00 through AS-08 required command, including Envelope, credential, Skill entrypoint, publish atomicity and built-header gates."
+      ],
+      "status": "passing",
+      "evidence": [
+        "deploy/runbooks/agent-studio-prd/reports/as-08-observability-admin-migration-and-release-gate-report.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-08-critic-verdict-iteration-1.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-08-critic-verdict-iteration-2.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-08-critic-verdict-iteration-3.md",
+        "deploy/runbooks/agent-studio-prd/reports/as-08-critic-verdict.md",
+        "reports/agent-studio/as-08-operations-governance.md",
+        "reports/agent-studio/as-08-aggregate-manifest.json",
+        "reports/agent-studio/as-08-browser-matrix.md"
+      ],
+      "notes": "Two preserved changes_requested reviews drove the complete TTFT/tool/Knowledge/feedback metric set, recursive at-rest audit redaction plus binding/high-risk events, authoritative Agent/Publication/concurrency/token/MCP/storage quotas, legal-hold-safe retryable deletion, zero-skip aggregate acceptance and completed tenant-receipt replay after ACL teardown. Final Actor required gates are zero-skip: operations/governance/migration 24, aggregate contract 5, analytics browser 5 plus lint/type/i18n/build, AHR 33/77/10/98 plus golden, and credentialed isolation 6/6. Migration 081 is additive/reentrant and was re-applied to the owned local PostgreSQL stack; authenticated live probes covered metrics/quotas/audit and exact deletion replay with another user denied. Fresh iteration-3 Critic matched 30/30 fingerprints, independently passed focused PostgreSQL 1 and exact required 24 with zero skips, closed C-04-R2 and approved. AS-F009 is passing; AS-09 same-build whole-demand regression remains unclaimed."
+    },
+    {
+      "id": "AS-F010",
+      "phase_id": "AS-09",
+      "category": "terminal-release",
+      "description": "A no-feature terminal evaluation reruns the critic-approved aggregate in one compatible build, records build/manifest hashes and complete browser/migration/security/rollback evidence, and separates implementation completion from deployment authorization.",
+      "steps": [
+        "Confirm AS-00 through AS-08 each have passed actor and independent critic artifacts and the aggregate manifest hash matches AS-08.",
+        "Run make verify-agent-studio without editing product source, tests, or gates; route any failure back to its owner Phase.",
+        "Record whole-demand, built-header, accessibility, migration, feature-flag and built-in Assistant evidence from the same build hash.",
+        "Write the terminal actor report, obtain an independent release critic, then let the orchestrator update Oracle evidence and run the full completion gate."
+      ],
+      "status": "passing",
+      "evidence": "deploy/runbooks/agent-studio-prd/reports/as-09-terminal-whole-demand-release-gate-report.md; deploy/runbooks/agent-studio-prd/reports/as-09-critic-verdict.md; reports/agent-studio/agent-studio-regression-v1-result.json; reports/agent-studio/as-09-whole-demand-matrix.md; reports/agent-studio/as-09-build-and-manifest.json; reports/agent-studio/as-09-release-decision.md",
+      "notes": "The accepted post-repair candidate executed the immutable AS-08 manifest from one stable source hash and passed 39/39 required gates with zero skips and zero failures; all 39 log hashes, the result hash, manifest hash and current source fingerprint were independently matched. Same-run evidence covers Agent CRUD/custom Prompt/Preview, MCP/Connectors, Skills/Knowledge, Eval/version publish/rollback, Hosted/Embed/Runtime API, real built-image headers, desktop/tablet/mobile accessibility, additive migrations 071-081, governance/privacy/security and built-in Assistant AHR 33/77/10/98 plus golden and isolation 6/6. The fresh terminal Critic approved with no blockers and supports ready-but-not-deployed. The installed lightweight validator cannot issue legacy strict certification for this v2 Harness; its supported structure validation passed 100/100 and is metadata-only. External provider quality, production Secret/OAuth/egress and deployment/monitoring authorization remain explicitly deferred deployment-readiness items, not local implementation claims."
+    }
+  ]
+}

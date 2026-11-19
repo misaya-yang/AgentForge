@@ -1,0 +1,76 @@
+{{- if .Values.routing.enabled }}
+{{- $parent := required "Gateway parent name required" .Values.routing.parentRef.name }}
+{{- if .Values.routing.gatewayClassName }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $parent }}
+spec:
+  gatewayClassName: {{ .Values.routing.gatewayClassName | quote }}
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - {name: {{ required "TLS Secret required" .Values.routing.tlsSecretName }}}
+---
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}
+spec:
+  parentRefs:
+  - {{ toYaml .Values.routing.parentRef | nindent 4 }}
+  hostnames: {{ required "Explicit public hostnames required" .Values.routing.hostnames | toJson }}
+  rules:
+  - matches:
+    - path: {type: PathPrefix, value: /}
+    backendRefs:
+    - {name: {{ include "ai-gateway.fullname" . }}-frontend, port: 8080}
+{{- if .Values.routing.certificate.enabled }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}
+spec:
+  secretName: {{ .Values.routing.tlsSecretName | quote }}
+  dnsNames: {{ .Values.routing.hostnames | toJson }}
+  issuerRef:
+    name: {{ required "Certificate issuer required" .Values.routing.certificate.issuerName | quote }}
+    kind: {{ .Values.routing.certificate.issuerKind }}
+{{- end }}
+{{- end }}
+{{- if .Values.routing.internalGrpc.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-knowledge-internal
+spec:
+  parentRefs:
+  - name: {{ required "Private gRPC Gateway parent required" .Values.routing.internalGrpc.parentRef.name | quote }}
+    namespace: {{ required "Private gRPC Gateway namespace required" .Values.routing.internalGrpc.parentRef.namespace | quote }}
+    sectionName: {{ required "Private gRPC listener required" .Values.routing.internalGrpc.parentRef.sectionName | quote }}
+  rules:
+  - backendRefs:
+    - {name: {{ include "ai-gateway.fullname" . }}-knowledge, port: 8093}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-grpc
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: knowledge
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - {{ toYaml .Values.network.edgePeer | nindent 6 }}
+    ports: [{protocol: TCP, port: 8093}]
+{{- end }}

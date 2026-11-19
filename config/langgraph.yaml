@@ -1,0 +1,61 @@
+# LangGraph 配置示例
+# 可以通过环境变量覆盖这些配置
+
+# 基础配置
+langgraph:
+  enabled: true
+  
+  # 负载均衡策略
+  # round_robin: 轮询
+  # least_connections: 最少连接
+  # weighted: 加权
+  # latency_based: 基于延迟
+  load_balancer_strategy: least_connections
+  
+  # 健康检查间隔（秒）
+  health_check_interval: 10
+  
+  # LangGraph Server 实例配置
+  instances:
+    - instance_id: langgraph-1
+      url: http://localhost:8123
+      weight: 2  # 高配机器，权重高
+      
+    - instance_id: langgraph-2
+      url: http://localhost:8124
+      weight: 1
+      
+    # 可以添加更多实例...
+  
+  # 用户层级限流配置
+  tier_limits:
+    anonymous:
+      requests: 10
+      window: 60
+      burst: 0
+    
+    normal:
+      requests: 60
+      window: 60
+      burst: 5
+    
+    premium:
+      requests: 300
+      window: 60
+      burst: 20
+    
+    enterprise:
+      requests: 1000
+      window: 60
+      burst: 100
+    
+    admin:
+      requests: 10000
+      window: 60
+      burst: 1000
+
+# 也可以通过环境变量配置实例（逗号分隔）
+# GATEWAY_LANGGRAPH__INSTANCE_URLS=http://langgraph-1:8000,http://langgraph-2:8000
+
+
+

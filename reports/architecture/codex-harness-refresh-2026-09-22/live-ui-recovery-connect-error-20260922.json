@@ -1,0 +1,20 @@
+{
+  "container": "ai-gateway-backend",
+  "window_utc": [
+    "2026-09-22T16:29:00Z",
+    "2026-09-22T16:29:13Z"
+  ],
+  "run_id": "2afa13e7-9e95-4698-9eb4-ec87d91ca5ac",
+  "model_call_id": "9cc39eb3-dfc1-47db-9cea-efd051b073f7",
+  "log_excerpt": [
+    "2026-09-22 16:29:03.094 INFO     src.services.agent_runtime.model_plane - Agent provider dispatch wire=responses model=qwen3.7-plus tool_types=['function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function', 'function']",
+    "2026-09-22 16:29:11.995 ERROR    src.core.middleware.streaming - [52d19685-9940-44e0-88c2-eb5ebbf6f191] POST /internal/v1/agent-model-plane/responses -> ERROR (8912.15ms): ",
+    "httpcore.ConnectError",
+    "  File \"/app/src/api/internal/agent_model_plane.py\", line 114, in responses",
+    "  File \"/app/src/services/agent_runtime/model_plane.py\", line 354, in stream",
+    "  File \"/app/src/services/agent_runtime/model/chat_completions.py\", line 226, in stream",
+    "  File \"/app/src/services/agent_runtime/model_plane.py\", line 403, in _stream_native_responses",
+    "  File \"/app/src/services/agent_runtime/model/native_responses.py\", line 386, in _stream_native_responses",
+    "httpx.ConnectError"
+  ]
+}

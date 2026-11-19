@@ -1,0 +1,645 @@
+{
+  "schema_version": "harness/work-package/v1",
+  "active_package": "P1-10",
+  "packages": [
+    {
+      "id": "P1-00",
+      "result": "建立唯一执行owner、现状/契约/制品/失败基线；无依赖",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [],
+      "state": "verified",
+      "owned_paths": [
+        "deploy/runbooks/agent-platform-vnext/**",
+        "deploy/runbooks/platform-architecture-convergence/loop-state.json",
+        "deploy/runbooks/agent-runtime-upstream-sync/loop-state.json",
+        "deploy/runbooks/agent-runtime-cli-client/loop-state.json",
+        "deploy/runbooks/kb-rag-ui-t5/loop-state.json",
+        "docs/harness/README.md",
+        "docs/harness/architecture.md",
+        "AGENTS.md"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [
+        "docs/README.md",
+        "sdk/openapi.json"
+      ],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [
+        "make harness-check",
+        "make architecture-boundary-gate",
+        "make core-boundary-gate",
+        "make single-instance-guard",
+        "make verify-openapi-contract"
+      ],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-00.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": true,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-01",
+      "result": "修正Eval租户身份及Dataset主体边界；依赖P1-00",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-00"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "src/api/v1/auth.py",
+        "src/api/v2/agent.py",
+        "src/services/eval/eval_candidate_client.py",
+        "src/services/eval/eval_outbox_worker.py",
+        "src/api/v1/_proxy_utils.py",
+        "src/services/knowledge_deletion_confirmation.py",
+        "web/src/api/auth.ts",
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py",
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/knowledge_service.py",
+        "apps/knowledge-service/src/knowledge_service/api/routes/knowledge.py",
+        "apps/knowledge-service/src/knowledge_service/api/schemas/knowledge.py",
+        "apps/knowledge-service/src/knowledge_service/persistence/database.py",
+        "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+        "tests/services/eval/test_eval_candidate_client.py",
+        "tests/services/eval/test_eval_candidate_identity.py",
+        "tests/services/eval/test_candidate_runner.py",
+        "tests/api/test_auth_tenant_identity.py",
+        "tests/api/test_agent_v2.py",
+        "tests/services/knowledge/test_dataset_role_tenant_scope.py",
+        "tests/services/knowledge/test_dataset_delete_security.py",
+        "tests/api/test_gateway_knowledge_deletion_confirmation.py",
+        "docs/architecture/ADR-010-phase1-tenant-identity-and-knowledge-authorization.md",
+        "CHANGELOG.md",
+        "database/migrations/2026_08_post_kb_v1/001_knowledge_tenant_permissions.sql",
+        "database/migrations/2026_08_post_kb_v1/manifest.yml",
+        "database/authority/commands.py",
+        "database/authority/manifest.py",
+        "database/authority/epoch_verification.py",
+        "tests/database/test_phase1_knowledge_permissions.py",
+        "tests/database/test_authority_epoch.py",
+        "tests/services/knowledge/test_gateway_dataset_authorize.py",
+        "apps/knowledge-service/src/knowledge_service/api/deletion_confirmation.py",
+        "tests/api/test_knowledge_deletion_confirmation.py",
+        "database/migrations/2026_08_post_kb_v1/001_verification.json",
+        "tests/database/test_migration_authority_manifest_legacy.py",
+        "tests/database/test_phase1_knowledge_permissions_live.py",
+        "database/authority/bootstrap.py",
+        "src/api/internal/knowledge_actor.py",
+        "src/api/internal/agent_capabilities.py",
+        "apps/knowledge-service/src/knowledge_service/services/gateway_actor.py",
+        "apps/knowledge-service/src/knowledge_service/api/routes/capability_plane.py",
+        "tests/services/knowledge/test_capability_plane.py",
+        "tests/api/test_knowledge_actor.py",
+        "packages/ai-gateway-contracts/src/ai_gateway_contracts/database_revision.py",
+        "apps/knowledge-service/src/knowledge_service/persistence/schema_compatibility.py"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [
+        "docs/README.md",
+        "sdk/openapi.json",
+        "docs/plans/agent-platform-vnext-2026-09/README.md",
+        "docs/plans/agent-platform-vnext-2026-09/04-delivery-phases-and-work-packages.md"
+      ],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [
+        "uv run --all-packages --extra test pytest -q --no-cov tests/services/eval/test_eval_candidate_client.py tests/services/eval/test_eval_candidate_identity.py tests/api/test_auth_tenant_identity.py tests/api/test_agent_v2.py tests/services/knowledge/test_dataset_role_tenant_scope.py",
+        "make verify-openapi-contract"
+      ],
+      "integration_gates": [
+        "real authenticated ASGI identity and scope matrix",
+        "isolated DB privilege and migration proof before ID-03 completion"
+      ],
+      "live_gates": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-01.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": true,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-02",
+      "result": "模型工具授权、wire、事件终态与恢复一致；依赖P1-01安全边界",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-01"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "src/services/agent_runtime/model/**",
+        "src/services/agent_runtime/control/**",
+        "src/services/agent_runtime/control_plane.py",
+        "src/adapters/openai.py",
+        "rust/agent-runtime-overlay/**",
+        "sdk/cli/**",
+        "web/src/api/agentThreads.ts",
+        "web/src/pages/assistant/hooks/useChatSession.ts",
+        "tests/services/agent_runtime/**",
+        "web/e2e/**"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-02.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": true,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-03",
+      "result": "代码执行与内部broker有硬资源/路径/取消边界；依赖P1-01/02",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-02"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "src/services/agent_runtime/model/**",
+        "src/services/agent_runtime/control/**",
+        "src/services/agent_runtime/control_plane.py",
+        "src/adapters/openai.py",
+        "rust/agent-runtime-overlay/**",
+        "sdk/cli/**",
+        "web/src/api/agentThreads.ts",
+        "web/src/pages/assistant/hooks/useChatSession.ts",
+        "tests/services/agent_runtime/**",
+        "web/e2e/**"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-03.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": true,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-04",
+      "result": "模型/价格身份、Eval候选/judge模型与权限固定；依赖P1-01/02",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-03"
+      ],
+      "state": "verified",
+      "owned_paths": [],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-04.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-05",
+      "result": "所有入口的容量/重试语义一致；依赖P1-02/04",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-04"
+      ],
+      "state": "verified",
+      "owned_paths": [],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-05.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-06",
+      "result": "Eval job可reclaim且结果语义诚实；依赖P1-01/02",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-05"
+      ],
+      "state": "verified",
+      "owned_paths": [],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-06.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-07",
+      "result": "普通知识生命周期可用，配置提前失败，目录/全量请求不截断；依赖P1-01",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-06"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/parsing/config_validation.py",
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/ingestion_service.py",
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/dataset_service.py",
+        "apps/knowledge-service/src/knowledge_service/persistence/datasets.py",
+        "apps/knowledge-service/src/knowledge_service/services/knowledge/knowledge_service.py",
+        "apps/knowledge-service/src/knowledge_service/api/routes/knowledge.py",
+        "web/src/api/knowledge.ts",
+        "packages/ai-gateway-core/src/ai_gateway_core/knowledge/proxy_client.py",
+        "tests/packages/ai_gateway_core/test_kb_proxy_client.py",
+        "tests/services/knowledge/test_catalog_and_parsing_admission.py"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-07.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-08",
+      "result": "状态/宣传真实，四个到期例外清零；依赖P1-04/06/07",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-07"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "src/services/metrics/collector.py",
+        "src/core/observability/metrics.py",
+        "packages/ai-gateway-core/src/ai_gateway_core/comm/client.py",
+        "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py",
+        "packages/ai-gateway-contracts/src/ai_gateway_contracts/retrieval_metrics.py",
+        "apps/knowledge-service/src/knowledge_service/services/eval/retrieval_metrics.py",
+        "src/services/eval/rag_regression.py",
+        "src/services/eval/rerank_bakeoff.py",
+        "scripts/reranker_bakeoff.py",
+        "scripts/harness/import_boundary_allowlist.json",
+        "src/services/llm/provider_health.py",
+        "src/api/v1/providers.py",
+        "src/api/v1/health.py",
+        "web/src/api/gateway.ts",
+        "web/src/components/ProviderStatusCard.tsx",
+        "web/src/pages/Login.tsx",
+        "src/api/v1/usage.py",
+        "web/src/api/usage.ts",
+        "web/src/pages/dashboard/DashboardLayout.tsx",
+        "src/services/metrics/metrics_recorder.py",
+        "src/api/v1/dashboard.py",
+        "src/services/metrics/data_status.py",
+        "web/src/pages/dashboard/components/DataStatusBadge.tsx",
+        "web/src/pages/dashboard/components/PanelWrapper.tsx",
+        "tests/api/test_observed_health_states.py",
+        "tests/packages/ai_gateway_core/test_internal_service_client_metrics.py"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [
+        "src/main.py",
+        "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+        "sdk/openapi.json",
+        "README.md"
+      ],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-08.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-09",
+      "result": "已支持CLI可独立运行；Runtime/Worker来源及工具/stream边界可验证；依赖P1-02/03",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-08"
+      ],
+      "state": "verified",
+      "owned_paths": [
+        "src/services/agent_runtime/model/**",
+        "src/services/agent_runtime/control/**",
+        "src/services/agent_runtime/control_plane.py",
+        "src/adapters/openai.py",
+        "rust/agent-runtime-overlay/**",
+        "sdk/cli/**",
+        "web/src/api/agentThreads.ts",
+        "web/src/pages/assistant/hooks/useChatSession.ts",
+        "tests/services/agent_runtime/**",
+        "web/e2e/**",
+        "scripts/harness/agent_runtime_supply_chain.py",
+        "scripts/harness/build_agent_runtime_cli_package.sh",
+        "scripts/new/common.sh",
+        "scripts/new/deploy.sh",
+        "scripts/new/hot-update.sh",
+        "scripts/rust/build-update.sh",
+        "docker-compose.build.yml",
+        "sdk/cli/scripts/verify-native-package.mjs",
+        "sdk/cli/scripts/verify-native-package.test.ts",
+        "sdk/cli/README.md",
+        "deploy/agent-runtime-source/README.md",
+        "tests/harness/test_agent_runtime_supply_chain.py",
+        "tests/scripts/test_deploy_rust_release_unit.py",
+        "tests/scripts/test_runtime_script_topology_contract.py"
+      ],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "none for completion; unexecuted checks remain pending",
+      "rollback": "safe predecessor code; ID-02/03 data changes require separate frozen epoch compatibility and safe-reader proof",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-09.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": true,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    },
+    {
+      "id": "P1-10",
+      "result": "一期本地Docker、内置浏览器/API核心旅程及必要故障回归；外部分发验收保留未验证；依赖P1-01～09",
+      "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+      "depends_on": [
+        "P1-09"
+      ],
+      "state": "verified",
+      "owned_paths": [],
+      "forbidden_paths": [
+        ".env*",
+        "web/.playwright/**",
+        "unrelated package source",
+        "upstream kernel algorithm changes"
+      ],
+      "integration_paths": [
+        "src/main.py",
+        "src/api/router.py",
+        "docker/migrate/Dockerfile",
+        "Makefile",
+        "harness.yml",
+        "docker-compose.yml",
+        "sdk/openapi.json",
+        "README.md",
+        "CHANGELOG.md",
+        "deploy/runbooks/agent-platform-vnext/**"
+      ],
+      "must_preserve": [
+        "ADR-006/007/008/009",
+        "public API compatibility except declared additive identity contract",
+        "explicit user/public dataset sharing",
+        "original dirty work",
+        "no secret output"
+      ],
+      "direct_gates": [],
+      "integration_gates": [],
+      "live_gates": [],
+      "skip_policy": "No skipped required local acceptance. Fresh-machine, full frozen rollback, external CI/public registry and other OS/arch distribution remain explicitly unverified under the user-authorized local-only scope.",
+      "rollback": "Epoch 001/002 remain forward-fix-only; preserve tenant-role storage and Gateway identity authority. Full frozen release/database restore evidence remains unverified, not implied by local acceptance.",
+      "review": "independent read-only review required before verified",
+      "evidence": [
+        "receipts/P1-10.yml"
+      ],
+      "stop_conditions": [
+        "owned paths exceeded before scope update",
+        "public/data contract conflict",
+        "wrong runtime owner",
+        "missing safe rollback for schema or privilege change"
+      ],
+      "frozen": false,
+      "verification_scope": "local integration; external release NOT_VERIFIED"
+    }
+  ],
+  "parallel_execution_authorized": true,
+  "integration_owner": "root",
+  "parallel_owners": {
+    "P1-04": "gateway_eval_arch_review",
+    "P1-05": "gateway_eval_arch_review",
+    "P1-06": "gateway_eval_arch_review",
+    "P1-07": "knowledge_arch_review",
+    "P1-08": "knowledge_arch_review"
+  },
+  "acceptance_scope": "用户本轮要求的本地Docker+内置浏览器集成；不等于原PRD完整外部分发R100。"
+}

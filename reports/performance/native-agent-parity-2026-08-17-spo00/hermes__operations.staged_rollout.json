@@ -1,0 +1,79 @@
+{
+  "domain": "change-management",
+  "passed": true,
+  "system": "hermes",
+  "task_id": "operations.staged_rollout",
+  "turns": [
+    {
+      "duration_seconds": 15.297,
+      "metadata": {
+        "cli_diagnostic_count": 1,
+        "session_id_sha256": "67440ec3adb30c19549e8d90512c0f0457292b80b4c41860ba7fb409cafd0474",
+        "stderr_sha256": "579173f5f79447fb2adae5f0d07280ac95fc7c179a8dad91f119aecf4a936b09",
+        "stdout_raw_sha256": "bf26c798055e1c3fd61f20fd49597d8cd039220b49a21471e3a7f0b41390ce15"
+      },
+      "ordinal": 1,
+      "output": "Based on the dependency order and gates specified, here's the canary phase plan for release R-17:\n\n```json\n{\n  \"status\": \"planned\",\n  \"waves\": [\n    [\"db_migration\"],\n    [\"api_canary\"],\n    [\"worker_canary\"],\n    [\"scheduler_canary\"]\n  ],\n  \"gates\": [\n    {\n      \"name\": \"db_replication_lag\",\n      \"threshold\": \"<2 seconds\",\n      \"observed_after\": \"db_migration\"\n    },\n    {\n      \"name\": \"api_5xx_rate\",\n      \"threshold\": \"<1 percent\",\n      \"observed_after\": \"api_canary\"\n    },\n    {\n      \"name\": \"queue_age\",\n      \"threshold\": \"<60 seconds\",\n      \"observed_after\": \"worker_canary\"\n    }\n  ],\n  \"requires_approval\": true\n}\n```\n\nThe gates follow dependency observation order: db replication lag is checked after db_migration completes, api 5xx rate after api_canary, and queue age after worker_canary. All mutations require approval as specified.",
+      "output_sha256": "4f19fd855ebe94b85ae425e78062b14ca81299aaaebe8315105f3de3cd0ccf21",
+      "parsed_output": {
+        "gates": [
+          {
+            "name": "db_replication_lag",
+            "observed_after": "db_migration",
+            "threshold": "<2 seconds"
+          },
+          {
+            "name": "api_5xx_rate",
+            "observed_after": "api_canary",
+            "threshold": "<1 percent"
+          },
+          {
+            "name": "queue_age",
+            "observed_after": "worker_canary",
+            "threshold": "<60 seconds"
+          }
+        ],
+        "requires_approval": true,
+        "status": "planned",
+        "waves": [
+          [
+            "db_migration"
+          ],
+          [
+            "api_canary"
+          ],
+          [
+            "worker_canary"
+          ],
+          [
+            "scheduler_canary"
+          ]
+        ]
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "process_exit_0"
+    },
+    {
+      "duration_seconds": 18.635,
+      "metadata": {
+        "cli_diagnostic_count": 1,
+        "session_id_sha256": "67440ec3adb30c19549e8d90512c0f0457292b80b4c41860ba7fb409cafd0474",
+        "stderr_sha256": "bea5bb1fa804391e62629dad77ff75d1eb5c6c2ea5c3acc9d37db0971d24ce55",
+        "stdout_raw_sha256": "d7a71e57d4035152bb989aea0d70406b4ca52228954aa4b79f97c1bfaa18b4e7"
+      },
+      "ordinal": 2,
+      "output": "```json\n{\n  \"status\": \"blocked\",\n  \"failed_gate\": \"queue_age\",\n  \"next_action\": \"hold_worker_canary\",\n  \"full_rollout\": false\n}\n```",
+      "output_sha256": "297441050c14de8e1e41acb4f879cfba505b98845bd087b51d61222451cf65ad",
+      "parsed_output": {
+        "failed_gate": "queue_age",
+        "full_rollout": false,
+        "next_action": "hold_worker_canary",
+        "status": "blocked"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "process_exit_0"
+    }
+  ]
+}

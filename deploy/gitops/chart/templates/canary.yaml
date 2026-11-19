@@ -1,0 +1,113 @@
+{{- if and .Values.enabled .Values.canary.enabled }}
+{{- if not .Values.canary.bootstrapAccepted }}{{ fail "frontend stable Rollout bootstrap must be independently accepted first" }}{{ end }}
+{{- if lt (int .Values.canary.replicas) 4 }}{{ fail "frontend canary requires at least four replicas" }}{{ end }}
+{{- $deployment := required "exact existing frontend Deployment name required" .Values.canary.frontendDeployment }}
+{{- $instance := required "main Helm release instance required" .Values.canary.releaseName }}
+{{- $prometheus := required "authenticated operator Prometheus endpoint required" .Values.canary.prometheusAddress }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ .Release.Name }}-slo-gate
+spec:
+  args:
+  - name: prometheus-token
+    valueFrom:
+      secretKeyRef:
+        name: {{ required "existing metrics-read bearer Secret required" .Values.canary.prometheusBearerSecret }}
+        key: token
+  metrics:
+  - name: gateway-live-traffic
+    interval: 30s
+    count: 20
+    failureLimit: 0
+    consecutiveErrorLimit: 1
+    successCondition: len(result) == 1 && !isNaN(result[0]) && result[0] >= 20
+    failureCondition: len(result) != 1 || isNaN(result[0]) || result[0] < 20
+    provider:
+      prometheus:
+        address: {{ $prometheus | quote }}
+        headers:
+        - key: Authorization
+          value: {{ printf "Bearer %s" "{{args.prometheus-token}}" | quote }}
+        query: sum(increase(gateway_requests_total[5m]))
+  - name: api-availability-fast-burn
+    interval: 30s
+    count: 20
+    failureLimit: 0
+    consecutiveErrorLimit: 1
+    successCondition: len(result) == 1 && !isNaN(result[0]) && result[0] <= 0.0144
+    failureCondition: len(result) != 1 || isNaN(result[0]) || result[0] > 0.0144
+    provider:
+      prometheus:
+        address: {{ $prometheus | quote }}
+        headers:
+        - key: Authorization
+          value: {{ printf "Bearer %s" "{{args.prometheus-token}}" | quote }}
+        query: max({__name__=~"gateway:slo_error_ratio:(5m|1h)"})
+  - name: api-latency-fast-burn
+    interval: 30s
+    count: 20
+    failureLimit: 0
+    consecutiveErrorLimit: 1
+    successCondition: len(result) == 1 && !isNaN(result[0]) && result[0] <= 0.144
+    failureCondition: len(result) != 1 || isNaN(result[0]) || result[0] > 0.144
+    provider:
+      prometheus:
+        address: {{ $prometheus | quote }}
+        headers:
+        - key: Authorization
+          value: {{ printf "Bearer %s" "{{args.prometheus-token}}" | quote }}
+        query: max({__name__=~"gateway:slo_slow_ratio:(5m|1h)"})
+  - name: frontend-canary-readiness
+    interval: 30s
+    count: 20
+    failureLimit: 0
+    consecutiveErrorLimit: 1
+    successCondition: result.status == 'healthy'
+    provider:
+      web:
+        url: http://{{ .Release.Name }}-frontend-canary.{{ .Release.Namespace }}.svc:8080/health
+        timeoutSeconds: 5
+        jsonPath: '{$}'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-frontend-canary
+spec:
+  selector:
+    app.kubernetes.io/instance: {{ $instance }}
+    app.kubernetes.io/component: frontend
+  ports: [{name: http, port: 8080, targetPort: http}]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: {{ .Release.Name }}-frontend
+spec:
+  replicas: {{ .Values.canary.replicas }}
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 1800
+  progressDeadlineAbort: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $instance }}
+      app.kubernetes.io/component: frontend
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $deployment }}
+    scaleDown: onsuccess
+  strategy:
+    canary:
+      canaryService: {{ .Release.Name }}-frontend-canary
+      maxSurge: 1
+      maxUnavailable: 0
+      abortScaleDownDelaySeconds: 30
+      steps:
+      - setWeight: 25
+      - analysis: {templates: [{templateName: {{ .Release.Name }}-slo-gate}]}
+      - setWeight: 50
+      - analysis: {templates: [{templateName: {{ .Release.Name }}-slo-gate}]}
+      - setWeight: 100
+{{- end }}

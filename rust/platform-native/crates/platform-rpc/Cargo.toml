@@ -1,0 +1,19 @@
+[package]
+name = "ai-platform-rpc"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+tonic = { version = "=0.14.6", features = ["transport", "tls-ring", "tls-webpki-roots"] }
+tonic-prost = "=0.14.6"
+prost = "=0.14.4"
+tokio.workspace = true
+tokio-util = { version = "0.7", features = ["rt"] }
+http = "1"
+serde_json.workspace = true
+[build-dependencies]
+tonic-prost-build = "=0.14.6"
+prost-build = "=0.14.4"
+protoc-bin-vendored = "=3.3.0"
+[dev-dependencies]
+tokio-stream = { version = "0.1", features = ["net"] }

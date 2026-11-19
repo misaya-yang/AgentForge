@@ -1,0 +1,20 @@
+{
+  "kind": "real configured Qwen vision",
+  "run_id": "c82c304d-6df6-4052-be21-2a6af9f0bcdd",
+  "session_id": "aa2b5164-6a12-489c-9b08-e751e4258cb9",
+  "status": "succeeded",
+  "model_id": "qwen-vl-max",
+  "provider": "dashscope",
+  "file_ref_count": 1,
+  "tool_execution_count": 0,
+  "content_checks": {
+    "7319": true,
+    "\u7ea2\u8272": true,
+    "\u6b63\u65b9\u5f62": true,
+    "\u84dd\u8272": true,
+    "\u5706\u5f62": true
+  },
+  "raw_pixels_not_in_snapshot": true,
+  "generation_CDN_dependency": false,
+  "fixture_sha256": "a9faa1138aebc75ab724f8b9b4b6b6df008166a7ca2e54c47b670815e5db2b3b"
+}

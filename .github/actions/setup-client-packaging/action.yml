@@ -1,0 +1,18 @@
+name: Set up portable native client packaging
+description: Build only cross-platform Rust packaging tools, without Unix service operations
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+      with:
+        toolchain: '1.99.0'
+    - name: Configure bounded external packaging build
+      shell: bash
+      run: |
+        rustc --edition=2024 rust/platform-native/crates/platform-tools/src/github_env_bootstrap.rs -o "$RUNNER_TEMP/github-env-bootstrap"
+        "$RUNNER_TEMP/github-env-bootstrap" packaging
+    - name: Build portable packaging command
+      shell: bash
+      run: >-
+        cargo build --locked --manifest-path rust/platform-native/Cargo.toml
+        -p ai-platform-client-packaging --bin platform-client-packaging

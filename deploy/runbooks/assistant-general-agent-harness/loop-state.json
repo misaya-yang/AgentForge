@@ -1,0 +1,145 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "lifecycle": "superseded",
+  "goal": "Ship a general assistant that answers ordinary work immediately, uses tools when the model chooses, and never classifies user text into simple vs complex.",
+  "cycle": ["observe", "act", "verify", "decide"],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 1,
+  "max_iterations": 8,
+  "last_result": "Backend and API/UI thinking controls landed. tests/services/assistant: 2439 passed, 1 skipped.",
+  "next_action": "None \u2014 program superseded by the Rust kernel migration (agent-runtime-full-rust-cutover); see the note in superseded_by. Do not resume this loop without a new PRD.",
+  "blockers": [],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "AGA-00",
+      "file": "phase-00-thinking-protocol-defaults-off-and-is-capability-based.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": ["tests/services/assistant/test_thinking_policy.py::test_qwen_omitted_thinking_level_is_explicitly_off"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-01",
+      "file": "phase-01-system-prompt-is-a-proportional-map.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": ["tests/services/assistant/test_streaming_prompt_contract.py"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-02",
+      "file": "phase-02-first-model-turn-advertises-discovery-tools-only.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": ["tests/services/assistant/test_tool_selector.py::test_discover_mode_plain_question_advertises_only_discovery_bridges"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-03",
+      "file": "phase-03-native-search-follows-the-user-capability-flag.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": ["tests/services/assistant/test_thinking_policy.py::test_native_search_ignores_message_text"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-04",
+      "file": "phase-04-dead-intent-analyzers-are-not-constructed.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": ["apps/assistant-service/src/assistant_service/core/agent/agent_loop.py no longer constructs analyzers"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-05",
+      "file": "phase-05-clients-can-set-thinking-level-through-chat-apis.md",
+      "depends_on": ["AGA-00"],
+      "status": "done",
+      "evidence": ["ChatRequest.thinking_level, AssistantChatRequest.thinking_level, composer select"],
+      "review": "not_required"
+    },
+    {
+      "id": "AGA-06",
+      "file": "phase-06-after-tools-the-loop-may-raise-a-small-thinking-budget.md",
+      "depends_on": ["AGA-00"],
+      "status": "done",
+      "evidence": ["tests/services/assistant/test_thinking_policy.py::test_loop_raises_budget_only_after_first_model_turn"],
+      "review": "not_required"
+    }
+  ],
+  "features": [
+    {
+      "id": "AGA-F001",
+      "phase_id": "AGA-00",
+      "description": "A Qwen request with no thinking_level sends enable_thinking=false.",
+      "steps": [
+        "Build a DashScope chat body for qwen3.7-plus without thinking_level.",
+        "Observe enable_thinking is false and thinking_budget is absent."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F002",
+      "phase_id": "AGA-01",
+      "description": "The streaming prompt tells the model to answer proportionally and not write process essays.",
+      "steps": [
+        "Build get_streaming_first_prompt().",
+        "Observe proportional-map language and no FINAL_JSON checklist."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F003",
+      "phase_id": "AGA-02",
+      "description": "An unmatched ordinary first turn advertises exactly three discovery bridges; relevant or explicitly pinned tools may also be direct.",
+      "steps": [
+        "Call select_tools in discover mode with discovery plus generation/spawn/memory/MCP for an ordinary question.",
+        "Observe only discovery names, then repeat with a clear relevance match and an explicit pin."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F004",
+      "phase_id": "AGA-03",
+      "description": "Native web search follows web_search_enabled, not message keywords.",
+      "steps": [
+        "Call should_use_native_search with a search-like message and enabled=false.",
+        "Observe False. Repeat with enabled=true and a greeting; observe True."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F005",
+      "phase_id": "AGA-04",
+      "description": "AgentLoop does not construct QueryIntentAnalyzer or ScenarioAnalyzer.",
+      "steps": [
+        "Inspect AgentLoop.__init__.",
+        "Observe analyzers are only stored if injected, never created."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F006",
+      "phase_id": "AGA-05",
+      "description": "Clients can send thinking_level through gateway and assistant chat APIs and the composer.",
+      "steps": [
+        "Inspect AssistantChatRequest, ChatRequest, and ChatInputArea.",
+        "Observe off/low/medium/high is accepted and forwarded."
+      ],
+      "passes": true
+    },
+    {
+      "id": "AGA-F007",
+      "phase_id": "AGA-06",
+      "description": "After the first model turn, an off request may rise to low thinking for later loop iterations.",
+      "steps": [
+        "Call resolve_turn_thinking_level(requested=off, iteration=1 and 2).",
+        "Observe off then low. User text is not inspected."
+      ],
+      "passes": true
+    }
+  ],
+  "superseded_by": "agent-runtime-full-rust-cutover (Rust single kernel owns the assistant loop); AGA-06 predates the Rust cutover; its next_action targets the retired assistant-service hot-update."
+}

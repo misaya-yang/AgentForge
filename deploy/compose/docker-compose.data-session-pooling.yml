@@ -1,0 +1,101 @@
+# Merge after data-security.yml with --profile data-pooling.
+# Backend-pinned consumers require session aliases; cancellation stays direct.
+services:
+  gateway:
+    environment:
+      DATA_GATEWAY_DSN_FILE: /run/data/credentials/dsn-session
+      DATA_GATEWAY_MODE: session
+      DATA_GATEWAY_EXPECTED_HOST: pgbouncer
+      DATA_GATEWAY_DATABASE_ALIAS: gateway_session
+    depends_on:
+      pgbouncer:
+        condition: service_started
+  agent-runtime:
+    environment:
+      DATA_RUNTIME_DSN_FILE: /run/data/credentials/dsn-session
+      DATA_RUNTIME_MODE: session
+      DATA_RUNTIME_EXPECTED_HOST: pgbouncer
+      DATA_RUNTIME_DATABASE_ALIAS: runtime_session
+    depends_on:
+      pgbouncer:
+        condition: service_started
+  agent-capability-worker:
+    environment:
+      DATA_CAPABILITY_WORKER_DSN_FILE: /run/data/credentials/dsn-session
+      DATA_CAPABILITY_WORKER_MODE: session
+      DATA_CAPABILITY_WORKER_EXPECTED_HOST: pgbouncer
+      DATA_CAPABILITY_WORKER_DATABASE_ALIAS: capability_worker_session
+    depends_on:
+      pgbouncer:
+        condition: service_started
+  knowledge-service:
+    environment:
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-session
+      DATA_KNOWLEDGE_MODE: session
+      DATA_KNOWLEDGE_EXPECTED_HOST: pgbouncer
+      DATA_KNOWLEDGE_DATABASE_ALIAS: knowledge_api_session
+    depends_on:
+      pgbouncer:
+        condition: service_started
+  knowledge-worker:
+    environment:
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-session
+      DATA_KNOWLEDGE_MODE: session
+      DATA_KNOWLEDGE_EXPECTED_HOST: pgbouncer
+      DATA_KNOWLEDGE_DATABASE_ALIAS: knowledge_worker_session
+    depends_on:
+      pgbouncer:
+        condition: service_started
+  pgbouncer:
+    image: ${PGBOUNCER_IMAGE:?Select a verified PgBouncer image >=1.24 pinned by digest}
+    profiles:
+    - data-pooling
+    user: ${PGBOUNCER_UID:?Supply the selected image non-root UID}:${PGBOUNCER_GID:?Supply
+      the selected image GID}
+    entrypoint:
+    - pgbouncer
+    command:
+    - /etc/pgbouncer/pgbouncer.ini
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 192m
+    cpus: 0.5
+    restart: unless-stopped
+    tmpfs:
+    - /tmp:rw
+    - noexec
+    - nosuid
+    - nodev
+    - size=16m
+    - mode=1777
+    expose:
+    - '6432'
+    networks:
+    - data-postgres
+    - data-pgbouncer-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply private material}/pgbouncer.ini
+      target: /etc/pgbouncer/pgbouncer.ini
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply private material}/pgbouncer-users.txt
+      target: /run/secrets/pgbouncer-users.txt
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply private material}/pgbouncer
+      target: /run/data-tls
+      read_only: true
+      bind:
+        create_host_path: false

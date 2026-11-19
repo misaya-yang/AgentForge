@@ -1,0 +1,1 @@
+#[tokio::main]async fn main(){let result=match ai_platform_eval::cli::Args::parse(std::env::args().skip(1),&["validate-only","list","fail-fast"]){Ok(args)=>ai_platform_eval::studio::run(args).await,Err(e)=>Err(e)};match result{Ok(code)=>std::process::exit(code),Err(e)=>{eprintln!("agent_studio_regression failed: {e}");std::process::exit(1)}}}

@@ -1,0 +1,13 @@
+{
+  "schema": "agentforge/codex-new-contract-docker-tests/v1",
+  "target": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+  "rust": "1.95.0",
+  "passed": 21,
+  "failed": 0,
+  "ignored": 0,
+  "old_required_tests_preserved": 13,
+  "executed": "Docker buildx desktop-linux arm64; complete capability-contract package and compiled --list",
+  "cargo_lock_sha256": "b9e7f9ace75ab54f02e4c5defaeebc49afd057e2e5d5ba02a19bad14fe3b0376",
+  "source_lock_admitted": false,
+  "product_accepted": false
+}

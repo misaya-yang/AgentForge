@@ -1,0 +1,8 @@
+-- INACTIVE032 Local Node contract. No new objects or backfill.
+DO $service_owner$ BEGIN IF (current_user ~ '^[a-z][a-z0-9_]{0,20}_owner$' AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge']) AND pg_catalog.pg_get_userbyid(n.nspowner)<>current_user) AND (SELECT count(*)=3 FROM pg_catalog.pg_namespace n WHERE n.nspname=ANY(ARRAY['assistant','gateway','knowledge'])) AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname=current_user AND (r.rolcanlogin OR r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)) AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'gateway') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'runtime') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_api') AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname=left(current_user,length(current_user)-length('owner'))||'knowledge_worker')) IS NOT TRUE THEN RAISE EXCEPTION 'canonical scoped schema owner required'; END IF; END $service_owner$;
+ALTER TABLE gateway.local_node_request_keys VALIDATE CONSTRAINT local_node_request_keys_algorithm_class_format_check;
+ALTER TABLE gateway.local_node_request_keys VALIDATE CONSTRAINT local_node_algorithm_not_null;
+ALTER TABLE gateway.local_node_request_keys
+    DROP CONSTRAINT local_node_request_keys_public_key_check,
+    DROP CONSTRAINT local_node_request_keys_key_class_check;
+ALTER TABLE gateway.local_node_request_keys ALTER COLUMN algorithm SET NOT NULL;

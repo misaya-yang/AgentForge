@@ -1,0 +1,8 @@
+{
+  "apple_team_id": "REPLACE_WITH_REVIEWED_TEAM_ID",
+  "authenticode_thumbprint": "REPLACE_WITH_REVIEWED_CERTIFICATE_THUMBPRINT",
+  "sigstore_identity": "REPLACE_WITH_EXACT_RELEASE_WORKFLOW_IDENTITY",
+  "sigstore_oidc_issuer": "https://token.actions.githubusercontent.com",
+  "cosign_path": "/absolute/path/to/reviewed/cosign",
+  "cosign_sha256": "REPLACE_WITH_REVIEWED_TOOL_SHA256"
+}

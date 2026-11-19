@@ -1,0 +1,67 @@
+{
+  "fresh": {
+    "config": {},
+    "created_at": "2026-01-01T00:00:00",
+    "metadata": {},
+    "service_id": "service",
+    "session_id": "00000000-0000-0000-0000-000000000001",
+    "tenant_id": "contract-tenant",
+    "updated_at": "2026-01-01T00:00:00",
+    "user_id": "contract-user"
+  },
+  "mismatch": {
+    "config": {},
+    "created_at": "2026-01-01T00:00:00",
+    "metadata": {
+      "dify_conversation": {
+        "conversation_id": "must-not-use",
+        "service_id": "service"
+      }
+    },
+    "service_id": "other-service",
+    "session_id": "00000000-0000-0000-0000-000000000003",
+    "tenant_id": "contract-tenant",
+    "updated_at": "2026-01-01T00:00:00",
+    "user_id": "contract-user"
+  },
+  "null": {
+    "config": {},
+    "created_at": "2026-01-01T00:00:00",
+    "metadata": {},
+    "service_id": null,
+    "session_id": "00000000-0000-0000-0000-000000000004",
+    "tenant_id": "contract-tenant",
+    "updated_at": "2026-01-01T00:00:00",
+    "user_id": "contract-user"
+  },
+  "resumed": {
+    "config": {},
+    "created_at": "2026-01-01T00:00:00",
+    "metadata": {
+      "dify_conversation": {
+        "conversation_id": "saved-conversation",
+        "service_id": "service"
+      }
+    },
+    "service_id": "service",
+    "session_id": "00000000-0000-0000-0000-000000000002",
+    "tenant_id": "contract-tenant",
+    "updated_at": "2026-01-01T00:00:00",
+    "user_id": "contract-user"
+  },
+  "wrong_binding": {
+    "config": {},
+    "created_at": "2026-01-01T00:00:00",
+    "metadata": {
+      "dify_conversation": {
+        "conversation_id": "must-not-use",
+        "service_id": "other-service"
+      }
+    },
+    "service_id": "service",
+    "session_id": "00000000-0000-0000-0000-000000000005",
+    "tenant_id": "contract-tenant",
+    "updated_at": "2026-01-01T00:00:00",
+    "user_id": "contract-user"
+  }
+}

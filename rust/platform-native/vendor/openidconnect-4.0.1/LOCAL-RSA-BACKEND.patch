@@ -1,0 +1,845 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -86,8 +86,8 @@
+ [dependencies.rand]
+ version = "0.8.5"
+ 
+-[dependencies.rsa]
+-version = "0.9.2"
++[dependencies.openssl]
++version = "0.10.81"
+ 
+ [dependencies.serde]
+ version = "1.0"
+--- a/Cargo.toml.orig
++++ b/Cargo.toml.orig
+@@ -55,7 +55,7 @@
+ oauth2 = { version = "5.0.0", default-features = false }
+ rand = "0.8.5"
+ hmac = "0.12.1"
+-rsa = "0.9.2"
++openssl = "0.10.81"
+ sha2 = { version = "0.10.6", features = ["oid"] } # Object ID needed for pkcs1v15 padding
+ p256 = "0.13.2"
+ p384 = "0.13.0"
+--- a/src/core/crypto.rs
++++ b/src/core/crypto.rs
+@@ -72,23 +72,15 @@
+ 
+ pub fn verify_rsa_signature(
+     key: &CoreJsonWebKey,
+-    padding: impl rsa::traits::SignatureScheme,
++    algorithm: super::CoreJwsSigningAlgorithm,
+     msg: &[u8],
+     signature: &[u8],
+ ) -> Result<(), SignatureVerificationError> {
+     let (n, e) = rsa_public_key(key).map_err(SignatureVerificationError::InvalidKey)?;
+-    // let's n and e as a big integers to prevent issues with leading zeros
+-    // according to https://datatracker.ietf.org/doc/html/rfc7518#section-6.3.1.1
+-    // `n` is always unsigned (hence has sign plus)
+-
+-    let n_bigint = rsa::BigUint::from_bytes_be(n.deref());
+-    let e_bigint = rsa::BigUint::from_bytes_be(e.deref());
+-    let public_key = rsa::RsaPublicKey::new(n_bigint, e_bigint)
+-        .map_err(|e| SignatureVerificationError::InvalidKey(e.to_string()))?;
+-
+-    public_key
+-        .verify(padding, msg, signature)
+-        .map_err(|_| SignatureVerificationError::CryptoError("bad signature".to_string()))
++    let public_key = super::rsa_openssl::public_key(n.deref(), e.deref())
++        .map_err(|_| SignatureVerificationError::InvalidKey("invalid RSA public key".into()))?;
++    super::rsa_openssl::verify(&public_key, &algorithm, msg, signature)
++        .map_err(|_| SignatureVerificationError::CryptoError("bad signature".into()))
+ }
+ /// According to RFC5480, Section-2.2 implementations of Elliptic Curve Cryptography MUST support the uncompressed form.
+ /// The first octet of the octet string indicates whether the uncompressed or compressed form is used. For the uncompressed
+@@ -209,7 +201,7 @@
+         assert! {
+             verify_rsa_signature(
+                 &key,
+-                rsa::Pkcs1v15Sign::new::<sha2::Sha256>(),
++                crate::core::CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
+                 &hash,
+                 &signature,
+             ).is_ok()
+--- a/src/core/jwk/mod.rs
++++ b/src/core/jwk/mod.rs
+@@ -8,7 +8,6 @@
+ 
+ use ed25519_dalek::pkcs8::DecodePrivateKey;
+ use ed25519_dalek::Signer;
+-use rsa::pkcs1::DecodeRsaPrivateKey;
+ use serde::{Deserialize, Serialize};
+ use serde_with::skip_serializing_none;
+ use sha2::{Digest, Sha256, Sha384, Sha512};
+@@ -190,7 +189,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pkcs1v15Sign::new::<sha2::Sha256>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
+                     message,
+                     signature,
+                 )
+@@ -203,7 +202,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pkcs1v15Sign::new::<sha2::Sha384>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha384,
+                     message,
+                     signature,
+                 )
+@@ -216,7 +215,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pkcs1v15Sign::new::<sha2::Sha512>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha512,
+                     message,
+                     signature,
+                 )
+@@ -229,7 +228,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pss::new::<sha2::Sha256>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPssSha256,
+                     message,
+                     signature,
+                 )
+@@ -242,7 +241,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pss::new::<sha2::Sha384>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPssSha384,
+                     message,
+                     signature,
+                 )
+@@ -255,7 +254,7 @@
+                 };
+                 crypto::verify_rsa_signature(
+                     self,
+-                    rsa::Pss::new::<sha2::Sha512>(),
++                    CoreJwsSigningAlgorithm::RsaSsaPssSha512,
+                     message,
+                     signature,
+                 )
+@@ -538,8 +537,11 @@
+ 
+ /// Trait used to allow testing with an alternative RNG.
+ /// Clone is necessary to get a mutable version of the RNG.
++#[cfg(test)]
+ pub(crate) trait RngClone: dyn_clone::DynClone + rand::RngCore + rand::CryptoRng {}
++#[cfg(test)]
+ dyn_clone::clone_trait_object!(RngClone);
++#[cfg(test)]
+ impl<T> RngClone for T where T: rand::RngCore + rand::CryptoRng + Clone {}
+ 
+ /// RSA private key.
+@@ -547,23 +549,57 @@
+ /// This key can be used for signing messages, or converted to a `CoreJsonWebKey` for verifying
+ /// them.
+ pub struct CoreRsaPrivateSigningKey {
+-    key_pair: rsa::RsaPrivateKey,
+-    rng: Box<dyn RngClone + Send + Sync>,
++    key_pair: openssl::rsa::Rsa<openssl::pkey::Private>,
++    #[cfg(test)]
++    rng: Option<Box<dyn RngClone + Send + Sync>>,
+     kid: Option<JsonWebKeyId>,
+ }
+ impl CoreRsaPrivateSigningKey {
+     /// Converts an RSA private key (in PEM format) to a JWK representing its public key.
+     pub fn from_pem(pem: &str, kid: Option<JsonWebKeyId>) -> Result<Self, String> {
+-        Self::from_pem_internal(pem, Box::new(rand::rngs::OsRng), kid)
+-    }
+-
++        let key_pair =
++            openssl::rsa::Rsa::private_key_from_pem(pem.as_bytes()).map_err(|e| e.to_string())?;
++        if !key_pair.check_key().map_err(|e| e.to_string())? {
++            return Err("invalid RSA private key".into());
++        }
++        Ok(Self {
++            key_pair,
++            kid,
++            #[cfg(test)]
++            rng: None,
++        })
++    }
++    #[cfg(test)]
+     pub(crate) fn from_pem_internal(
+         pem: &str,
+         rng: Box<dyn RngClone + Send + Sync>,
+         kid: Option<JsonWebKeyId>,
+     ) -> Result<Self, String> {
+-        let key_pair = rsa::RsaPrivateKey::from_pkcs1_pem(pem).map_err(|err| err.to_string())?;
+-        Ok(Self { key_pair, rng, kid })
++        let mut key = Self::from_pem(pem, kid)?;
++        key.rng = Some(rng);
++        Ok(key)
++    }
++    fn sign_digest(
++        &self,
++        alg: &CoreJwsSigningAlgorithm,
++        hash: &[u8],
++    ) -> Result<Vec<u8>, SigningError> {
++        #[cfg(test)]
++        if let Some(rng) = &self.rng {
++            if super::rsa_openssl::parameters(alg)
++                .map_err(|_| SigningError::CryptoError)?
++                .2
++            {
++                return super::rsa_openssl::fixture_pss_sign(
++                    &self.key_pair,
++                    alg,
++                    hash,
++                    &mut *dyn_clone::clone_box(&**rng),
++                )
++                .map_err(|_| SigningError::CryptoError);
++            }
++        }
++        super::rsa_openssl::sign(&self.key_pair, alg, hash).map_err(|_| SigningError::CryptoError)
+     }
+ }
+ impl PrivateSigningKey for CoreRsaPrivateSigningKey {
+@@ -580,78 +616,42 @@
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pkcs1v15Sign::new::<sha2::Sha256>(),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha384 => {
+                 let mut hasher = sha2::Sha384::new();
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pkcs1v15Sign::new::<sha2::Sha384>(),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha512 => {
+                 let mut hasher = sha2::Sha512::new();
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pkcs1v15Sign::new::<sha2::Sha512>(),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             CoreJwsSigningAlgorithm::RsaSsaPssSha256 => {
+                 let mut hasher = sha2::Sha256::new();
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pss::new_with_salt::<sha2::Sha256>(hash.len()),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             CoreJwsSigningAlgorithm::RsaSsaPssSha384 => {
+                 let mut hasher = sha2::Sha384::new();
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pss::new_with_salt::<sha2::Sha384>(hash.len()),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             CoreJwsSigningAlgorithm::RsaSsaPssSha512 => {
+                 let mut hasher = sha2::Sha512::new();
+                 hasher.update(msg);
+                 let hash = hasher.finalize().to_vec();
+ 
+-                self.key_pair
+-                    .sign_with_rng(
+-                        &mut dyn_clone::clone_box(&self.rng),
+-                        rsa::Pss::new_with_salt::<sha2::Sha512>(hash.len()),
+-                        &hash,
+-                    )
+-                    .map_err(|_| SigningError::CryptoError)
++                self.sign_digest(signature_alg, &hash)
+             }
+             ref other => Err(SigningError::UnsupportedAlg(
+                 serde_plain::to_string(other).unwrap_or_else(|err| {
+@@ -665,15 +665,13 @@
+     }
+ 
+     fn as_verification_key(&self) -> CoreJsonWebKey {
+-        use rsa::traits::PublicKeyParts;
+-
+-        let public_key = self.key_pair.to_public_key();
++        let public_key = &self.key_pair;
+         CoreJsonWebKey {
+             kty: CoreJsonWebKeyType::RSA,
+             use_: Some(CoreJsonWebKeyUse::Signature),
+             kid: self.kid.clone(),
+-            n: Some(Base64UrlEncodedBytes::new(public_key.n().to_bytes_be())),
+-            e: Some(Base64UrlEncodedBytes::new(public_key.e().to_bytes_be())),
++            n: Some(Base64UrlEncodedBytes::new(public_key.n().to_vec())),
++            e: Some(Base64UrlEncodedBytes::new(public_key.e().to_vec())),
+             k: None,
+             crv: None,
+             x: None,
+--- a/src/core/jwk/tests.rs
++++ b/src/core/jwk/tests.rs
+@@ -15,7 +15,6 @@
+ use base64::Engine;
+ use rand::rngs::mock::StepRng;
+ use rand::{CryptoRng, RngCore};
+-use rsa::rand_core;
+ 
+ #[test]
+ fn test_core_jwk_deserialization_rsa() {
+@@ -744,7 +743,7 @@
+     fn fill_bytes(&mut self, dest: &mut [u8]) {
+         self.0.fill_bytes(dest)
+     }
+-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
++    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+         self.0.try_fill_bytes(dest)
+     }
+ }
+--- a/src/core/mod.rs
++++ b/src/core/mod.rs
+@@ -1021,3 +1021,5 @@
+ 
+ #[cfg(test)]
+ mod tests;
++
++mod rsa_openssl;
+--- /dev/null
++++ b/src/core/rsa_openssl.rs
+@@ -0,0 +1,155 @@
++//! Local RSA backend replacement. Inputs to sign/verify are PREHASHED JOSE
++//! digests: EVP_PKEY_sign/verify must not hash them again. No RSA decryption API.
++use super::CoreJwsSigningAlgorithm as Alg;
++use openssl::{
++    bn::BigNum,
++    hash::MessageDigest,
++    md::{Md, MdRef},
++    pkey::{PKey, Private, Public},
++    pkey_ctx::PkeyCtx,
++    rsa::{Padding, Rsa},
++    sign::RsaPssSaltlen,
++};
++
++pub(super) fn parameters(alg: &Alg) -> Result<(&'static MdRef, MessageDigest, bool), ()> {
++    match alg {
++        Alg::RsaSsaPkcs1V15Sha256 => Ok((Md::sha256(), MessageDigest::sha256(), false)),
++        Alg::RsaSsaPkcs1V15Sha384 => Ok((Md::sha384(), MessageDigest::sha384(), false)),
++        Alg::RsaSsaPkcs1V15Sha512 => Ok((Md::sha512(), MessageDigest::sha512(), false)),
++        Alg::RsaSsaPssSha256 => Ok((Md::sha256(), MessageDigest::sha256(), true)),
++        Alg::RsaSsaPssSha384 => Ok((Md::sha384(), MessageDigest::sha384(), true)),
++        Alg::RsaSsaPssSha512 => Ok((Md::sha512(), MessageDigest::sha512(), true)),
++        _ => Err(()),
++    }
++}
++pub(super) fn public_key(n: &[u8], e: &[u8]) -> Result<PKey<Public>, ()> {
++    // BigNum unsigned conversion accepts harmless DER/JWK leading zeroes.
++    // Preserve RustCrypto's existing public exponent and 4096-bit size bounds.
++    let n = BigNum::from_slice(n).map_err(|_| ())?;
++    let e = BigNum::from_slice(e).map_err(|_| ())?;
++    let exponent = e.to_vec();
++    if n.num_bits() > 4096
++        || !n.is_odd()
++        || !e.is_odd()
++        || e.ucmp(&n) != std::cmp::Ordering::Less
++        || exponent.len() > 5
++    {
++        return Err(());
++    }
++    let exponent = exponent.iter().fold(0u64, |n, b| (n << 8) | u64::from(*b));
++    if !(2..=((1u64 << 33) - 1)).contains(&exponent) {
++        return Err(());
++    }
++    PKey::from_rsa(Rsa::from_public_components(n, e).map_err(|_| ())?).map_err(|_| ())
++}
++pub(super) fn verify(
++    key: &PKey<Public>,
++    alg: &Alg,
++    digest: &[u8],
++    signature: &[u8],
++) -> Result<(), ()> {
++    let (md, hash, pss) = parameters(alg)?;
++    if digest.len() != hash.size() || signature.len() != key.size() {
++        return Err(());
++    }
++    let mut ctx = PkeyCtx::new(key).map_err(|_| ())?;
++    ctx.verify_init().map_err(|_| ())?;
++    ctx.set_signature_md(md).map_err(|_| ())?;
++    ctx.set_rsa_padding(if pss {
++        Padding::PKCS1_PSS
++    } else {
++        Padding::PKCS1
++    })
++    .map_err(|_| ())?;
++    if pss {
++        ctx.set_rsa_mgf1_md(md).map_err(|_| ())?;
++        ctx.set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
++            .map_err(|_| ())?;
++    }
++    if ctx.verify(digest, signature).map_err(|_| ())? {
++        Ok(())
++    } else {
++        Err(())
++    }
++}
++pub(super) fn sign(key: &Rsa<Private>, alg: &Alg, digest: &[u8]) -> Result<Vec<u8>, ()> {
++    let (md, hash, pss) = parameters(alg)?;
++    if digest.len() != hash.size() {
++        return Err(());
++    }
++    let key = PKey::from_rsa(key.clone()).map_err(|_| ())?;
++    let mut ctx = PkeyCtx::new(&key).map_err(|_| ())?;
++    ctx.sign_init().map_err(|_| ())?;
++    ctx.set_signature_md(md).map_err(|_| ())?;
++    ctx.set_rsa_padding(if pss {
++        Padding::PKCS1_PSS
++    } else {
++        Padding::PKCS1
++    })
++    .map_err(|_| ())?;
++    if pss {
++        ctx.set_rsa_mgf1_md(md).map_err(|_| ())?;
++        ctx.set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
++            .map_err(|_| ())?;
++    }
++    let mut signature = Vec::new();
++    ctx.sign_to_vec(digest, &mut signature).map_err(|_| ())?;
++    Ok(signature)
++}
++
++// OpenSSL intentionally does not expose a per-signature deterministic RNG. This
++// cfg(test)-only EMSA encoder preserves ALL upstream fixed-salt golden vectors.
++// Private exponentiation remains OpenSSL's blinded RSA operation. Production
++// never compiles this function and always uses EVP's random salt above.
++#[cfg(test)]
++pub(super) fn fixture_pss_sign(
++    key: &Rsa<Private>,
++    alg: &Alg,
++    digest: &[u8],
++    rng: &mut dyn super::jwk::RngClone,
++) -> Result<Vec<u8>, ()> {
++    let (_, hash, pss) = parameters(alg)?;
++    if !pss || digest.len() != hash.size() {
++        return Err(());
++    }
++    let bits = (key.n().num_bits() - 1) as usize;
++    let len = bits.div_ceil(8);
++    let hlen = hash.size();
++    if len < hlen * 2 + 2 {
++        return Err(());
++    }
++    let mut salt = vec![0u8; hlen];
++    rng.fill_bytes(&mut salt);
++    let mut prefix = vec![0u8; 8];
++    prefix.extend_from_slice(digest);
++    prefix.extend_from_slice(&salt);
++    let h = openssl::hash::hash(hash, &prefix).map_err(|_| ())?;
++    let mut db = vec![0u8; len - hlen - 1];
++    let delimiter = db.len() - salt.len() - 1;
++    db[delimiter] = 1;
++    db[delimiter + 1..].copy_from_slice(&salt);
++    for (counter, chunk) in db.chunks_mut(hlen).enumerate() {
++        let mut seed = h.to_vec();
++        seed.extend_from_slice(&(counter as u32).to_be_bytes());
++        let mask = openssl::hash::hash(hash, &seed).map_err(|_| ())?;
++        for (byte, mask) in chunk.iter_mut().zip(mask.iter()) {
++            *byte ^= *mask;
++        }
++    }
++    db[0] &= 0xffu8 >> (8 * len - bits);
++    db.extend_from_slice(&h);
++    db.push(0xbc);
++    // RSA_NO_PADDING requires a full modulus-sized representative (including a
++    // possible extra leading byte when emBits is a multiple of eight).
++    let mut encoded = vec![0u8; key.size() as usize - db.len()];
++    encoded.extend_from_slice(&db);
++    let mut out = vec![0u8; key.size() as usize];
++    let n = key
++        .private_encrypt(&encoded, &mut out, Padding::NONE)
++        .map_err(|_| ())?;
++    out.truncate(n);
++    Ok(out)
++}
++#[cfg(test)]
++#[path = "rsa_openssl_tests.rs"]
++mod tests;
+--- /dev/null
++++ b/src/core/rsa_openssl_tests.rs
+@@ -0,0 +1,122 @@
++//! Downstream regressions in addition to the unchanged upstream golden vectors.
++use super::*;
++use crate::{core::CoreRsaPrivateSigningKey, JsonWebKey, PrivateSigningKey};
++use openssl::sign::Signer;
++const PEM: &str = include_str!("../../tests/fixtures/upstream-rsa-private.pem");
++fn algorithms() -> [Alg; 6] {
++    [
++        Alg::RsaSsaPkcs1V15Sha256,
++        Alg::RsaSsaPkcs1V15Sha384,
++        Alg::RsaSsaPkcs1V15Sha512,
++        Alg::RsaSsaPssSha256,
++        Alg::RsaSsaPssSha384,
++        Alg::RsaSsaPssSha512,
++    ]
++}
++#[test]
++fn all_six_algorithms_interoperate_with_independent_streaming_evp() {
++    let private = CoreRsaPrivateSigningKey::from_pem(PEM, None).unwrap();
++    let public = private.as_verification_key();
++    let rsa = Rsa::private_key_from_pem(PEM.as_bytes()).unwrap();
++    let pkey = PKey::from_rsa(rsa).unwrap();
++    let msg = b"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0";
++    for alg in algorithms() {
++        let (_, md, pss) = parameters(&alg).unwrap();
++        let mut reference = Signer::new(md, &pkey).unwrap();
++        reference
++            .set_rsa_padding(if pss {
++                Padding::PKCS1_PSS
++            } else {
++                Padding::PKCS1
++            })
++            .unwrap();
++        if pss {
++            reference.set_rsa_mgf1_md(md).unwrap();
++            reference
++                .set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
++                .unwrap();
++        }
++        reference.update(msg).unwrap();
++        let signature = reference.sign_to_vec().unwrap();
++        public.verify_signature(&alg, msg, &signature).unwrap();
++        assert!(public
++            .verify_signature(&alg, b"tampered", &signature)
++            .is_err());
++        let own = private.sign(&alg, msg).unwrap();
++        let mut verifier = openssl::sign::Verifier::new(md, &pkey).unwrap();
++        verifier
++            .set_rsa_padding(if pss {
++                Padding::PKCS1_PSS
++            } else {
++                Padding::PKCS1
++            })
++            .unwrap();
++        if pss {
++            verifier.set_rsa_mgf1_md(md).unwrap();
++            verifier
++                .set_rsa_pss_saltlen(RsaPssSaltlen::DIGEST_LENGTH)
++                .unwrap();
++        }
++        verifier.update(msg).unwrap();
++        assert!(verifier.verify(&own).unwrap());
++        let mut corrupt = own;
++        corrupt[0] ^= 1;
++        assert!(public.verify_signature(&alg, msg, &corrupt).is_err());
++    }
++}
++#[test]
++fn prehashed_verification_does_not_hash_twice_and_accepts_unsigned_leading_zeroes() {
++    let rsa = Rsa::private_key_from_pem(PEM.as_bytes()).unwrap();
++    let alg = Alg::RsaSsaPkcs1V15Sha256;
++    let digest = openssl::hash::hash(MessageDigest::sha256(), b"JOSE signing input").unwrap();
++    let signature = sign(&rsa, &alg, &digest).unwrap();
++    let mut n = vec![0, 0];
++    n.extend_from_slice(&rsa.n().to_vec());
++    let mut e = vec![0, 0];
++    e.extend_from_slice(&rsa.e().to_vec());
++    let public = public_key(&n, &e).unwrap();
++    verify(&public, &alg, &digest, &signature).unwrap();
++    let double = openssl::hash::hash(MessageDigest::sha256(), &digest).unwrap();
++    assert!(verify(&public, &alg, &double, &signature).is_err());
++    assert!(sign(&rsa, &alg, b"unhashed").is_err());
++    for (n, e) in [
++        (vec![0], vec![3]),
++        (vec![4], vec![3]),
++        (rsa.n().to_vec(), vec![2]),
++        (rsa.n().to_vec(), vec![2, 0, 0, 0, 1]),
++    ] {
++        assert!(public_key(&n, &e).is_err());
++    }
++}
++#[test]
++fn pss_requires_digest_sized_salt_matching_mgf_and_algorithm() {
++    let rsa = Rsa::private_key_from_pem(PEM.as_bytes()).unwrap();
++    let public = public_key(&rsa.n().to_vec(), &rsa.e().to_vec()).unwrap();
++    let pkey = PKey::from_rsa(rsa).unwrap();
++    let msg = b"PSS protocol parameters";
++    for alg in [
++        Alg::RsaSsaPssSha256,
++        Alg::RsaSsaPssSha384,
++        Alg::RsaSsaPssSha512,
++    ] {
++        let (_, md, _) = parameters(&alg).unwrap();
++        let digest = openssl::hash::hash(md, msg).unwrap();
++        for wrong_mgf in [false, true] {
++            let mut signer = Signer::new(md, &pkey).unwrap();
++            signer.set_rsa_padding(Padding::PKCS1_PSS).unwrap();
++            signer
++                .set_rsa_mgf1_md(if wrong_mgf { MessageDigest::sha1() } else { md })
++                .unwrap();
++            signer
++                .set_rsa_pss_saltlen(if wrong_mgf {
++                    RsaPssSaltlen::DIGEST_LENGTH
++                } else {
++                    RsaPssSaltlen::custom(0)
++                })
++                .unwrap();
++            signer.update(msg).unwrap();
++            let signature = signer.sign_to_vec().unwrap();
++            assert!(verify(&public, &alg, &digest, &signature).is_err());
++        }
++    }
++}
+--- /dev/null
++++ b/tests/fixtures/upstream-rsa-private.pem
+@@ -0,0 +1,27 @@
++-----BEGIN RSA PRIVATE KEY-----
++MIIEowIBAAKCAQEAsRMj0YYjy7du6v1gWyKSTJx3YjBzZTG0XotRP0IaObw0k+68
++30dXadjL5jVhSWNdcg9OyMyTGWfdNqfdrS6ppBqlQNgjZJdloIqL9zOLBZrDm7G4
+++qN4KeZ4/5TyEilq2zOHHGFEzXpOq/UxqVnm3J4fhjqCNaS2nKd7HVVXGBQQ+4+F
++dVT+MyJXemw5maz2F/h324TQi6XoUPEwUddxBwLQFSOlzWnHYMc4/lcyZJ8MpTXC
++MPe/YJFNtb9CaikKUdf8x4mzwH7usSf8s2d6R4dQITzKrjrEJ0u3w3eGkBBapoMV
++FBGPjP3Haz5FsVtHc5VEN3FZVIDF6HrbJH1C4QIDAQABAoIBAHSS3izM+3nc7Bel
++8S5uRxRKmcm5je6b11u6qiVUFkHWJmMRc6QmqmSThkCq+b4/vUAe1cYZ7+l02Exo
++HOcrZiEULaDP6hUKGqyjKVv3wdlRtt8kFFxlC/HBufzAiNDuFVvzw0oquwnvMCXC
++yQvtlK+/JY/PqvM32cSt+b4o9apySsHqAtdsoHHohK82jsQqIfCi1v8XYV/xRBJB
++cQMCaA0Ls3tFpmJv3JdikyyQxio4kZ5tswghC63znCp1iL+qDq1wjjKzjick9MDb
++Qzb95X09QQP201l1FPWN7Kbhj4ybg6PJGz/VHQcvILcBCoYIc0UY/OMSBt9VN9yD
++wr1WlbECgYEA37difsTMcLmUEN57sicFe1q4lxH6eqnUBjmoKBflx4oMIIyRnfjF
++Jwsu9yIiBkJfBCP85nl2tZdcV0wfZLf6amxB/KMtdfW6r8eoTDzE472OYxSIg1F5
++dI4qn2nBI0Dou0g58xj+Kv0iLaym0pxtyJkSg/rxZGwKb9a+x5WAs50CgYEAyqC0
++NcZs2BRIiT5kEOF6+MeUvarbKh1mangKHKcTdXRrvoJ+Z5izm7FifBixo/79MYpt
++0VofW0IzYKtAI9KZDq2JcozEbZ+lt/ZPH5QEXO4T39QbDoAG8BbOmEP7l+6m+7QO
++PiQ0WSNjDnwk3W7Zihgg31DH7hyxsxQCapKLcxUCgYAwERXPiPcoDSd8DGFlYK7z
++1wUsKEe6DT0p7T9tBd1v5wA+ChXLbETn46Y+oQ3QbHg/yn+vAU/5KkFD3G4uVL0w
++Gnx/DIxa+OYYmHxXjQL8r6ClNycxl9LRsS4FPFKsAWk/u///dFI/6E1spNjfDY8k
++94ab5tHwsqn3Z5tsBHo3nQKBgFUmxbSXh2Qi2fy6+GhTqU7k6G/wXhvLsR9rBKzX
++1YiVfTXZNu+oL0ptd/q4keZeIN7x0oaY/fZm0pp8PP8Q4HtXmBxIZb+/yG+Pld6q
++YE8BSd7VDu3ABapdm0JHx3Iou4mpOBcLNeiDw3vx1bgsfkTXMPFHzE0XR+H+tak9
++nlalAoGBALAmAF7WBGdOt43Rj8hPaKOM/ahj+6z3CNwVreToNsVBHoyNmiO8q7MC
+++tRo4jgdrzk1pzs66OIHfbx5P1mXKPtgPZhvI5omAY8WqXEgeNqSL1Ksp6LZ2ql/
++ouZns5xwKc9+aRL+GWoAGNzwzcjE8cP52sBy/r0rYXTs/sZo5kgV
++-----END RSA PRIVATE KEY-----
+
+diff --git a/tests/rp_certification_code.rs b/tests/rp_certification_code.rs
+--- a/tests/rp_certification_code.rs
++++ b/tests/rp_certification_code.rs
+@@ -246,7 +246,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_response_type_code() {
+     let test_state = TestState::init("rp-response_type-code", |reg| reg).authorize(&[]);
+     assert!(
+@@ -260,7 +260,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_scope_userinfo_claims() {
+     let user_info_scopes = ["profile", "email", "address", "phone"]
+         .iter()
+@@ -296,7 +296,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_nonce_invalid() {
+     let test_state = TestState::init("rp-nonce-invalid", |reg| reg)
+         .authorize(&[])
+@@ -313,7 +313,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_token_endpoint_client_secret_basic() {
+     let test_state = TestState::init("rp-token_endpoint-client_secret_basic", |reg| {
+         reg.set_token_endpoint_auth_method(Some(CoreClientAuthMethod::ClientSecretBasic))
+@@ -329,7 +329,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_token_endpoint_client_secret_post() {
+     let test_state = TestState::init("rp-token_endpoint-client_secret_post", |reg| {
+         reg.set_token_endpoint_auth_method(Some(CoreClientAuthMethod::ClientSecretPost))
+@@ -345,7 +345,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_kid_absent_single_jwks() {
+     let test_state = TestState::init("rp-id_token-kid-absent-single-jwks", |reg| reg)
+         .authorize(&[])
+@@ -358,7 +358,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_iat() {
+     let mut test_state = TestState::init("rp-id_token-iat", |reg| reg).authorize(&[]);
+ 
+@@ -383,7 +383,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_aud() {
+     let test_state = TestState::init("rp-id_token-aud", |reg| reg)
+         .authorize(&[])
+@@ -400,7 +400,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_kid_absent_multiple_jwks() {
+     let test_state = TestState::init("rp-id_token-kid-absent-multiple-jwks", |reg| reg)
+         .authorize(&[])
+@@ -417,7 +417,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_sig_none() {
+     let test_state = TestState::init("rp-id_token-sig-none", |reg| reg)
+         .authorize(&[])
+@@ -437,7 +437,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_sig_rs256() {
+     let test_state = TestState::init("rp-id_token-sig-rs256", |reg| reg)
+         .authorize(&[])
+@@ -450,7 +450,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_sig_hs256() {
+     let test_state = TestState::init("rp-id_token-sig-hs256", |reg| reg)
+         .authorize(&[])
+@@ -469,7 +469,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_sub() {
+     let mut test_state = TestState::init("rp-id_token-sub", |reg| reg).authorize(&[]);
+ 
+@@ -494,7 +494,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_bad_sig_rs256() {
+     let test_state = TestState::init("rp-id_token-bad-sig-rs256", |reg| reg)
+         .authorize(&[])
+@@ -511,7 +511,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_bad_sig_hs256() {
+     let test_state = TestState::init("rp-id_token-bad-sig-hs256", |reg| reg)
+         .authorize(&[])
+@@ -535,7 +535,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_id_token_issuer_mismatch() {
+     let test_state = TestState::init("rp-id_token-issuer-mismatch", |reg| reg)
+         .authorize(&[])
+@@ -552,7 +552,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_userinfo_bad_sub_claim() {
+     let test_state = TestState::init("rp-userinfo-bad-sub-claim", |reg| reg)
+         .authorize(&[Scope::new("profile".to_string())])
+@@ -570,7 +570,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_userinfo_bearer_header() {
+     let test_state = TestState::init("rp-userinfo-bearer-header", |reg| reg)
+         .authorize(&[Scope::new("profile".to_string())])
+@@ -584,7 +584,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service; performs remote discovery, dynamic registration, and authorization."]
+ fn rp_userinfo_sig() {
+     let test_state = TestState::init("rp-userinfo-sig", |reg| {
+         reg.set_userinfo_signed_response_alg(Some(CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256))
+diff --git a/tests/rp_certification_dynamic.rs b/tests/rp_certification_dynamic.rs
+--- a/tests/rp_certification_dynamic.rs
++++ b/tests/rp_certification_dynamic.rs
+@@ -9,7 +9,7 @@
+ mod rp_common;
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires HTTPS access to the live OIDC RP certification service; not an offline test."]
+ fn rp_discovery_openid_configuration() {
+     const TEST_ID: &str = "rp-discovery-openid-configuration";
+     init_log(TEST_ID);
+@@ -69,7 +69,7 @@
+ }
+ 
+ #[test]
+-#[ignore]
++#[ignore = "Requires the live OIDC RP certification service and creates remote dynamic-client registration state."]
+ fn rp_registration_dynamic() {
+     const TEST_ID: &str = "rp-registration-dynamic";
+     init_log(TEST_ID);

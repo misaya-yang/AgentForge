@@ -1,0 +1,449 @@
+agent-runtime-source-contract: ok
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.runtime
+#1 transferring dockerfile: 6.37kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/rust:1.95.0-bookworm
+#2 DONE 1.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [builder 1/5] FROM docker.io/library/rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1
+#4 resolve docker.io/library/rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 79.24MB 0.7s done
+#5 DONE 0.7s
+
+#6 [builder 2/5] RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do         if [ -f "${source_file}" ]; then             sed -i                 -e "s|http://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g"                 -e "s|https://deb.debian.org/debian-security|https://mirrors.aliyun.com/debian-security|g"                 -e "s|http://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g"                 -e "s|https://deb.debian.org/debian|https://mirrors.aliyun.com/debian|g"                 "${source_file}";         fi;     done     && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update     && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30         install -y --no-install-recommends lld     && rm -rf /var/lib/apt/lists/*     && ld.lld --version
+#6 CACHED
+
+#7 [builder 3/5] WORKDIR /source/codex-rs
+#7 CACHED
+
+#8 [builder 4/5] COPY codex-rs/ ./
+#8 CACHED
+
+#9 [builder 5/5] RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked     CARGO_BUILD_JOBS="1" CARGO_INCREMENTAL=0     RUSTFLAGS="-C link-arg=-fuse-ld=lld"     cargo build --locked --profile dev-small         -p ai-platform-agent-runtime --bin ai-platform-agent-runtime     && cp target/dev-small/ai-platform-agent-runtime /tmp/ai-platform-agent-runtime
+#9 CACHED
+
+#10 [scoped-tests 1/1] RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked     CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld"     cargo test --locked --profile dev-small -p ai-platform-agent-runtime --lib     && CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld"        cargo test --locked --profile dev-small -p ai-platform-capability-worker --lib
+#10 0.921  Downloading crates ...
+#10 2.335   Downloaded diff v0.1.13
+#10 2.768   Downloaded yansi v1.0.1
+#10 2.888   Downloaded pretty_assertions v1.4.1
+#10 3.351    Compiling diff v0.1.13
+#10 3.472    Compiling yansi v1.0.1
+#10 3.572    Compiling pretty_assertions v1.4.1
+#10 3.631    Compiling ai-platform-agent-runtime v0.0.0 (/source/codex-rs/ai-platform-agent-runtime)
+#10 20.56     Finished `dev-small` profile [unoptimized] target(s) in 20.32s
+#10 20.95      Running unittests src/lib.rs (target/dev-small/deps/ai_platform_agent_runtime-803460a5157bad6e)
+#10 20.96
+#10 20.96 running 79 tests
+#10 21.02 test capability_execution::tests::cancellation_confirms_worker_and_projects_the_terminal_event ... ok
+#10 21.02 test capability_execution::tests::completion_race_returns_worker_success_instead_of_overriding_it ... ok
+#10 21.02 test capability_execution::tests::every_terminal_status_projects_one_dynamic_tool_result ... ok
+#10 21.07 test capability_execution::tests::nonterminal_cancel_response_is_rejected_without_event_drain ... ok
+#10 21.12 test capability_execution::tests::pre_cancelled_write_never_reaches_worker_create ... ok
+#10 21.12 test capability_execution::tests::succeeded_event_with_failed_response_is_rejected ... ok
+#10 21.12 test capability_execution::tests::uncertain_worker_acceptance_is_never_an_ordinary_write_failure ... ok
+#10 21.12 test capability_execution::tests::versionless_platform_capability_binds_to_null_wire_version ... ok
+#10 21.12 test capability_execution::tests::worker_content_items_are_normalized_to_app_server_wire_shape ... ok
+#10 21.12 test capability_execution::tests::missing_terminal_event_is_rejected_after_grace_period ... ok
+#10 21.16 test capability_plane::tests::dynamic_call_projects_fake_knowledge_result_for_next_turn ... ok
+#10 21.16 test capability_plane::tests::invoke_wire_contains_snapshot_allowlist_and_expected_identity ... ok
+#10 21.16 test capability_plane::tests::rejects_userinfo_and_invalid_scheme ... ok
+#10 21.16 test capability_plane::tests::dynamic_call_rejects_approval_result_in_read_only_channel ... ok
+#10 21.16 test capability_worker::tests::base_url_is_fixed_to_the_private_capability_prefix ... ok
+#10 21.21 test capability_worker::tests::arc05_health_requires_worker_core_ready_schema ... ok
+#10 21.21 test capability_worker::tests::event_page_enforces_one_chunk_of_producer_ahead ... ok
+#10 21.21 test http_service::capability_dispatch::tests::attachment_dispatch_accepts_only_this_turns_selected_id ... ok
+#10 21.21 test http_service::capability_dispatch::tests::child_dispatches_use_root_authority_and_distinct_execution_identity ... ok
+#10 21.21 test http_service::capability_dispatch::tests::code_result_projects_stdout_and_durable_artifacts ... ok
+#10 21.21 test http_service::capability_dispatch::tests::document_result_projects_downloadable_artifact ... ok
+#10 21.21 test http_service::capability_dispatch::tests::knowledge_result_projects_citation_identity ... ok
+#10 21.21 test http_service::recovery::tests::recovery_preserves_original_pending_call_and_rejects_superseded_turn ... ok
+#10 21.21 test http_service::recovery::tests::recovery_rejects_mutation_of_original_call_identity ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::empty_resume_keeps_the_upstream_persisted_metadata_path ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::incomplete_or_untrusted_platform_resume_config_is_rejected ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::platform_resume_carries_model_context_and_compaction_limits ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::platform_resume_preserves_profile_declared_native_web_search ... ok
+#10 21.21 test capability_worker::tests::bounded_bytes_rejects_chunked_body_without_content_length ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::platform_resume_rebinds_stable_system_and_developer_instructions ... ok
+#10 21.21 test http_service::turns::turn_request_tests::capability_result_status_does_not_treat_failed_response_as_success ... ok
+#10 21.21 test http_service::thread_lifecycle::tests::platform_resume_reinstates_the_private_responses_provider ... ok
+#10 21.21 test http_service::turns::turn_request_tests::capability_worker_requires_explicit_true_flag ... ok
+#10 21.21 test http_service::turns::turn_request_tests::memory_mode_does_not_enable_unscoped_local_storage ... ok
+#10 21.21 test http_service::turns::turn_request_tests::completed_agent_message_falls_back_only_when_no_delta_was_seen ... ok
+#10 21.21 test http_service::turns::turn_request_tests::model_limits_are_profile_driven_and_conflicts_fail_closed ... ok
+#10 21.21 test http_service::turns::turn_request_tests::signed_turn_request_contract_is_bounded ... ok
+#10 21.21 test http_service::turns::turn_request_tests::subagent_projection_deduplicates_starts_and_repairs_late_receiver_identity ... ok
+#10 21.21 test http_service::turns::turn_request_tests::official_thread_instructions_use_stable_camel_case_fields ... ok
+#10 21.21 test http_service::turns::turn_request_tests::terminal_admission_failure_is_an_explicit_non_durable_failure ... ok
+#10 21.21 test platform_lifecycle::tests::abnormal_terminal_status_respects_dispatch_effect ... ok
+#10 21.21 test platform_lifecycle::tests::approval_binding_extracts_the_exact_exec_command_argument ... ok
+#10 21.21 test platform_lifecycle::tests::native_agent_control_tools_do_not_require_external_action_approval ... ok
+#10 21.21 test platform_lifecycle::tests::lifecycle_owner_matches_nested_and_legacy_dynamic_namespaces ... ok
+#10 21.21 test platform_lifecycle::tests::persisted_call_reducer_preserves_effect_and_terminal_fence ... ok
+#10 21.21 test platform_lifecycle::tests::restart_recovery_classifies_every_unpaired_published_call ... ok
+#10 21.21 test postgres_store_contract_tests::agent_thread_start_round_trips_through_postgres_store ... ignored, requires local PostgreSQL and AI_PLATFORM_RUNTIME_MIGRATION_PATH
+#10 21.21 test postgres_store::events::replay_tests::recovery_event_reuses_original_timestamp_but_never_changes_facts ... ok
+#10 21.21 test readonly_capabilities::tests::deferred_write_resolution_requires_exact_allowlist_identity ... ok
+#10 21.21 test readonly_capabilities::tests::discovery_is_metadata_bound_and_stably_sorted ... ok
+#10 21.21 test readonly_capabilities::tests::dynamic_tool_resolution_requires_snapshot_allowlist_identity ... ok
+#10 21.21 test readonly_capabilities::tests::missing_effect_metadata_is_not_visible ... ok
+#10 21.21 test readonly_capabilities::tests::dynamic_tools_require_an_explicit_readonly_descriptor ... ok
+#10 21.21 test readonly_capabilities::tests::native_child_controls_never_resolve_as_dynamic_worker_tools ... ok
+#10 21.21 test readonly_capabilities::tests::render_turn_input_rejects_foreign_payload_and_marks_context ... ok
+#10 21.21 test readonly_capabilities::tests::render_turn_input_does_not_dump_tool_catalogs ... ok
+#10 21.21 test readonly_capabilities::tests::tenant_and_revision_mismatch_fail_closed ... ok
+#10 21.21 test readonly_capabilities::tests::unified_projection_keeps_external_data_non_authoritative ... ok
+#10 21.21 test readonly_capabilities::tests::write_descriptor_is_not_visible ... ok
+#10 21.21 test tool_lifecycle::tests::consumed_approval_id_cannot_be_published_again ... ok
+#10 21.21 test tool_lifecycle::tests::crash_recovery_times_out_dispatched_reads ... ok
+#10 21.21 test tool_lifecycle::tests::dispatch_fence_and_terminal_result_are_idempotent ... ok
+#10 21.21 test tool_lifecycle::tests::duplicate_call_id_cannot_change_arguments_or_effect ... ok
+#10 21.21 test tool_lifecycle::tests::interruption_closes_undispatched_and_unknown_effects_without_retry ... ok
+#10 21.21 test tool_lifecycle::tests::write_requires_exact_one_time_approval ... ok
+#10 21.21 test tool_policy::tests::absent_legacy_policy_is_never_unrestricted ... ok
+#10 21.21 test tool_policy::tests::namespace_identity_survives_policy_normalization ... ok
+#10 21.21 test tool_policy::tests::native_search_needs_authority_not_a_model_capability_flag ... ok
+#10 21.21 test tool_policy::tests::resume_can_narrow_but_cannot_widen_original_ceiling ... ok
+#10 21.24 test trace_context::tests::arc05_filters_untrusted_headers_and_adds_correlations ... ok
+#10 21.24 test v1_projector::tests::native_subagent_completion_is_separate_from_spawn_acceptance ... ok
+#10 21.24 test v1_projector::tests::non_successful_tool_statuses_are_projected_as_failures ... ok
+#10 21.24 test v1_projector::tests::same_named_dynamic_tools_keep_distinct_namespaces ... ok
+#10 21.24 test v1_projector_tests::collaboration_item_projects_stable_child_lifecycle ... ok
+#10 21.24 test v1_projector_tests::dynamic_tool_item_projects_one_start_and_one_terminal_pair ... ok
+#10 21.24 test v1_projector_tests::hosted_web_search_completion_projects_success_without_a_status_field ... ok
+#10 21.24 test v1_projector_tests::turn_terminal_status_maps_to_one_v1_terminal_envelope ... ok
+#10 21.24 test v1_projector_tests::visible_text_and_reasoning_summary_map_without_raw_reasoning ... ok
+#10 21.55 test tests::kernel_uses_agent_thread_lifecycle_with_platform_store ... ok
+#10 21.55
+#10 21.55 test result: ok. 78 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.59s
+#10 21.55
+#10 22.87    Compiling ai-platform-capability-worker v0.0.0 (/source/codex-rs/ai-platform-capability-worker)
+#10 29.50     Finished `dev-small` profile [unoptimized] target(s) in 7.84s
+#10 29.52      Running unittests src/lib.rs (target/dev-small/deps/ai_platform_capability_worker-569bcf54f14ae73f)
+#10 29.53
+#10 29.53 running 81 tests
+#10 29.53 test attachment_capabilities::tests::endpoint_has_no_caller_controlled_path ... ok
+#10 29.53 test attachment_capabilities::tests::rejects_path_like_attachment_ids_and_unbounded_reads ... ok
+#10 29.53 test confluence_write_broker::tests::envelope_contains_no_credential_and_uses_fixed_path ... ok
+#10 29.53 test attachment_capabilities::tests::omitted_max_chars_uses_bounded_default ... ok
+#10 29.53 test confluence_write_broker::tests::upstream_5xx_is_side_effect_unknown_but_4xx_is_definitive ... ok
+#10 29.53 test external_write_capabilities::tests::confluence_requires_verified_binding_and_rejects_secret_or_url_fields ... ok
+#10 29.53 test external_write_capabilities::tests::four_x_is_definitive_failure_and_unknown_is_not_retried ... ok
+#10 29.53 test external_write_capabilities::tests::broker_receives_original_arguments_when_defaults_are_omitted ... ok
+#10 29.53 test external_write_capabilities::tests::validates_scope_and_args_before_broker_call ... ok
+#10 29.53 test external_write_capabilities::tests::strict_image_quiz_and_confluence_shapes ... ok
+#10 29.53 test http_service::tests::cloned_state_shares_the_same_immutable_registry ... ok
+#10 29.53 test http_service::tests::arc05_readiness_uses_store_and_reports_optional_capabilities ... ok
+#10 29.53 test http_service::tests::declarative_kind_tag_binds_snapshot_capability_type ... ok
+#10 29.53 test http_service::tests::deterministic_event_ids_are_distinct ... ok
+#10 29.53 test http_service::tests::dynamic_descriptor_schema_and_connector_tampering_is_rejected ... ok
+#10 29.54 test http_service::tests::dynamic_mcp_descriptor_is_accepted_without_static_catalog_entry ... ok
+#10 29.54 test http_service::tests::default_registry_hides_fixtures_and_unimplemented_capabilities ... ok
+#10 29.54 test http_service::tests::event_payload_limit_is_bounded ... ok
+#10 29.54 test http_service::tests::fixture_flag_adds_only_the_two_contract_fixtures ... ok
+#10 29.54 test image_write_broker::tests::endpoint_is_fixed_to_private_image_route ... ok
+#10 29.54 test image_write_broker::tests::envelope_contains_no_provider_secret_or_binary ... ok
+#10 29.54 test image_write_broker::tests::upstream_status_classification_preserves_unknown_effect ... ok
+#10 29.54 test local_node_broker::tests::approval_and_arguments_are_bound_before_dispatch ... ok
+#10 29.54 test local_node_broker::tests::catalog_is_exactly_three_platform_capabilities ... ok
+#10 29.54 test local_node_broker::tests::disconnect_after_dispatch_is_not_retryable_success ... ok
+#10 29.54 test local_node_broker::tests::successful_receipt_is_the_only_success_signal ... ok
+#10 29.54 test office_artifact_broker::tests::rejects_untrusted_endpoint_and_invalid_content ... ok
+#10 29.54 test office_capabilities::tests::invalid_store_metadata_is_side_effect_unknown ... ok
+#10 29.54 test http_service::tests::write_flag_exposes_only_implemented_writers ... ok
+#10 29.54 test office_capabilities::tests::rejects_argument_hash_mismatch_before_render_or_store ... ok
+#10 29.54 test office_capabilities::tests::renders_and_persists_public_output_without_fake_url ... ok
+#10 29.55 test office_capabilities::tests::replay_uses_store_idempotency_key ... ok
+#10 29.55 test platform_catalog::tests::checked_in_catalog_loads ... ok
+#10 29.56 test platform_catalog::tests::every_checked_in_record_projects_to_a_valid_descriptor ... ok
+#10 29.56 test platform_catalog::tests::metadata_category_and_permissions_fail_closed ... ok
+#10 29.56 test platform_catalog::tests::worker_registry_contains_only_implemented_read_capabilities ... ok
+#10 29.57 test platform_catalog::tests::worker_registry_exposes_implemented_writers_only_when_enabled ... ok
+#10 29.57 test python_artifact_broker::tests::body_is_the_strict_gateway_contract_without_scope_or_raw_extras ... ok
+#10 29.57 test python_artifact_broker::tests::later_rejection_after_a_persisted_artifact_is_side_effect_unknown ... ok
+#10 29.57 test python_artifact_broker::tests::only_a_first_deterministic_client_rejection_is_failed ... ok
+#10 29.57 test python_artifact_broker::tests::persistence_keeps_order_and_uses_durable_execution_scope ... ok
+#10 29.58 test office_capabilities::tests::pdf_uses_the_controlled_embedded_font_pack ... ok
+#10 29.58 test python_artifact_broker::tests::terminal_payload_replaces_raw_output_files_with_compact_artifacts ... ok
+#10 29.58 test python_code_execution::tests::collects_files_from_the_compatibility_output_directory ... ok
+#10 29.58 test python_code_execution::tests::empty_limits_object_uses_bounded_defaults ... ok
+#10 29.58 test python_code_execution::tests::lexical_guard_is_not_fooled_by_literals ... ok
+#10 29.58 test python_code_execution::tests::linux_network_isolation_uses_an_unprivileged_namespace_wrapper ... ok
+#10 29.58 test python_code_execution::tests::request_rejects_paths_and_unbounded_limits ... ok
+#10 29.58 test quiz_capabilities::tests::catalog_hash_and_strict_shape_are_enforced ... ok
+#10 29.58 test quiz_capabilities::tests::postgres_contract_fixture_is_opt_in ... ignored, requires a disposable PostgreSQL database with migration 096
+#10 29.58 test quiz_capabilities::tests::question_semantics_are_fail_closed ... ok
+#10 29.58 test quiz_capabilities::tests::success_payload_never_contains_answers ... ok
+#10 29.58 test read_capabilities::fs::tests::html_extraction_does_not_preserve_tags ... ok
+#10 29.58 test read_capabilities::fs::tests::private_addresses_are_rejected ... ok
+#10 29.58 test read_capabilities::fs::tests::root_relative_open_rejects_replaced_file_symlink ... ok
+#10 29.58 test read_capabilities::fs::tests::root_relative_open_rejects_symlinked_parent_escape ... ok
+#10 29.58 test read_capabilities::proof::capability_proof_tests::ipv4_mapped_and_transition_v6_are_not_public ... ok
+#10 29.58 test read_capabilities::proof::capability_proof_tests::matches_python_capability_proof_fixture ... ok
+#10 29.58 test read_capabilities::proof::capability_proof_tests::observed_private_peer_is_never_masked_by_a_public_pin ... ok
+#10 29.58 test read_capabilities::proof::capability_proof_tests::pinned_public_peer_survives_missing_remote_addr ... ok
+#10 29.58 test tests::an_active_read_claim_cannot_be_replayed_until_its_lease_expires ... ok
+#10 29.58 test tests::claimed_write_is_terminalized_once_as_side_effect_unknown ... ok
+#10 29.58 test tests::event_pages_never_advance_more_than_one_event ... ok
+#10 29.58 test tests::expired_worker_lease_cannot_be_renewed_by_the_same_fence ... ok
+#10 29.58 test tests::lease_renewal_is_bound_to_the_current_dispatch_fence ... ok
+#10 29.58 test tests::published_write_is_claimable_but_active_claim_is_not_recovered ... ok
+#10 29.58 test tests::reserve_is_idempotent_and_scope_is_closed ... ok
+#10 29.58 test tests::runtime_binding_requires_exact_identity_and_scope ... ok
+#10 29.62 test python_artifact_broker::tests::proof_binds_the_durable_execution_id_not_a_lease_id ... ok
+#10 29.62 test write_capabilities::tests::advisory_lock_identity_is_length_delimited_and_nul_free ... ok
+#10 29.62 test write_capabilities::tests::new_session_starts_with_a_complete_owner_bound_v2_envelope ... ok
+#10 29.62 test write_capabilities::tests::one_executor_does_not_reuse_another_request_principal ... ok
+#10 29.62 test write_capabilities::tests::todo_replacement_archives_previous_state_and_rejects_wrong_owner ... ok
+#10 29.62 test write_capabilities::tests::todo_write_does_not_require_long_term_memory_policy ... ok
+#10 29.62 test write_capabilities::tests::todo_write_rejects_unbounded_or_unknown_items ... ok
+#10 29.62 test write_capabilities::tests::todo_write_validates_and_preserves_order ... ok
+#10 29.62 test write_capabilities::tests::user_memory_delete_is_owner_scoped_and_non_retrying ... ok
+#10 29.62 test write_capabilities::tests::user_memory_requires_immutable_binding_and_cannot_raise_authority ... ok
+#10 29.62 test write_capabilities::tests::user_memory_sanitizes_and_enforces_profile ... ok
+#10 29.62 test write_capabilities::uncertainty_tests::database_failures_are_side_effect_uncertain ... ok
+#10 29.62 test trace_context::tests::arc05_task_scope_propagates_only_valid_headers ... ok
+#10 29.62
+#10 29.62 test result: ok. 80 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.09s
+#10 29.62
+#10 DONE 29.9s
+
+#11 [recovery-tests 1/1] RUN --mount=type=cache,id=ai-platform-capability-cargo-registry-v1,target=/usr/local/cargo/registry,sharing=locked     --mount=type=cache,id=ai-platform-capability-cargo-git-v1,target=/usr/local/cargo/git,sharing=locked     --mount=type=cache,id=ai-platform-capability-target-rust-1-95-v1,target=/source/codex-rs/target,sharing=locked     RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld"     cargo test --locked --profile dev-small -p codex-core --test durable_recovery recover_turn_preserves_model_lease_metadata_and_replacement_owner     && RUST_MIN_STACK=16777216 CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 RUSTFLAGS="-C link-arg=-fuse-ld=lld"        cargo test --locked --profile dev-small -p codex-core --test durable_recovery root_turn_suspension_preserves_unfinished_turn_history
+#11 1.023  Downloading crates ...
+#11 2.350   Downloaded test-log-macros v0.2.19
+#11 2.526   Downloaded ctor v0.6.3
+#11 2.574   Downloaded serial_test_derive v3.3.1
+#11 2.766   Downloaded tracing-test-macro v0.2.5
+#11 2.803   Downloaded sdd v3.0.10
+#11 2.820   Downloaded dtor-proc-macro v0.0.6
+#11 2.864   Downloaded normalize-line-endings v0.3.0
+#11 2.867   Downloaded difflib v0.4.0
+#11 2.890   Downloaded float-cmp v0.10.0
+#11 2.943   Downloaded deadpool-runtime v0.1.4
+#11 3.000   Downloaded wait-timeout v0.2.1
+#11 3.003   Downloaded termtree v0.5.1
+#11 3.040   Downloaded test-log v0.2.19
+#11 3.122   Downloaded test-case-macros v3.3.1
+#11 3.148   Downloaded dtor v0.1.1
+#11 3.207   Downloaded tracing-test v0.2.5
+#11 3.209   Downloaded ctor-proc-macro v0.0.7
+#11 3.211   Downloaded assert_matches v1.5.0
+#11 3.225   Downloaded serial_test v3.3.1
+#11 3.247   Downloaded test-case v3.3.1
+#11 3.265   Downloaded test-case-core v3.3.1
+#11 3.282   Downloaded predicates-core v1.0.9
+#11 3.296   Downloaded num_cpus v1.17.0
+#11 3.324   Downloaded assert-json-diff v2.0.2
+#11 3.372   Downloaded assert_cmd v2.1.2
+#11 3.398   Downloaded predicates-tree v1.0.12
+#11 3.401   Downloaded console v0.15.11
+#11 3.429   Downloaded predicates v3.1.3
+#11 3.453   Downloaded wiremock v0.6.5
+#11 3.459   Downloaded deadpool v0.12.3
+#11 3.488   Downloaded insta v1.46.3
+#11 3.525   Downloaded scc v2.4.0
+#11 4.074    Compiling hyper v1.8.1
+#11 4.771    Compiling hyper-util v0.1.20
+#11 5.308    Compiling rustix v1.1.4
+#11 6.579    Compiling hyper-rustls v0.27.7
+#11 6.678    Compiling tempfile v3.27.0
+#11 6.783    Compiling tracing-subscriber v0.3.22
+#11 7.335    Compiling hyper-tls v0.6.0
+#11 7.395    Compiling reqwest v0.12.28
+#11 8.678    Compiling env_logger v0.11.9
+#11 8.764    Compiling quickcheck v1.1.0
+#11 9.030    Compiling sorted_vector_map v0.2.1
+#11 9.097    Compiling pagable v0.4.1
+#11 9.633    Compiling clap_builder v4.5.58
+#11 10.51    Compiling tracing-opentelemetry v0.32.1
+#11 10.67    Compiling clap v4.5.58
+#11 10.69    Compiling codex-http-client v0.0.0 (/source/codex-rs/http-client)
+#11 11.16    Compiling starlark_map v0.14.2
+#11 11.36    Compiling fd-lock v4.0.4
+#11 11.39    Compiling rustyline v14.0.0
+#11 11.85    Compiling starlark_syntax v0.14.2
+#11 12.58    Compiling starlark v0.14.2
+#11 22.18    Compiling codex-network-proxy v0.0.0 (/source/codex-rs/network-proxy)
+#11 27.99    Compiling codex-execpolicy v0.0.0 (/source/codex-rs/execpolicy)
+#11 28.46    Compiling codex-protocol v0.0.0 (/source/codex-rs/protocol)
+#11 35.91    Compiling hyper-timeout v0.5.2
+#11 35.96    Compiling tonic v0.14.3
+#11 36.83    Compiling codex-client v0.0.0 (/source/codex-rs/codex-client)
+#11 36.99    Compiling tonic-prost v0.14.3
+#11 37.03    Compiling gix-tempfile v21.0.2
+#11 37.11    Compiling codex-websocket-client v0.0.0 (/source/codex-rs/websocket-client)
+#11 37.29    Compiling codex-api v0.0.0 (/source/codex-rs/codex-api)
+#11 38.92    Compiling gix-lock v21.0.2
+#11 38.98    Compiling opentelemetry-proto v0.31.0
+#11 39.73    Compiling opentelemetry-http v0.31.0
+#11 39.89    Compiling opentelemetry-otlp v0.31.0
+#11 40.31    Compiling gix-ref v0.61.0
+#11 40.77    Compiling opentelemetry-appender-tracing v0.31.1
+#11 40.80    Compiling gethostname v1.1.0
+#11 40.82    Compiling codex-otel v0.0.0 (/source/codex-rs/otel)
+#11 42.08    Compiling gix-shallow v0.10.0
+#11 42.15    Compiling gix-config v0.54.0
+#11 42.63    Compiling gix-protocol v0.59.0
+#11 42.74    Compiling gix-odb v0.78.0
+#11 43.15    Compiling gix-discover v0.49.0
+#11 43.25    Compiling codex-file-system v0.0.0 (/source/codex-rs/file-system)
+#11 43.55    Compiling similar v2.7.0
+#11 43.78    Compiling gix v0.81.0
+#11 44.76    Compiling codex-git-utils v0.0.0 (/source/codex-rs/git-utils)
+#11 45.43    Compiling codex-utils-path v0.0.0 (/source/codex-rs/utils/path-utils)
+#11 45.50    Compiling which v8.0.0
+#11 45.57    Compiling codex-features v0.0.0 (/source/codex-rs/features)
+#11 46.11    Compiling codex-model-provider-info v0.0.0 (/source/codex-rs/model-provider-info)
+#11 46.40    Compiling codex-config v0.0.0 (/source/codex-rs/config)
+#11 54.62    Compiling codex-shell-command v0.0.0 (/source/codex-rs/shell-command)
+#11 55.15    Compiling tracing-appender v0.2.4
+#11 55.34    Compiling polling v3.11.0
+#11 55.40    Compiling async-io v2.6.0
+#11 55.57    Compiling codex-windows-sandbox v0.0.0 (/source/codex-rs/windows-sandbox-rs)
+#11 55.75    Compiling zbus v4.4.0
+#11 58.49    Compiling codex-mxc-sandbox v0.0.0 (/source/codex-rs/mxc-sandbox)
+#11 58.64    Compiling codex-sandboxing v0.0.0 (/source/codex-rs/sandboxing)
+#11 59.13    Compiling secret-service v4.0.0
+#11 59.77    Compiling axum v0.8.8
+#11 60.97    Compiling keyring v3.6.3
+#11 61.11    Compiling codex-exec-server-protocol v0.0.0 (/source/codex-rs/exec-server-protocol)
+#11 61.76    Compiling codex-exec-server v0.0.0 (/source/codex-rs/exec-server)
+#11 68.59    Compiling codex-keyring-store v0.0.0 (/source/codex-rs/keyring-store)
+#11 68.70    Compiling codex-history v0.0.0 (/source/codex-rs/history)
+#11 69.38    Compiling codex-secrets v0.0.0 (/source/codex-rs/secrets)
+#11 69.73    Compiling aws-smithy-http-client v1.1.12
+#11 70.67    Compiling aws-smithy-runtime v1.9.5
+#11 71.71    Compiling aws-runtime v1.5.17
+#11 72.12    Compiling sqlx v0.9.0
+#11 72.15    Compiling codex-state v0.0.0 (/source/codex-rs/state)
+#11 73.46    Compiling codex-agent-identity v0.0.0 (/source/codex-rs/agent-identity)
+#11 73.80    Compiling codex-workload-identity v0.0.0 (/source/codex-rs/workload-identity)
+#11 73.89    Compiling codex-login v0.0.0 (/source/codex-rs/login)
+#11 75.29    Compiling codex-file-search v0.0.0 (/source/codex-rs/file-search)
+#11 75.59    Compiling oauth2 v5.0.0
+#11 75.90    Compiling reqwest v0.13.4
+#11 76.64    Compiling rmcp v3.2.0
+#11 82.16    Compiling codex-rollout v0.0.0 (/source/codex-rs/rollout)
+#11 86.05    Compiling codex-utils-plugins v0.0.0 (/source/codex-rs/utils/plugins)
+#11 86.26    Compiling codex-context-fragments v0.0.0 (/source/codex-rs/context-fragments)
+#11 86.40    Compiling codex-utils-output-truncation v0.0.0 (/source/codex-rs/utils/output-truncation)
+#11 86.52    Compiling codex-guardian-context v0.0.0 (/source/codex-rs/guardian-context)
+#11 87.05    Compiling aws-sdk-sts v1.95.0
+#11 88.05    Compiling codex-plugin v0.0.0 (/source/codex-rs/plugin)
+#11 88.27    Compiling aws-sdk-ssooidc v1.93.0
+#11 88.95    Compiling aws-sdk-signin v1.2.0
+#11 89.37    Compiling aws-sdk-sso v1.91.0
+#11 90.10    Compiling codex-prompts v0.0.0 (/source/codex-rs/prompts)
+#11 90.39    Compiling aws-config v1.8.12
+#11 92.06    Compiling codex-code-mode-protocol v0.0.0 (/source/codex-rs/code-mode-protocol)
+#11 92.91    Compiling codex-feedback v0.0.0 (/source/codex-rs/feedback)
+#11 93.44    Compiling codex-aws-auth v0.0.0 (/source/codex-rs/aws-auth)
+#11 93.56    Compiling codex-models-manager v0.0.0 (/source/codex-rs/models-manager)
+#11 94.25    Compiling codex-response-debug-context v0.0.0 (/source/codex-rs/response-debug-context)
+#11 94.37    Compiling codex-model-provider v0.0.0 (/source/codex-rs/model-provider)
+#11 95.34    Compiling codex-code-mode v0.0.0 (/source/codex-rs/code-mode)
+#11 97.03    Compiling codex-connectors v0.0.0 (/source/codex-rs/connectors)
+#11 97.63    Compiling codex-rmcp-client v0.0.0 (/source/codex-rs/rmcp-client)
+#11 100.4    Compiling codex-tools v0.0.0 (/source/codex-rs/tools)
+#11 101.0    Compiling codex-mcp v0.0.0 (/source/codex-rs/codex-mcp)
+#11 105.1    Compiling codex-app-server-protocol v0.0.0 (/source/codex-rs/app-server-protocol)
+#11 118.1    Compiling codex-extension-api v0.0.0 (/source/codex-rs/ext/extension-api)
+#11 118.6    Compiling codex-analytics v0.0.0 (/source/codex-rs/analytics)
+#11 120.3    Compiling codex-skills v0.0.0 (/source/codex-rs/skills)
+#11 120.6    Compiling codex-apply-patch v0.0.0 (/source/codex-rs/apply-patch)
+#11 121.0    Compiling codex-shell-escalation v0.0.0 (/source/codex-rs/shell-escalation)
+#11 121.6    Compiling codex-hooks v0.0.0 (/source/codex-rs/hooks)
+#11 122.6    Compiling codex-agent-message-board-extension v0.0.0 (/source/codex-rs/ext/agent-message-board)
+#11 123.5    Compiling codex-core-plugins v0.0.0 (/source/codex-rs/core-plugins)
+#11 127.7    Compiling codex-thread-store v0.0.0 (/source/codex-rs/thread-store)
+#11 130.7    Compiling codex-utils-audio v0.0.0 (/source/codex-rs/utils/audio)
+#11 130.9    Compiling codex-skills-extension v0.0.0 (/source/codex-rs/ext/skills)
+#11 134.1    Compiling codex-guardian-reviewer v0.0.0 (/source/codex-rs/ext/guardian-reviewer)
+#11 134.6    Compiling codex-rollout-trace v0.0.0 (/source/codex-rs/rollout-trace)
+#11 136.3    Compiling codex-agent-graph-store v0.0.0 (/source/codex-rs/agent-graph-store)
+#11 136.5    Compiling codex-memories-read v0.0.0 (/source/codex-rs/memories/read)
+#11 136.6    Compiling codex-agent-roles v0.0.0 (/source/codex-rs/agent-roles)
+#11 137.4    Compiling codex-utils-git-discovery v0.0.0 (/source/codex-rs/utils/git-discovery)
+#11 137.6    Compiling predicates-core v1.0.9
+#11 137.7    Compiling codex-core v0.0.0 (/source/codex-rs/core)
+#11 178.9    Compiling float-cmp v0.10.0
+#11 179.1    Compiling num_cpus v1.17.0
+#11 179.3    Compiling termtree v0.5.1
+#11 179.3    Compiling difflib v0.4.0
+#11 179.5    Compiling assert_cmd v2.1.2
+#11 179.7    Compiling deadpool-runtime v0.1.4
+#11 179.7    Compiling normalize-line-endings v0.3.0
+#11 179.8    Compiling predicates v3.1.3
+#11 180.0    Compiling deadpool v0.12.3
+#11 180.1    Compiling predicates-tree v1.0.12
+#11 180.1    Compiling codex-linux-sandbox v0.0.0 (/source/codex-rs/linux-sandbox)
+#11 181.0    Compiling assert-json-diff v2.0.2
+#11 181.0    Compiling wait-timeout v0.2.1
+#11 181.1    Compiling dtor-proc-macro v0.0.6
+#11 181.2    Compiling dtor v0.1.1
+#11 181.3    Compiling wiremock v0.6.5
+#11 181.6    Compiling codex-arg0 v0.0.0 (/source/codex-rs/arg0)
+#11 181.8    Compiling test-case-core v3.3.1
+#11 182.0    Compiling runfiles v0.1.0 (https://github.com/dzbarsky/rules_rust?rev=b56cbaa8465e74127f1ea216f813cd377295ad81#b56cbaa8)
+#11 182.1    Compiling sdd v3.0.10
+#11 182.2    Compiling ctor-proc-macro v0.0.7
+#11 182.3    Compiling ctor v0.6.3
+#11 182.3    Compiling scc v2.4.0
+#11 182.7    Compiling codex-utils-cargo-bin v0.0.0 (/source/codex-rs/utils/cargo-bin)
+#11 182.7    Compiling test-case-macros v3.3.1
+#11 182.8    Compiling codex-guardian-v2 v0.0.0 (/source/codex-rs/ext/guardian-v2)
+#11 184.3    Compiling codex-home v0.0.0 (/source/codex-rs/codex-home)
+#11 184.6    Compiling console v0.15.11
+#11 184.7    Compiling tracing-test-macro v0.2.5
+#11 184.8    Compiling serial_test_derive v3.3.1
+#11 184.9    Compiling test-log-macros v0.2.19
+#11 185.0    Compiling test-log v0.2.19
+#11 185.0    Compiling serial_test v3.3.1
+#11 185.1    Compiling tracing-test v0.2.5
+#11 185.2    Compiling insta v1.46.3
+#11 185.7    Compiling core_test_support v0.0.0 (/source/codex-rs/core/tests/common)
+#11 187.3    Compiling test-case v3.3.1
+#11 187.3    Compiling codex-test-binary-support v0.0.0 (/source/codex-rs/test-binary-support)
+#11 187.4    Compiling codex-exec-server-test-support v0.0.0 (/source/codex-rs/exec-server/tests/support)
+#11 187.7    Compiling codex-web-search-extension v0.0.0 (/source/codex-rs/ext/web-search)
+#11 188.4    Compiling codex-image-generation-extension v0.0.0 (/source/codex-rs/ext/image-generation)
+#11 189.1    Compiling assert_matches v1.5.0
+#11 195.4     Finished `dev-small` profile [unoptimized] target(s) in 3m 15s
+#11 197.0      Running tests/durable_recovery.rs (target/dev-small/deps/durable_recovery-d6765bba22f0b064)
+#11 197.0
+#11 197.0 running 1 test
+#11 197.2 test recover_turn_preserves_model_lease_metadata_and_replacement_owner ... ok
+#11 197.2
+#11 197.2 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.16s
+#11 197.2
+#11 198.8     Finished `dev-small` profile [unoptimized] target(s) in 1.50s
+#11 198.9      Running tests/durable_recovery.rs (target/dev-small/deps/durable_recovery-d6765bba22f0b064)
+#11 198.9
+#11 198.9 running 1 test
+#11 199.1 test root_turn_suspension_preserves_unfinished_turn_history ... ok
+#11 199.1
+#11 199.1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.23s
+#11 199.1
+#11 DONE 199.2s
+
+#12 exporting to image
+#12 exporting layers
+#12 exporting layers 5.0s done
+#12 exporting manifest sha256:fa11e7f85daea216d82448b0f8734e2a68723cff263d0f4606b959bd72064ae4 done
+#12 exporting config sha256:216f32beff54919a3120c47d8eee02ba0e11e6f76dd4de70954864d3ae0b427a done
+#12 exporting attestation manifest sha256:50d87582afe534229b760af4a40261341897e40b07943d4d269200cddcef64bf 0.0s done
+#12 exporting manifest list sha256:c6d234721f9df70ee9334d1bb8b3eb5bd83d3ad46f4b429cd588fad229d52316 done
+#12 naming to moby-dangling@sha256:c6d234721f9df70ee9334d1bb8b3eb5bd83d3ad46f4b429cd588fad229d52316 done
+#12 unpacking to moby-dangling@sha256:c6d234721f9df70ee9334d1bb8b3eb5bd83d3ad46f4b429cd588fad229d52316
+#12 unpacking to moby-dangling@sha256:c6d234721f9df70ee9334d1bb8b3eb5bd83d3ad46f4b429cd588fad229d52316 1.7s done
+#12 DONE 6.7s

@@ -1,0 +1,2367 @@
+{
+  "paths": {
+    "/api/v1/automations": {
+      "get": {
+        "operationId": "list_automations",
+        "parameters": [],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automations": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AutomationRule"
+                      }
+                    }
+                  },
+                  "required": [
+                    "automations"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_automation",
+        "parameters": [],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationDefinition"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/draft": {
+      "post": {
+        "operationId": "draft_automation",
+        "parameters": [],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  }
+                },
+                "required": [
+                  "prompt"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}": {
+      "get": {
+        "operationId": "get_automation",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/executions": {
+      "get": {
+        "operationId": "automation_executions",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "executions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "executions"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/notifications": {
+      "get": {
+        "operationId": "automation_notifications",
+        "parameters": [],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "notifications": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "notification_id": {
+                            "type": "string"
+                          },
+                          "tenant_id": {
+                            "type": "string"
+                          },
+                          "user_id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "notification_id",
+                          "tenant_id",
+                          "user_id",
+                          "message",
+                          "created_at"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "notifications"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/confirm": {
+      "post": {
+        "operationId": "confirm_automation",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    },
+                    "webhook_secret": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "automation",
+                    "webhook_secret"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "confirm": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "confirm"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/pause": {
+      "post": {
+        "operationId": "pause_automation",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/resume": {
+      "post": {
+        "operationId": "resume_automation",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/cancel": {
+      "post": {
+        "operationId": "cancel_automation",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "NativeBearerAuth": []
+          },
+          {
+            "NativeBoundApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "automation": {
+                      "$ref": "#/components/schemas/AutomationRule"
+                    }
+                  },
+                  "required": [
+                    "automation"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automations/{automation_id}/webhook": {
+      "post": {
+        "operationId": "automation_webhook",
+        "parameters": [
+          {
+            "name": "automation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Automation-Timestamp",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Automation-Delivery",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Automation-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Owner-scoped automation receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "accepted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "accepted"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Rejected or unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AutomationDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "trigger": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "cron"
+                  },
+                  "expression": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "kind",
+                  "expression",
+                  "timezone"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "webhook"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "space_page_changed"
+                  },
+                  "item_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "item_id"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "connector_event"
+                  },
+                  "entry_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entry_id"
+                ]
+              }
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "run_agent"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "prompt"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "run_skill"
+                    },
+                    "skill_id": {
+                      "type": "string"
+                    },
+                    "prompt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "skill_id",
+                    "prompt"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "write_space_page"
+                    },
+                    "item_id": {
+                      "type": "string"
+                    },
+                    "markdown": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "item_id",
+                    "markdown"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "notify"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "message"
+                  ]
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 8
+          }
+        },
+        "required": [
+          "title",
+          "model_id",
+          "trigger",
+          "actions"
+        ]
+      },
+      "AutomationRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "automation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/AutomationDefinition"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active",
+              "paused",
+              "cancelled"
+            ]
+          },
+          "next_run_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "watermark": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "automation_id",
+          "tenant_id",
+          "user_id",
+          "title",
+          "definition",
+          "revision",
+          "status",
+          "next_run_at",
+          "watermark",
+          "created_at",
+          "updated_at"
+        ]
+      }
+    }
+  }
+}

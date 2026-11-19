@@ -1,0 +1,19 @@
+package_id: ARC-05
+state: verified
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [src/services/health_contract.py, src/services/eval/**, src/services/agent_runtime/**, apps/knowledge-service/**, web/src/**]
+commits: [160a24d3, 68a26e9a, d892e04b, d1732363, 9aaa9cab]
+contracts_compared: [durable terminal states, layered health, service identity, trace propagation, tool failure recovery]
+commands:
+  - {command: "make gateway-unit-gate", exit_code: 0, passed: 2107, failed: 0, skipped: 0}
+  - {command: "make kb-unit-gate", exit_code: 0, passed: 1850, failed: 0, skipped: 1}
+  - {command: "make validate", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+live_observations: [cancel/recovery terminal state, exact Knowledge worker failure, healthy/degraded admin view, successful persisted trace]
+remaining_risks: []

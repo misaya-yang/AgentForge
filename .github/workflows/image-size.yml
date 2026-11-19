@@ -1,0 +1,140 @@
+name: Image Size Budgets
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/platform-native/**'
+      - 'rust/platform-native/**'
+      - 'rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-contract/**'
+      - 'rust/agent-runtime-overlay/kernel-rs/Cargo.toml'
+      - 'database/**'
+      - 'web/**'
+      - 'docker/code-interpreter/**'
+      - '.github/workflows/docker-publish.yml'
+      - '.github/workflows/image-size.yml'
+      - '.github/actions/setup-native/**'
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      policy-only:
+        description: Release builds enforce their own digest-bound image measurements
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-size-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-tests:
+    name: Image size policy negative cases
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - name: Check policy unit and real CLI failure cases
+        run: |
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --bin platform-tools image_size::tests
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test image_size_gate
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-tools --test publish_workflow
+
+  measure:
+    name: Image size ${{ matrix.image.name }} ${{ matrix.host.platform }}
+    needs: policy-tests
+    if: ${{ inputs.policy-only != true }}
+    timeout-minutes: 60
+    runs-on: ${{ matrix.host.runner }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        host:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+        image:
+          - name: runtime
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: runtime
+          - name: knowledge
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: knowledge
+          - name: migrate
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: migrate
+          - name: sdk-worker
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: sdk-worker
+          - name: local-node
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: local-node
+          - name: tools
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: tools
+          - name: release
+            context: .
+            dockerfile: deploy/platform-native/Dockerfile
+            target: release
+          - name: frontend
+            context: ./web
+            dockerfile: web/Dockerfile
+            target: runtime
+          - name: code-interpreter
+            context: ./docker/code-interpreter
+            dockerfile: docker/code-interpreter/Dockerfile
+            target: ''
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+        with:
+          packages: ai-platform-tools
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      # One platform on a matching native runner; no QEMU or registry publication.
+      - name: Build and load measured image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
+          target: ${{ matrix.image.target }}
+          platforms: ${{ matrix.host.platform }}
+          tags: agentforge-size:${{ matrix.image.name }}-${{ matrix.host.arch }}
+          load: true
+          push: false
+          build-args: VCS_REF=${{ github.sha }}
+          cache-from: type=gha,scope=size-${{ matrix.image.name }}-${{ matrix.host.arch }}
+          cache-to: type=gha,mode=max,scope=size-${{ matrix.image.name }}-${{ matrix.host.arch }}
+      - name: Enforce exact byte budget
+        env:
+          IMAGE_REF: agentforge-size:${{ matrix.image.name }}-${{ matrix.host.arch }}
+          IMAGE_ID: ${{ steps.build.outputs.imageid }}
+          IMAGE_TARGET: ${{ matrix.image.name }}
+          IMAGE_PLATFORM: ${{ matrix.host.platform }}
+        run: |
+          # Extract only public size/identity metadata; never upload Config.Env.
+          docker image inspect --format '[{"Id":{{json .Id}},"Size":{{json .Size}},"Os":{{json .Os}},"Architecture":{{json .Architecture}}}]' "$IMAGE_REF" > "$RUNNER_TEMP/image-size-inspect.json"
+          platform-tools image-size-check --repo-root . --target "$IMAGE_TARGET" --platform "$IMAGE_PLATFORM" --image-id "$IMAGE_ID" --inspect "$RUNNER_TEMP/image-size-inspect.json" --evidence-out "$RUNNER_TEMP/image-size-receipt.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-size-${{ matrix.image.name }}-${{ matrix.host.arch }}
+          path: ${{ runner.temp }}/image-size-receipt.json
+          if-no-files-found: error

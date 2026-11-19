@@ -1,0 +1,35 @@
+
+=> Pre-flight checks
+
+=> Copying source into existing containers
+[OK]      Copied src -> ai-gateway-backend:/app/src
+[OK]      Copied rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json -> ai-gateway-backend:/app/src/core/data/platform_catalog_v1.json
+[OK]      Copied config -> ai-gateway-backend:/app/config
+[OK]      Copied database -> ai-gateway-backend:/app/database
+[OK]      Copied packages/ai-gateway-core/src/ai_gateway_core -> ai-gateway-backend:/opt/venv/lib/python3.12/site-packages/ai_gateway_core
+[OK]      Copied packages/ai-gateway-contracts/src/ai_gateway_contracts -> ai-gateway-backend:/opt/venv/lib/python3.12/site-packages/ai_gateway_contracts
+
+=> Restarting updated services
+ Container ai-gateway-backend Restarting
+ Container ai-gateway-backend Started
+
+=> Recreating the locked Runtime and capability worker release unit
+ Container ai-gateway-agent-capability-worker-1 Recreate
+ Container ai-gateway-agent-capability-worker-1 Recreated
+ Container ai-gateway-agent-runtime Recreate
+ Container ai-gateway-agent-runtime Recreated
+ Container ai-gateway-agent-capability-worker-1 Starting
+ Container ai-gateway-agent-capability-worker-1 Started
+ Container ai-gateway-agent-capability-worker-1 Waiting
+ Container ai-gateway-agent-capability-worker-1 Healthy
+ Container ai-gateway-agent-runtime Starting
+ Container ai-gateway-agent-runtime Started
+
+=> Runtime health checks
+[INFO]    Waiting for Gateway...
+.[OK]      Gateway is ready
+[INFO]    Waiting for Capability worker...
+[OK]      Capability worker is ready
+[INFO]    Waiting for Agent Runtime...
+[OK]      Agent Runtime is ready
+[OK]      Hot update complete. No pip install or image rebuild was run.

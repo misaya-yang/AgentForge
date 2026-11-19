@@ -1,0 +1,6 @@
+{
+  "tag": "ai-gateway-frontend-local-4919e4f264ff:2.0.0",
+  "source_sha256": "4919e4f264ff21ad01bd4d6d74f409a6be4fe35c1e70c9ec99e16db53bb91265",
+  "source_files": 256,
+  "scope": "source-only layer over existing installed dependencies; no secrets copied"
+}

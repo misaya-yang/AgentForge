@@ -1,0 +1,14 @@
+<!-- Install through the existing storage administrator; no credentials in source.
+     Source AND replica require versioning Enabled and default AES256/KMS encryption.
+     Replace the replication role ARN and destination account according to provider. -->
+<ReplicationConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <Role>arn:aws:iam::REPLACE_ACCOUNT:role/agentforge-replication</Role>
+  <Rule>
+    <ID>agentforge-all-versions</ID>
+    <Priority>1</Priority>
+    <Status>Enabled</Status>
+    <Filter/>
+    <DeleteMarkerReplication><Status>Disabled</Status></DeleteMarkerReplication>
+    <Destination><Bucket>arn:aws:s3:::agentforge-replica</Bucket></Destination>
+  </Rule>
+</ReplicationConfiguration>

@@ -1,0 +1,23 @@
+# Explicit retirement selection. Merge with workload-security.yml, WITHOUT workload-dual.yml.
+# The secure base has no shared token material. Do not infer release/chaos acceptance.
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+  agent-runtime:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+  knowledge-service:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+  knowledge-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null

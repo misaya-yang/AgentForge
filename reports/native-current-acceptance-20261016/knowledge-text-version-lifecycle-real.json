@@ -1,0 +1,92 @@
+{
+  "schema": "native-text-version-lifecycle-real/v1",
+  "evidence_source": "~/.cache/agentforge/runtime-work/text-source-version-lifecycle-20261016.json",
+  "dataset": "native-knowledge-acceptance-20261016",
+  "document_id": "16cd7956-d4a6-42f5-8e60-d10bc77d3686",
+  "marker": "VERSION_RESTORE_NATIVE_20261016",
+  "created_version": {
+    "number": 1,
+    "change_type": "created",
+    "sha256": "6887ff5903265640ada140e7bc41d2f4114eb0857e6681d4340558daa697c409",
+    "content_bytes": 249,
+    "status": "completed"
+  },
+  "edit": {
+    "http_status": 200,
+    "status": "pending",
+    "previous_version": 1,
+    "candidate_version": 2,
+    "execution_id": "25f5e0131b4f4341b5d580cec787774e",
+    "final_current_version": 2,
+    "source_hash": "c511bf2e96fb33dd926f981b763e803f4b324bae74962a4c1e31265addd503d1",
+    "candidate_hidden_while_waiting": true,
+    "old_source_unchanged": true,
+    "historical_old_source_matches": true
+  },
+  "restore": {
+    "http_status": 200,
+    "status": "pending",
+    "restored_from_version": 1,
+    "published_version": 4,
+    "version_total": 4,
+    "restored_change_type": "restored",
+    "active_source_matches_original": true,
+    "active_source_sha256": "6887ff5903265640ada140e7bc41d2f4114eb0857e6681d4340558daa697c409",
+    "original_v1_unchanged": true,
+    "original_v2_unchanged": false,
+    "exact_historical_sources_match": true
+  },
+  "retrievals": [
+    {
+      "stage": "v1_active_before_edit",
+      "http_status": 200,
+      "mode": "bm25",
+      "result_count": 2,
+      "document_hit_count": 1,
+      "cache_hit": false,
+      "source_bindings": [
+        {
+          "version": 1,
+          "sha256": "6887ff5903265640ada140e7bc41d2f4114eb0857e6681d4340558daa697c409",
+          "marker_present": true
+        }
+      ],
+      "active_version_hash_hit": true
+    },
+    {
+      "stage": "v2_active_after_edit",
+      "http_status": 200,
+      "mode": "bm25",
+      "result_count": 2,
+      "document_hit_count": 1,
+      "cache_hit": false,
+      "source_bindings": [
+        {
+          "version": 2,
+          "sha256": "c511bf2e96fb33dd926f981b763e803f4b324bae74962a4c1e31265addd503d1",
+          "marker_present": true
+        }
+      ],
+      "active_version_hash_hit": true
+    },
+    {
+      "stage": "v1_active_after_restore",
+      "http_status": 200,
+      "mode": "bm25",
+      "result_count": 2,
+      "document_hit_count": 1,
+      "cache_hit": false,
+      "source_bindings": [
+        {
+          "version": 4,
+          "sha256": "6887ff5903265640ada140e7bc41d2f4114eb0857e6681d4340558daa697c409",
+          "marker_present": true
+        }
+      ],
+      "active_version_hash_hit": true
+    }
+  ],
+  "overall": "passed",
+  "started_at": "2026-10-16T09:50:50.955Z",
+  "finished_at": "2026-10-16T09:51:02.239Z"
+}

@@ -1,0 +1,59 @@
+{
+  "scope": "Direct actual provider Responses and native embeddings using synthetic inputs. Gateway/Runtime/Knowledge/public UI acceptance has not run.",
+  "credential_source": "Exact corrected plain clipboard value",
+  "probes": [
+    {
+      "kind": "chat",
+      "endpoint_kind": "owner-selected Singapore workspace",
+      "path": "/compatible-mode/v1/responses",
+      "model": "qwen3.8-flash",
+      "http_status": 200,
+      "status": "completed",
+      "matches_expected_output": true,
+      "usage": {
+        "input_tokens": 61,
+        "input_tokens_details": {
+          "cached_tokens": 0
+        },
+        "output_tokens": 1,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 62,
+        "x_details": [
+          {
+            "input_tokens": 61,
+            "output_tokens": 1,
+            "total_tokens": 62,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "x_billing_type": "response_api"
+          }
+        ]
+      },
+      "result": "pass",
+      "elapsed_seconds": 3.766
+    },
+    {
+      "kind": "embedding",
+      "endpoint_kind": "owner-selected Singapore workspace",
+      "path": "/api/v1/services/embeddings/text-embedding/text-embedding",
+      "model": "text-embedding-v4",
+      "http_status": 200,
+      "dimensions": 1024,
+      "finite_values": true,
+      "usage": {
+        "total_tokens": 6
+      },
+      "result": "pass",
+      "elapsed_seconds": 3.311
+    }
+  ],
+  "schema": "platform-upgrade/provider-connectivity-v1",
+  "package": "UP-PH0-ACCEPT",
+  "observed_at": "2026-10-17T04:57:44.317818Z",
+  "source_base_sha": "d491fc38d85688e31f2c810a41843dce9615ea60",
+  "status": "DIRECT_PROVIDER_CONNECTIVITY_PASS",
+  "private_credential_updated": true
+}

@@ -1,0 +1,526 @@
+{
+  "schema": "agentforge/third-party-notice-collection/v1",
+  "component_count": 1424,
+  "missing_declaration_or_text_count": 103,
+  "inventory_sha256": "76e4e6ef76b2a6d0076513fd73c4dcc6af02ed4d1c2abf8fce8691ed96e1783d",
+  "scope": "native cargo metadata plus installed web and CLI packages, including development dependencies; Runtime upstream and OS/image packages require separate distribution SBOM",
+  "license_policy_approved": false,
+  "missing": [
+    {
+      "id": "cargo:accesskit@0.21.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_atspi_common@0.14.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_consumer@0.31.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_macos@0.22.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_unix@0.17.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_windows@0.29.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:accesskit_winit@0.29.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:atspi-proxies@0.9.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:block2@0.5.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:candle-nn@0.11.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:candle-transformers@0.11.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:clipboard-win@5.4.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "BSL-1.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:crc-catalog@2.5.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:dispatch2@0.3.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Zlib OR Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:dispatch@0.2.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:ecolor@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:eframe@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:egui-wgpu@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:egui-winit@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:egui@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:egui_glow@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:emath@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:epaint@0.33.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:fxhash@0.2.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0/MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:gl_generator@0.14.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:hexf-parse@0.2.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "CC0-1.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:include-flate-codegen@0.3.4#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:include-flate-compress@0.3.4#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:jieba-macros@0.8.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:jni-macros@0.22.4#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:jni-sys-macros@0.4.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:jni@0.22.4#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:khronos_api@3.1.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:mac@0.1.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT/Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:match_token@0.1.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:ndk-context@0.1.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:ndk-sys@0.6.0+11769913#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:ndk@0.9.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc-sys@0.3.5#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-app-kit@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-app-kit@0.3.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Zlib OR Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-cloud-kit@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-contacts@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-core-data@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-core-foundation@0.3.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Zlib OR Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-core-graphics@0.3.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Zlib OR Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-core-image@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-core-location@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-encode@4.1.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-foundation@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-foundation@0.3.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-io-surface@0.3.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Zlib OR Apache-2.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-link-presentation@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-metal@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-quartz-core@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-symbols@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-ui-kit@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-uniform-type-identifiers@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2-user-notifications@0.2.2#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2@0.5.3#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:objc2@0.6.5#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:opentelemetry-otlp@0.31.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:opentelemetry-proto@0.31.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:opentelemetry@0.31.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:opentelemetry_sdk@0.31.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:profiling@1.0.18#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-linux-aarch_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-linux-ppcle_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-linux-s390_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-linux-x86_32@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-linux-x86_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-macos-aarch_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-macos-x86_64@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored-win32@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:protoc-bin-vendored@3.3.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:pulp-wasm-simd-flag@0.1.1#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:rustls-platform-verifier-android@0.2.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT OR Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:selectors@0.26.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MPL-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:tiktoken-rs@0.7.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:tonic-prost-build@0.14.6#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:tonic-prost@0.14.6#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:unicode-casefold@0.2.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT/Apache-2.0",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:uuid-simd@0.8.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:vsimd@0.8.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "cargo:wasite@0.1.0#registry+https://github.com/rust-lang/crates.io-index",
+      "declared_license": "Apache-2.0 OR BSL-1.0 OR MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:@cfworker/json-schema@4.1.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:@esbuild/darwin-arm64@0.28.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:@rolldown/binding-darwin-arm64@1.0.3",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:agent-base@6.0.2",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:esrecurse@4.3.0",
+      "declared_license": "BSD-2-Clause",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:html-parse-stringify@3.0.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:https-proxy-agent@5.0.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:imurmurhash@0.1.4",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:is-mobile@5.0.0",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:js-tiktoken@1.0.21",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:keyv@4.5.4",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:langsmith@0.7.8",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:natural-compare@1.4.0",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:react-remove-scroll-bar@2.3.8",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:rehype-katex@7.0.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:remark-math@6.0.0",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:stackback@0.0.2",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    },
+    {
+      "id": "npm:yoga-layout@3.2.1",
+      "declared_license": "MIT",
+      "status": "review_required_missing_declaration_or_text"
+    }
+  ],
+  "cli_install": "Exact package-lock npm ci --ignore-scripts --force for source-notice collection on macOS; Linux-only CLI execution/build acceptance was not performed."
+}

@@ -1,0 +1,328 @@
+# Workload file-credential fragment for canonical docker-compose.security.yml.
+# Do not merge separate security fragments directly; see DEPLOYMENT.md.
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/agent-runtime,spiffe://agentforge.internal/service/agent-capability-worker,spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_KNOWLEDGE_CLIENT_IDS: spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      GATEWAY_AUTHENTICATION__JWT__SECRET: !reset null
+      GATEWAY_AUTHENTICATION__JWT__SECRET_FILE: /run/app-secrets/jwt-secret
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      GATEWAY_ENCRYPTION_KEY_FILE: /run/app-secrets/encryption-key
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE: /run/lease/private.json
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE: /run/knowledge-model/public.json
+      AI_PLATFORM_KNOWLEDGE_MODEL_PRICE_BOOK_REVISION: ${KNOWLEDGE_MODEL_PRICE_BOOK_REVISION:?Select the activated price book}
+      KB_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_AGENT_RUNTIME_URL: https://agent-runtime-workload:8454
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+    expose:
+    - '8443'
+    networks:
+      app:
+        aliases:
+        - gateway-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/gateway
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/jwt-secret
+      target: /run/app-secrets/jwt-secret
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/encryption-key
+      target: /run/app-secrets/encryption-key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/lease-private.json
+      target: /run/lease/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE:?Select the public Knowledge model keyring}
+      target: /run/knowledge-model/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select Gateway public verification keys}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  agent-runtime:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-runtime-workload:8454
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      AI_PLATFORM_CAPABILITY_PLANE_URL: https://gateway-workload:8443/internal/v2/agent-capabilities
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: https://gateway-workload:8443/internal/v1/agent-model-plane
+      AI_PLATFORM_RUNTIME_MODEL_PROXY_BASE_URL: http://127.0.0.1:8094/internal/v1/model-proxy
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      AI_PLATFORM_RUNTIME_MODEL_PROXY_TOKEN: ${RUNTIME_MODEL_PROXY_TOKEN:?Provision a Runtime-local bridge token of at least 32 bytes}
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+    expose:
+    - '8454'
+    networks:
+      app:
+        aliases:
+        - agent-runtime-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/agent-runtime
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-capability-worker-workload:8455
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+    expose:
+    - '8455'
+    networks:
+      app:
+        aliases:
+        - agent-capability-worker-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/agent-capability-worker
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  knowledge-service:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-service-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      KNOWLEDGE_GRPC__BIND_ADDRESS: !reset null
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/knowledge-model/private.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/knowledge-model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS_JSON:?Select published model revisions}
+      KNOWLEDGE_STORAGE__SIGNING_KEY: !reset null
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/app-secrets/storage-signing-key
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+    expose:
+    - '8452'
+    networks:
+      app:
+        aliases:
+        - knowledge-service-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/knowledge-service
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-service/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-service/model-private.json
+      target: /run/knowledge-model/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_GATEWAY_PUBLIC_KEYS_FILE:?Select public Gateway model-plane keyring}
+      target: /run/knowledge-model/gateway-public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private per-service runtime files}/knowledge-service/storage-signing-key
+      target: /run/app-secrets/storage-signing-key
+      read_only: true
+      bind:
+        create_host_path: false
+  knowledge-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-worker-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      KNOWLEDGE_GRPC__BIND_ADDRESS: !reset null
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/knowledge-model/private.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/knowledge-model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS_JSON:?Select published model revisions}
+      KNOWLEDGE_STORAGE__SIGNING_KEY: !reset null
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/app-secrets/storage-signing-key
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+    expose:
+    - '8452'
+    networks:
+      app:
+        aliases:
+        - knowledge-worker-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/knowledge-worker
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-worker/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-worker/model-private.json
+      target: /run/knowledge-model/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_GATEWAY_PUBLIC_KEYS_FILE:?Select public Gateway model-plane keyring}
+      target: /run/knowledge-model/gateway-public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private per-service runtime files}/knowledge-worker/storage-signing-key
+      target: /run/app-secrets/storage-signing-key
+      read_only: true
+      bind:
+        create_host_path: false

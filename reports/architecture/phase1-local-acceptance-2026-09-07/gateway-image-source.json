@@ -1,0 +1,6 @@
+{
+  "tag": "ai-gateway-gateway-local-42e86fbb5b10:2.0.0",
+  "source_sha256": "42e86fbb5b10ff24def983a14b43a050b3c9edd900742c31f34f29321e10db0e",
+  "source_files": 638,
+  "scope": "source-only layer over existing installed dependencies; no secrets copied"
+}

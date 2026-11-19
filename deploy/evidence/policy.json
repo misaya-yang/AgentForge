@@ -1,0 +1,19 @@
+{
+  "schema_version": "ai-platform/evidence-policy/v1",
+  "manifest": "deploy/evidence/manifest.json",
+  "scratch_roots": [
+    {"path": ".playwright-mcp", "min_age_seconds": 86400},
+    {"path": "tmp/browser", "min_age_seconds": 3600},
+    {"path": "web/playwright-report", "min_age_seconds": 86400},
+    {"path": "web/test-results", "min_age_seconds": 86400}
+  ],
+  "durable_roots": ["reports/evidence"],
+  "reference_globs": ["deploy/runbooks/**/feature-oracle.json"],
+  "forbidden_path_parts": [".env", ".playwright", "auth", "storage-state"],
+  "restricted_suffixes": [".har", ".trace", ".zip", ".webm", ".mp4", ".log", ".jsonl"],
+  "cleanup": {
+    "default": "dry-run",
+    "apply_requires_authorization_manifest": true,
+    "apply_requires_external_quarantine": true
+  }
+}

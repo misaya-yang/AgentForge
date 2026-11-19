@@ -1,0 +1,140 @@
+{
+  "schema": "ai-platform/framework-marker-retirement/v1",
+  "at": "2026-10-15T15:41:51.079Z",
+  "business_assertions_removed": 0,
+  "source_discovery": "Native Cargo tests; Python historical package markers preserved in external recoverable manifest",
+  "files": [
+    {
+      "path": "tests/__init__.py",
+      "sha256": "72517fee28ed64efee5e46a7368b8954e427b8330a13f0402e85f23237a60ec2",
+      "size": 18,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/adapters/__init__.py",
+      "sha256": "c37b02ba0c9c0ed2abc0f3b35dadd70980031d288835080de9bedc069c09435f",
+      "size": 24,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/config/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/contract/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/core/__init__.py",
+      "sha256": "e303a24de782dd0a4aeee9efe12e160e6e60d6bcfd698fcdcdd6b7e333bdb1b1",
+      "size": 20,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/core/auth/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/core/gateway/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/core/middleware/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/events/__init__.py",
+      "sha256": "3937e37fd2c4642761b34c5160852cd5a9d6fd90998fb228450e6ead89b08b39",
+      "size": 66,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/integration/__init__.py",
+      "sha256": "0c5e5496aaf0cfa455c1f42ebdbe0822f611b463c03ee4337d049bbd24fad11c",
+      "size": 20,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/packages/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/packages/ai_gateway_core/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/persistence/__init__.py",
+      "sha256": "d28f225f9e55a40700b587377757e9f7d78b816b4595377b45a0e336ce2e843b",
+      "size": 27,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/proxy/__init__.py",
+      "sha256": "8c04eed5d2faade42d03f047cba253d3e43e2d10540e03f7daf56f7406fea08a",
+      "size": 31,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/scripts/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/__init__.py",
+      "sha256": "75c8edeb1755e82d5d2c169f873f30dec44d59e9f5728d31434059a0fce3b74c",
+      "size": 24,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/assistant/__init__.py",
+      "sha256": "8f58c6355dc9bc6295e5afcf6891fa8aae440eced230e4665198619ce83e8631",
+      "size": 31,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/assistant/tools/__init__.py",
+      "sha256": "4e60df9283fa4649f17d67cf532fde4adef3650c321ce802e2ae564a59fba1a7",
+      "size": 35,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/eval/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/llm/__init__.py",
+      "sha256": "8d1ec2c2793db0c954d1e243eb0ac7bb2aa7c2096caeb6a91a760b7a482fe973",
+      "size": 20,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/services/metrics/__init__.py",
+      "sha256": "871158deb240ca3735a06b1ec046952cd1af4ef731b91bfc7b8f92a400502cf9",
+      "size": 29,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    },
+    {
+      "path": "tests/tracing/__init__.py",
+      "sha256": "f995d8e1315aa49d63ec1c044f4873db448659e954ad3b13400ab1549c7a7b53",
+      "size": 41,
+      "reason": "Reviewed namespace-only Python package marker: empty/comment/docstring only, no imports, fixtures, test assertions or side effects. Native Cargo test target discovery replaces Python package discovery; framework-only retirement, not test pass."
+    }
+  ]
+}

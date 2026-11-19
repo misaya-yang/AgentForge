@@ -1,0 +1,398 @@
+{
+  "schema": "assistant-run-recovery/v1",
+  "source_authority": "native Gateway assistant/runs and sdk_approvals/usage; no execution or billing inference",
+  "cases": [
+    {
+      "name": "sdk_openai_empty_completion",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "name": "sdk_claude_running",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "claude_agent_sdk",
+          "status": "running"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "claude_agent_sdk",
+          "status": "running"
+        }
+      }
+    },
+    {
+      "name": "managed_success",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "agent_runtime",
+          "status": "succeeded"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "agent_runtime",
+          "status": "succeeded"
+        }
+      }
+    },
+    {
+      "name": "managed_legacy_completed_stays_ambiguous",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "agent_runtime",
+          "status": "completed"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "agent_runtime",
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "name": "future_status_is_not_inferred_success",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "future_status"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "future_status"
+        }
+      }
+    },
+    {
+      "name": "pending_usage_never_zero",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "running",
+          "usage": {
+            "sdk_usage": {
+              "state": "unavailable",
+              "cost_state": "unavailable",
+              "provider_outcome": "unknown",
+              "platform_pricing_state": "reconciliation_required",
+              "audit_persistence": "unresolved_admission",
+              "accounting_status": "settled"
+            }
+          }
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "running",
+          "usage": {
+            "sdk_usage": {
+              "state": "unavailable",
+              "cost_state": "unavailable",
+              "provider_outcome": "unknown",
+              "platform_pricing_state": "reconciliation_required",
+              "audit_persistence": "unresolved_admission",
+              "accounting_status": "not_asserted"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "expired_authority_has_no_managed_identity",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "failed",
+          "terminal_reason": "sdk_authority_expired",
+          "session_id": "session-1",
+          "harness_thread_id": "not-sdk-lineage",
+          "harness_turn_id": "not-sdk-lineage",
+          "secret": "hidden"
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "failed",
+          "terminal_reason": "sdk_authority_expired",
+          "session_id": "session-1"
+        }
+      }
+    },
+    {
+      "name": "partial_usage_and_cost_are_observations",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed",
+          "usage": {
+            "output_tokens": 2,
+            "input_tokens": -1,
+            "total_tokens": true,
+            "secret": "hidden",
+            "input_tokens_details": {
+              "cached_tokens": 4,
+              "input_tokens": 100,
+              "input_tokens_details": {
+                "secret": "hidden"
+              }
+            },
+            "sdk_usage": {
+              "state": "unavailable",
+              "cost_state": "reported",
+              "provider_cost_usd": 0.25,
+              "provider_usage": [
+                {
+                  "cache_read_input_tokens": 3,
+                  "secret": "hidden"
+                },
+                {
+                  "output_tokens": -1
+                }
+              ],
+              "accounting_status": "settled",
+              "credential": "hidden"
+            }
+          }
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed",
+          "usage": {
+            "output_tokens": 2,
+            "input_tokens_details": {
+              "cached_tokens": 4
+            },
+            "sdk_usage": {
+              "state": "unavailable",
+              "cost_state": "reported",
+              "provider_cost_usd": 0.25,
+              "provider_usage": [
+                {
+                  "cache_read_input_tokens": 3
+                },
+                {}
+              ],
+              "accounting_status": "not_asserted"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "explicit_zero_usage_preserved",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed",
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "sdk_usage": {
+              "state": "reported",
+              "cost_state": "reported",
+              "provider_cost_usd": 0,
+              "provider_outcome": "completed",
+              "audit_persistence": "durable"
+            }
+          }
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "completed",
+          "usage": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "sdk_usage": {
+              "state": "reported",
+              "cost_state": "reported",
+              "provider_cost_usd": 0,
+              "provider_outcome": "completed",
+              "audit_persistence": "durable",
+              "accounting_status": "not_asserted"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "malformed_metadata_not_promoted",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "running",
+          "usage": {
+            "sdk_usage": {
+              "state": {
+                "secret": "hidden"
+              },
+              "cost_state": "settled",
+              "provider_outcome": [],
+              "provider_cost_usd": true,
+              "platform_pricing_state": 1,
+              "audit_persistence": "secret",
+              "provider_usage": [
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {},
+                {}
+              ]
+            }
+          }
+        }
+      },
+      "expected": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": "running",
+          "usage": {
+            "sdk_usage": {
+              "accounting_status": "not_asserted"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "wrong_run",
+      "response": {
+        "run": {
+          "run_id": "other",
+          "engine": "openai_agents",
+          "status": "completed"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "missing_engine",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "status": "completed"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unknown_engine",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "worker_forgery",
+          "status": "running"
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "empty_status",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": ""
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "non_string_status",
+      "response": {
+        "run": {
+          "run_id": "00000000-0000-4000-8000-000000000001",
+          "engine": "openai_agents",
+          "status": true
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "non_object_run",
+      "response": {
+        "run": []
+      },
+      "expected": null
+    },
+    {
+      "name": "missing_run",
+      "response": {},
+      "expected": null
+    },
+    {
+      "name": "non_object_envelope",
+      "response": [],
+      "expected": null
+    }
+  ]
+}

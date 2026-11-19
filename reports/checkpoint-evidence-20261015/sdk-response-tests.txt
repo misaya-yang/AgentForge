@@ -1,0 +1,17 @@
+   Compiling ai-platform-sdk-agent-engine v0.1.0 (/workspace/scratch/c4693694c197/AI--Platfform/rust/agent-runtime-overlay/kernel-rs/ai-platform-sdk-agent-engine)
+    Finished `test` profile [unoptimized] target(s) in 1.81s
+     Running unittests src/main.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/ai_platform_sdk_agent_engine-4bed339e0fa3b711)
+
+running 3 tests
+test tools::sdk_migration_parity_response::success_and_malformed_bodies_use_actual_bounded_parser ... ok
+test tools::sdk_migration_parity_response::http_error_body_is_released_before_retained_error ... ok
+test tools::sdk_migration_parity_response::redirects_do_not_follow_or_retain_response_body ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.34s
+
+     Running tests/sdk_migration_parity_entrypoint.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/sdk_migration_parity_entrypoint-9b3fde647d2a10e5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+

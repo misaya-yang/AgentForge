@@ -1,0 +1,39 @@
+{
+  "schema": "qdrant-upgrade/v1",
+  "run_id": "REPLACE-RUN-ID",
+  "repository": "/ABSOLUTE/REPOSITORY",
+  "artifacts": "/PRIVATE/EXTERNAL/qdrant-upgrade/REPLACE-RUN-ID",
+  "source": {
+    "url": "https://qdrant:6333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "canary": {
+    "url": "https://qdrant:16333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "rollback": {
+    "url": "https://qdrant:26333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "deployment": {
+    "kind": "compose",
+    "project": "REPLACE-EXISTING-OWNED-PROJECT",
+    "files": [
+      "/ABSOLUTE/REPOSITORY/docker-compose.yml",
+      "/ABSOLUTE/REPOSITORY/deploy/compose/docker-compose.qdrant-upgrade.yml"
+    ],
+    "env_file": "/PRIVATE/SECRETS/compose.env",
+    "source_service": "qdrant",
+    "canary_service": "qdrant-upgrade-canary",
+    "rollback_service": "qdrant-upgrade-rollback",
+    "source_volume": "REPLACE-EXISTING-SOURCE-VOLUME",
+    "canary_volume": "REPLACE-RUN-ID-canary",
+    "rollback_volume": "REPLACE-RUN-ID-rollback"
+  },
+  "golden_file": "/PRIVATE/EXTERNAL/qdrant-upgrade/frozen-golden.json",
+  "corpus_kind": "production_export",
+  "max_snapshot_bytes": 68719476736
+}

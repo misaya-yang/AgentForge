@@ -1,0 +1,70 @@
+{
+  "schema": "native-main-assistant-first-failure/v1",
+  "recorded_at_utc": "2026-10-16T08:08:34Z",
+  "status": "blocked_before_first_accepted_turn",
+  "scope": "single controlled public-API text-turn attempt; no provider completion",
+  "gateway": {
+    "origin": "http://127.0.0.1:8080",
+    "health_ready_http_status": 200,
+    "pid": 30358,
+    "binary_sha256": "9bc11b057461473de34a12af9a113f59eb130287bcb6cc9ccca9fd5225796d8b",
+    "database_epoch": 22
+  },
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/assistant/chat",
+    "http_status": 503,
+    "public_code": "AGENT_STORAGE_UNAVAILABLE",
+    "failed_at_utc": "2026-10-16T08:02:51.780132388Z",
+    "request_id": null,
+    "request_id_note": "The original runner did not send or capture a request ID. It has since been updated to send and report one on every turn."
+  },
+  "synthetic_session": {
+    "session_id": "32c4bc62-eb24-421e-a465-34245cc2132e",
+    "created_at": "2026-10-16T08:02:51.618598+00:00",
+    "public_list_http_status": 200,
+    "public_detail_http_status": 200,
+    "public_detail_message_count": 0,
+    "public_history_http_status": 200,
+    "public_history_total": 0,
+    "run_id_returned": false,
+    "run_status": null
+  },
+  "failure_stage": {
+    "gateway_session_and_assignment": "completed",
+    "runtime_thread_setup_and_resume": "completed before the failing SQL call",
+    "gateway_run_lease_issuance": "failed",
+    "runtime_turn_post": "not reached",
+    "model_or_provider_request": "not reached"
+  },
+  "postgres_evidence": {
+    "timestamp_utc": "2026-10-16T08:02:51.780132388Z",
+    "backend_pid": 2874,
+    "sqlstate": "42883",
+    "condition": "undefined_function",
+    "function": "issue_assistant_runtime_turn",
+    "incompatible_argument": {
+      "function_argument_position": 19,
+      "parameter": "p_max_calls",
+      "expected_type": "integer",
+      "gateway_bind_type": "bigint",
+      "source": "calls is i64"
+    }
+  },
+  "gateway_source_fix": {
+    "file": "rust/platform-native/crates/platform-gateway/src/migration_agent/control.rs",
+    "change": "bind the already-clamped 1..=128 call count as i32",
+    "source_sha256_after_fix": "e6bb5b45d7ec8535d19c810aa871ac111e225610daca514b732beebc944984ae",
+    "built_or_retested": false
+  },
+  "private_capture": "~/.cache/agentforge/runtime-work/main-assistant-first-failure-20261016T080251Z.json",
+  "runner": {
+    "file": "scripts/harness/main_assistant_e2e.mjs",
+    "source_sha256": "cdc6b00e7dff18e8e9b607047b149e9102d43eee296f324a93832cb64e7b7a99",
+    "node_syntax_check": "passed",
+    "retry_performed": false
+  },
+  "later_steps_attempted": false,
+  "database_changes_by_this_check": false,
+  "raw_transcript_or_credentials_recorded": false
+}

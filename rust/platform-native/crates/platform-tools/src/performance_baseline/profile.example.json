@@ -1,0 +1,253 @@
+{
+  "schema": "agentforge-performance-profile/v1",
+  "gateway_origin": "http://127.0.0.1:18080",
+  "trace_origin": "http://127.0.0.1:13200",
+  "actor_token_file": "/operator/private/existing-actor-token",
+  "trace_token_file": null,
+  "tenant_id": "operator-prepared-tenant",
+  "user_id": "operator-prepared-user",
+  "services": [
+    "gateway",
+    "knowledge-service",
+    "knowledge-worker",
+    "trace-backend"
+  ],
+  "environment": {
+    "topology": "operator-owned-linux-fixture",
+    "cpu_limit_millicores": 2000,
+    "memory_limit_bytes": 4294967296,
+    "database_pool_limit": 4,
+    "corpus_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "index_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "build_flags_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "cache_condition": "warm",
+    "background_load": "declared-idle",
+    "controls": {
+      "authentication": true,
+      "limiter": true,
+      "tenant_acl": true,
+      "billing": true,
+      "csrf_when_applicable": true
+    }
+  },
+  "budgets": {
+    "request_ms": 5000,
+    "run_seconds": 300,
+    "sample_ms": 200,
+    "sample_limit": 1502,
+    "max_body_bytes": 1048576,
+    "trace_wait_ms": 5000,
+    "poll_ms": 1000,
+    "case_gap_ms": 60000,
+    "rss_stop_bytes": {
+      "gateway": 2147483648,
+      "knowledge-service": 2147483648,
+      "knowledge-worker": 2147483648,
+      "trace-backend": 2147483648
+    }
+  },
+  "fixture_checks": [
+    {
+      "path": "/api/v1/knowledge/datasets/operator-prepared-dataset",
+      "checks": [
+        {
+          "pointer": "/dataset_id",
+          "equals": "operator-prepared-dataset"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "samples": 2,
+      "warmup": 0,
+      "gap_ms": 2000,
+      "provider_scope": "synthetic_or_local",
+      "boundaries": {
+        "receive": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "receive",
+          "edge": "start"
+        },
+        "admit": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "admit",
+          "edge": "start"
+        },
+        "upstream_dispatch": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "upstream_dispatch",
+          "edge": "start"
+        },
+        "upstream_first_byte": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "upstream_first_byte",
+          "edge": "start"
+        },
+        "upstream_complete": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "upstream_complete",
+          "edge": "start"
+        },
+        "response_complete": {
+          "service": "gateway",
+          "span": "REPLACE_WITH_ACCEPTED_GATEWAY_SPAN",
+          "event": "response_complete",
+          "edge": "start"
+        }
+      },
+      "stages": {},
+      "retrieval": null,
+      "ingestion": null,
+      "direct_control_body": null,
+      "id": "gateway-mock",
+      "kind": "gateway_mock",
+      "path": "/v1/chat/completions",
+      "body": {
+        "model": "operator-prepared-mock-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fixed performance fixture {{correlation}}"
+          }
+        ],
+        "stream": false
+      },
+      "checks": [
+        {
+          "pointer": "/choices/0/message/content",
+          "equals": "deterministic-fixture-output"
+        }
+      ]
+    },
+    {
+      "samples": 2,
+      "warmup": 0,
+      "gap_ms": 2000,
+      "provider_scope": "synthetic_or_local",
+      "boundaries": {},
+      "stages": {
+        "embedding": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_EMBEDDING_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "cache_lookup": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_CACHE_LOOKUP_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "lexical": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_LEXICAL_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "vector": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_VECTOR_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "fusion": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_FUSION_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "rerank": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_RERANK_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        },
+        "serialization": {
+          "service": "knowledge-service",
+          "span": "REPLACE_WITH_ACCEPTED_SERIALIZATION_SPAN",
+          "response_pointer": null,
+          "active_when": null
+        }
+      },
+      "retrieval": {
+        "results_pointer": "/results",
+        "id_pointer": "/document_id",
+        "relevant_document_ids": [
+          "operator-prepared-relevant-document"
+        ],
+        "top_k": 3,
+        "min_recall_at_k": 1.0
+      },
+      "ingestion": null,
+      "direct_control_body": null,
+      "id": "retrieval",
+      "kind": "retrieval",
+      "path": "/api/v1/knowledge/operator-prepared-dataset/retrieve",
+      "body": {
+        "query": "fixed corpus query",
+        "top_k": 3
+      },
+      "checks": [
+        {
+          "pointer": "/metadata/mode",
+          "equals": "hybrid"
+        }
+      ]
+    },
+    {
+      "samples": 1,
+      "warmup": 0,
+      "gap_ms": 2000,
+      "provider_scope": "synthetic_or_local",
+      "boundaries": {},
+      "stages": {},
+      "retrieval": null,
+      "ingestion": {
+        "dataset_id": "operator-prepared-ingest-dataset",
+        "document_id_pointer": "/document_id",
+        "state_pointer": "/status",
+        "chunks_pointer": "/segment_count",
+        "completed_state": "completed",
+        "failed_states": [
+          "error",
+          "failed"
+        ],
+        "content_pointer": "/content",
+        "timeout_ms": 60000
+      },
+      "direct_control_body": null,
+      "id": "ingestion",
+      "kind": "ingestion",
+      "path": "/api/v1/knowledge/operator-prepared-ingest-dataset/documents/text",
+      "body": {
+        "title": "perf {{correlation}}",
+        "content": "Operator prepared harmless ingestion fixture.",
+        "metadata": {
+          "purpose": "isolated-performance-fixture"
+        }
+      },
+      "checks": [
+        {
+          "pointer": "/dataset_id",
+          "equals": "operator-prepared-ingest-dataset"
+        }
+      ]
+    }
+  ],
+  "mock": {
+    "origin": "http://127.0.0.1:18089",
+    "token_file": "/operator/private/preconfigured-upstream-token",
+    "model": "operator-prepared-mock-model",
+    "response_text": "deterministic-fixture-output",
+    "embedding_dimensions": 32,
+    "delay_ms": 25,
+    "max_requests": 100
+  },
+  "accounting": null
+}

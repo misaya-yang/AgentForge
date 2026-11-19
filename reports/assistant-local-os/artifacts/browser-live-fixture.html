@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>Local OS browser acceptance</title>
+  <main>
+    <h1>Local OS browser acceptance</h1>
+    <label for="receipt">Receipt text</label>
+    <input id="receipt" autocomplete="off" />
+    <button id="verify" type="button">Verify locally</button>
+    <output id="result" aria-live="polite">Waiting</output>
+  </main>
+  <script>
+    document.querySelector("#verify").addEventListener("click", () => {
+      const value = document.querySelector("#receipt").value;
+      document.querySelector("#result").textContent =
+        value === "openclaw-hermes-local-os" ? "PASS: browser action read-back" : "FAIL";
+    });
+  </script>
+</html>

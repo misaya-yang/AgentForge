@@ -1,0 +1,37 @@
+{
+  "schema": "qdrant-upgrade/v1",
+  "run_id": "REPLACE-RUN-ID",
+  "repository": "/ABSOLUTE/REPOSITORY",
+  "artifacts": "/PRIVATE/EXTERNAL/qdrant-upgrade/REPLACE-RUN-ID",
+  "source": {
+    "url": "https://qdrant.data.svc.cluster.local:6333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "canary": {
+    "url": "https://qd-upgrade-canary.data.svc.cluster.local:6333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "rollback": {
+    "url": "https://qd-upgrade-rollback.data.svc.cluster.local:6333",
+    "api_key_file": "/PRIVATE/SECRETS/qdrant-writer",
+    "ca_file": "/PRIVATE/SECRETS/qdrant-ca.pem"
+  },
+  "deployment": {
+    "kind": "helm",
+    "context": "REPLACE-CONTEXT",
+    "namespace": "data",
+    "release": "qd-upgrade",
+    "chart": "/ABSOLUTE/REPOSITORY/deploy/helm/qdrant-upgrade-canary",
+    "values": "/PRIVATE/SECRETS/rehearsal.values.yaml",
+    "canary_statefulset": "qd-upgrade-canary",
+    "rollback_statefulset": "qd-upgrade-rollback",
+    "source_pvc": "REPLACE-SOURCE-PVC",
+    "canary_pvc": "REPLACE-RUN-ID-canary",
+    "rollback_pvc": "REPLACE-RUN-ID-rollback"
+  },
+  "golden_file": "/PRIVATE/EXTERNAL/qdrant-upgrade/frozen-golden.json",
+  "corpus_kind": "production_export",
+  "max_snapshot_bytes": 68719476736
+}

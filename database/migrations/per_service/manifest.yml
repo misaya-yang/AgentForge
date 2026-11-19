@@ -1,0 +1,50 @@
+schema: migration-authority/per-service-manifest/v1
+changes:
+  - key: _global:001_create_schemas.sql
+    file: _global/001_create_schemas.sql
+    sha256: 1a92045b8d877fa3a7e2a7cdb44e3f986ea27f63d38634992befab5ae8df89cd
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: [phase6_schemas_created]
+  - key: _global:002_move_tables.sql
+    file: _global/002_move_tables.sql
+    sha256: 37533ea5680d307d62265f3da1239e168ce0750f256f67cfdb05b866834e7f17
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: [phase6_tables_moved]
+  - key: assistant:001_image_session_artifacts.sql
+    file: assistant/001_image_session_artifacts.sql
+    sha256: d85e9d7c52069533f7315ecff069d559ea26b8731d2aa74747c387c87acd564b
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []
+  - key: assistant:002_backfill_watermarked_variant.sql
+    file: assistant/002_backfill_watermarked_variant.sql
+    sha256: fff4130267069c0cc6fef4f5bb68008a61fc790e4965a0e320367d6d8a1dec91
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []
+  - key: assistant:002_image_p0_tasks_blobs.sql
+    file: assistant/002_image_p0_tasks_blobs.sql
+    sha256: 5e94ccad76ee0a3d56f333603c2bc79e734a916bf13eb88917954765ea8201fc
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []
+  - key: assistant:003_artifact_shares.sql
+    file: assistant/003_artifact_shares.sql
+    sha256: 8269e92605c02442eb0e5e349448ee1cb0e934d9eb9469aadfe7c2d5f78a542b
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []
+  - key: assistant:004_image_task_runtime_scope.sql
+    file: assistant/004_image_task_runtime_scope.sql
+    sha256: 46872492dbc22fb500e9e03f581d9fe9ae6a9e49203f7f9ff7fd3107f49782e9
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []
+  - key: knowledge:001_dataset_collection_identity.sql
+    file: knowledge/001_dataset_collection_identity.sql
+    sha256: bad3f45e4e006db7873d78ffd534c237dc4601c0a23418c93d7731623ae83fbc
+    transaction_mode: transactional
+    rollback_class: restore-required
+    historical_markers: []

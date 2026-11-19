@@ -1,0 +1,281 @@
+{
+  "schema_version": "coding-vendor-inventory/v1",
+  "source": "https://crates.io",
+  "packages": [
+    {
+      "directory": "block-buffer",
+      "crate_package_checksum": "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71",
+      "file_count": 10,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "0691600c336bc2ef683e3737febaa545439b044b88f9937f6d17d89bd38c462e"
+    },
+    {
+      "directory": "cfg-if",
+      "crate_package_checksum": "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600",
+      "file_count": 13,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "82eff63d9ee5824ef77e3ac2b7771c8f3dbcbe15da135bc366498a72aa825a14"
+    },
+    {
+      "directory": "cpufeatures",
+      "crate_package_checksum": "59ed5838eebb26a2bb2e58f6d5b5316989ae9d08bab10e0e6d103e656d1b0280",
+      "file_count": 16,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "6c77e99670f40bcd27bc3589789348f4940ae69e8284086a15b5fc11fb9540a0"
+    },
+    {
+      "directory": "crypto-common",
+      "crate_package_checksum": "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a",
+      "file_count": 9,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "67cfc799d970aa7bc27bf693e7c82a8e7b10fcc37db6925b9b76664d249cfe2c"
+    },
+    {
+      "directory": "digest",
+      "crate_package_checksum": "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292",
+      "file_count": 21,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "3a766b67bdca5d6cf0f506b83db1d3092f6dc09070b5cedc147743f0ca902be1"
+    },
+    {
+      "directory": "equivalent",
+      "crate_package_checksum": "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826",
+      "file_count": 9,
+      "license_expression": "Apache-2.0 OR MIT",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "24138f0b97780efabab70f5e55471581035af8911ee5d1da93582a4149a71f6b"
+    },
+    {
+      "directory": "foldhash",
+      "crate_package_checksum": "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb",
+      "file_count": 11,
+      "license_expression": "Zlib",
+      "license_files": [
+        "LICENSE"
+      ],
+      "checksum_manifest_sha256": "24de33c6e8f0a0bf96919c0008fc9571f75c0c203d41118fd226cf15ea12a0a1"
+    },
+    {
+      "directory": "generic-array",
+      "crate_package_checksum": "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a",
+      "file_count": 16,
+      "license_expression": "MIT",
+      "license_files": [
+        "LICENSE"
+      ],
+      "checksum_manifest_sha256": "050c8a3b25158fd5916ede18a5a87d1bf3f8b3a432ba1e0e0052c37fc08bb5c9"
+    },
+    {
+      "directory": "hashbrown",
+      "crate_package_checksum": "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a",
+      "file_count": 49,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "a3ab01264808eca44c9099e4789c69f5b8c0c46bcad349f8016f765637491b55"
+    },
+    {
+      "directory": "indexmap",
+      "crate_package_checksum": "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855",
+      "file_count": 42,
+      "license_expression": "Apache-2.0 OR MIT",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "615932777b5312f57241d31e78d887df697d4a46daa679eb377c2a7a35760fdb"
+    },
+    {
+      "directory": "itoa",
+      "crate_package_checksum": "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682",
+      "file_count": 13,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "91026b615517f376b506b969da616ce1ac97ff760501690a528ca369e16c5ccc"
+    },
+    {
+      "directory": "libc",
+      "crate_package_checksum": "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78",
+      "file_count": 451,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "913cd219ab7d6830524a0eb723d903b75f985274283f3e2474b2c8df72ba6a16"
+    },
+    {
+      "directory": "memchr",
+      "crate_package_checksum": "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98",
+      "file_count": 58,
+      "license_expression": "Unlicense OR MIT",
+      "license_files": [
+        "COPYING",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "7a772ae111fd9370fe127ad0d65c00ccbc5030fe37c84abc879a7b442e5ac6a0"
+    },
+    {
+      "directory": "proc-macro2",
+      "crate_package_checksum": "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9",
+      "file_count": 32,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "f446cfd05e78b027598827cd6a564b7856a55fc5612e992c3dab2c28ba589ba1"
+    },
+    {
+      "directory": "quote",
+      "crate_package_checksum": "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001",
+      "file_count": 34,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "77c75949648f39a753e67b9fa616fa255429b9475e52eb8b87ebf70307133d70"
+    },
+    {
+      "directory": "serde",
+      "crate_package_checksum": "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba",
+      "file_count": 33,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "2f28ef2a3673ec67bc10893175f06c7e58859751ce194faf9a5a58f724e41d8f"
+    },
+    {
+      "directory": "serde_core",
+      "crate_package_checksum": "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48",
+      "file_count": 27,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "49369d1557e28ef1fe6d84fdc96166f2042a71fa133b92a6517d048168053f81"
+    },
+    {
+      "directory": "serde_derive",
+      "crate_package_checksum": "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348",
+      "file_count": 36,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "0a2399c80dbbea2df4e8db316aace72724b6da67e8e1632eb6aee698a7994dd0"
+    },
+    {
+      "directory": "serde_json",
+      "crate_package_checksum": "e7e9cc8b1b85264074fbcc02a88680c4096b1e47df8f739dceb03bf482f04bd6",
+      "file_count": 89,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "56478380f2f100da578f3b13bdaa8bd10700ac5a7d2bbd1b4557d8651d60754c"
+    },
+    {
+      "directory": "sha2",
+      "crate_package_checksum": "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283",
+      "file_count": 31,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "f0acc49f02600e95af1077f76fc9616464cf1cf3cbbac4a50b07b1515ee00217"
+    },
+    {
+      "directory": "syn",
+      "crate_package_checksum": "d78c8dee4c7bf0e14673097256fed6142ce9d3b85a408189d07482442145823b",
+      "file_count": 104,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "77049e618c334767b5a18c849254e1c7320487c2b6725a137e994bc920691473"
+    },
+    {
+      "directory": "typenum",
+      "crate_package_checksum": "b6f5e870be6c3b371b77fe0ee0bafb859fa4964b4404c27de1d380043c4dda20",
+      "file_count": 24,
+      "license_expression": "MIT OR Apache-2.0",
+      "license_files": [
+        "LICENSE",
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "4c6d3d1d2739b0e21fcbedf53053cbcc391b57bb8818e93c36b0f45833b54085"
+    },
+    {
+      "directory": "unicode-ident",
+      "crate_package_checksum": "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563",
+      "file_count": 23,
+      "license_expression": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT",
+        "LICENSE-UNICODE"
+      ],
+      "checksum_manifest_sha256": "4ea0dc8d9b7c199e12e98ba61a852b18c16e143831b47fc69856451fa2730403"
+    },
+    {
+      "directory": "version_check",
+      "crate_package_checksum": "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a",
+      "file_count": 12,
+      "license_expression": "MIT/Apache-2.0",
+      "license_files": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "17763d67791915858b47cd01f2a6e27e40e4b85e90650b30e677e71b71d670a3"
+    },
+    {
+      "directory": "zmij",
+      "crate_package_checksum": "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b",
+      "file_count": 16,
+      "license_expression": "MIT",
+      "license_files": [
+        "LICENSE-MIT"
+      ],
+      "checksum_manifest_sha256": "eb334fd166f2ca927331a2019637bcd22d379d5f3a3d9086667b771af7b682f8"
+    }
+  ],
+  "verification": "Each file checked against cargo vendor checksum manifests; original license files retained. No Python sources or bytecode present."
+}

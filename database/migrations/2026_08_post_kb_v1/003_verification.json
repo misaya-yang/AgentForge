@@ -1,0 +1,17 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "sequence": 3,
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "changes": {
+    "1": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "2": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+    "3": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09"
+  },
+  "fingerprints": {
+    "structural": "21e6ceace56e8b4c337a7aca200b5e2f4b2d2c1118d8273c9e88f158b8387180",
+    "acl": "98b8309684ad0e374cc14b3c285d13232eff45a7c6b8da3e11a50062438f0155",
+    "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+    "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318"
+  },
+  "provenance": "Isolated fresh frozen baseline (all four hashes matched), then authority epochs through this sequence; p1ref_ service roles; PostgreSQL 16; synthetic empty reference database, no application data copied."
+}

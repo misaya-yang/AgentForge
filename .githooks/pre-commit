@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Native hook: preserve the existing known-secret guard without a Python runner.
+set -euo pipefail
+git rev-parse --git-dir >/dev/null
+paths=$(mktemp)
+trap 'rm -f "$paths"' EXIT
+git diff --cached --name-only --diff-filter=ACM -z > "$paths"
+patterns='sk-''hx|sk-''f09|gw_''gEt'
+blocked=0
+while IFS= read -r -d '' path; do
+    case "$path" in docs/plans/six_month/bug/*) continue ;; esac
+    if git show ":$path" | LC_ALL=C grep -I -E "$patterns" >/dev/null; then
+        printf 'Blocked known-secret pattern in staged file: %s\n' "$path" >&2
+        blocked=1
+    else
+        status=$?
+        if [ "$status" -ne 1 ]; then
+            printf 'Unable to inspect staged file: %s\n' "$path" >&2
+            exit "$status"
+        fi
+    fi
+done < "$paths"
+exit "$blocked"

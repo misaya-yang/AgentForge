@@ -1,0 +1,22 @@
+package_id: ARC-03
+state: verified
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [database/**, scripts/new/migrate.sh, tests/database/**, docker-compose*.yml]
+commits: [ec487d80, 39cfb7d1, e6b79c4c, 39e6f921, 0a830c81, 59fef6c3, 7001329b, 4d579096]
+contracts_compared: [single authority, 016/030/031 reconciliation, baseline adoption, four fingerprints, roles/grants, crash/concurrency/checksum]
+commands:
+  - {command: "bash scripts/new/migrate.sh --auto --env .env", exit_code: 0, passed: null, failed: 0, skipped: 0}
+  - {command: "uv run --all-packages --extra test pytest -q --no-cov tests/database", exit_code: 0, passed: 447, failed: 0, skipped: 2}
+  - {command: "make kb-migration-gate", exit_code: 0, passed: 144, failed: 0, skipped: 0}
+  - {command: "uv run --extra database python -m database.authority verify", exit_code: 0, passed: 251, failed: 0, skipped: 0}
+  - {command: "uv run --extra database python -m database.authority fingerprint", exit_code: 0, passed: 4, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: forward-fix-only
+database_revision: 2026_08_post_kb_v1
+remaining_risks:
+  - "Two suite cases requiring separately supplied artifact-share/platform-admin DSNs were skipped; equivalent role positive/negative paths ran in the live matrix."

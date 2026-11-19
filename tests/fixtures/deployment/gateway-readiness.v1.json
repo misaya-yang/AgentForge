@@ -1,0 +1,62 @@
+{
+  "schema_version": "gateway-readiness-fixtures/v1",
+  "cases": [
+    {
+      "id": "all-core-ready",
+      "expected_status": 200,
+      "expected_detail": "healthy"
+    },
+    {
+      "id": "missing-runtime",
+      "runtime_configured": false,
+      "expected_status": 503,
+      "expected_detail": "not_configured"
+    },
+    {
+      "id": "wrong-dependency-http-200",
+      "runtime_payload": {
+        "status": "healthy",
+        "version": "2.0.0"
+      },
+      "expected_status": 503,
+      "expected_detail": "schema_mismatch"
+    },
+    {
+      "id": "runtime-core-false",
+      "runtime_payload": {
+        "status": "ready",
+        "core_ready": false
+      },
+      "expected_status": 503,
+      "expected_detail": "schema_mismatch"
+    },
+    {
+      "id": "runtime-not-ready",
+      "runtime_status": 503,
+      "runtime_payload": {
+        "status": "not_ready"
+      },
+      "expected_status": 503,
+      "expected_detail": "status_503"
+    },
+    {
+      "id": "database-unavailable",
+      "database_ready": false,
+      "expected_status": 503,
+      "expected_detail": "healthy"
+    },
+    {
+      "id": "redis-unavailable",
+      "redis_ready": false,
+      "expected_status": 503,
+      "expected_detail": "healthy"
+    },
+    {
+      "id": "optional-knowledge-unavailable",
+      "knowledge_status": 503,
+      "expected_status": 200,
+      "expected_detail": "healthy",
+      "expected_degraded": true
+    }
+  ]
+}

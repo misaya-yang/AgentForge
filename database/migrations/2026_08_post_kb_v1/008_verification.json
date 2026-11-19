@@ -1,0 +1,22 @@
+{
+  "baseline_id": "2026_08_post_kb_v1",
+  "sequence": 8,
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "changes": {
+    "1": "8d25ee158f83a6194f1cf6688dd6cad01b0778177d785ef909b7c13897230c02",
+    "2": "ec8a7735b07766c508b2a2d70b5b6659d91ce2cfc0368e214fa1f53aad8a2429",
+    "3": "14de80ccb563c5e076bbff7557f17ae979c4e9b02e9d9ace9e1c176a97cd0d09",
+    "4": "d24958b1edf5e7735a91fcd256e1c32abb2778109a6b3270cceb68380874fa59",
+    "5": "13a08304508c8ab686116e2d597a80a5079f27642c3cdac383a1285aca474b81",
+    "6": "d47e7d07ad46588859ccf136aa949c5467b363bc0ed4192a81e7cdcd40a29249",
+    "7": "40e352e8b71e5105554f38bdebb01e02aff65ba13cbd619b97456c9496c97132",
+    "8": "e5d3dc757d908e08d06a8f83802f990abe52506a36a74cb72b0148f0c5f8583e"
+  },
+  "fingerprints": {
+    "structural": "be10b6125c71f6ec9a75ed69cf60cd4154c89fb31d279191bfaff1ba843bbbad",
+    "acl": "b9b17a32d4a2ab756c3e0e640c1eb795b7090ab501f4077f3bea25f407c34f1c",
+    "extensions": "fa377cfe2398572eae2671196acec5bd65b812ad55a5848099ca1fb3b9d9cc5c",
+    "reference_data": "c71c1fd656e4e2559f4c6b09f8cbd1d0b2d57de6e5991bcd2c10d1b068c02318"
+  },
+  "provenance": "Isolated fresh frozen baseline, then authoritative epochs through sequence 8; p1ref_ service roles; synthetic empty reference database, no application data copied."
+}

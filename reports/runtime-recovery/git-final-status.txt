@@ -1,0 +1,85 @@
+## codex/runtime-durable-recovery
+ M Makefile
+ M database/authority/baseline_manifest.py
+ M database/migrations/2026_08_post_kb_v1/manifest.yml
+ M deploy/agent-runtime-source/Dockerfile.runtime
+ M deploy/agent-runtime-source/capability-worker-sbom.cdx.json
+ M deploy/agent-runtime-source/lock.json
+ M deploy/agent-runtime-source/source-receipt.json
+ M deploy/runbooks/r1-assistant-closure-2026-09-23/README.md
+ M deploy/runbooks/r1-assistant-closure-2026-09-23/loop-state.json
+ M docs/README.md
+ M docs/harness/commands.md
+ M packages/ai-gateway-contracts/src/ai_gateway_contracts/database_revision.py
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/approval_control.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_execution.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/capability_worker.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/capability_dispatch.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/events.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/security.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/thread_lifecycle.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/turns.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/main.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/platform_lifecycle.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/events.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/identity.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/projection.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/attachment_capabilities.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http_service/execution.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/lib.rs
+ M rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/postgres_store.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server-client/src/lib.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server/src/host_runtime.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server/src/in_process.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server/src/message_processor.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/thread_processor.rs
+ M rust/agent-runtime-overlay/kernel-rs/app-server/src/request_processors/turn_processor.rs
+ M rust/agent-runtime-overlay/kernel-rs/core/src/codex_thread.rs
+ M rust/agent-runtime-overlay/kernel-rs/core/src/session/mod.rs
+ M rust/agent-runtime-overlay/kernel-rs/core/src/session/turn.rs
+ M rust/agent-runtime-overlay/manifest.json
+ M scripts/harness/agent_runtime_supply_chain.py
+ M scripts/harness/build_agent_capability_worker_image.sh
+ M scripts/harness/build_agent_runtime_image.sh
+ M sdk/openapi.json
+ M src/api/v2/agent.py
+ M src/services/agent_runtime/control/capacity.py
+ M src/services/agent_runtime/control/event_stream.py
+ M src/services/agent_runtime/control/thread_lifecycle.py
+ M src/services/agent_runtime/control/turn_start.py
+ M src/services/agent_runtime/control_plane.py
+ M src/services/agent_runtime/model/authorization.py
+ M src/services/agent_runtime/thread_store.py
+ M tests/api/test_agent_v2.py
+ M tests/database/test_migration_authority_baseline_manifest.py
+ M tests/database/test_migration_authority_manifest_legacy.py
+ M tests/services/agent_runtime/test_capacity_lifecycle.py
+ M tests/services/agent_runtime/test_control_plane.py
+?? database/migrations/2026_08_post_kb_v1/003_verification.json
+?? database/migrations/2026_08_post_kb_v1/004_runtime_durable_recovery.sql
+?? database/migrations/2026_08_post_kb_v1/004_verification.json
+?? deploy/runbooks/r1-assistant-closure-2026-09-23/HANDOFF.md
+?? deploy/runbooks/r1-assistant-closure-2026-09-23/receipts/
+?? deploy/runbooks/r1-assistant-closure-2026-09-23/work-packages.yml
+?? docs/design/agent-runtime-durable-recovery.md
+?? docs/plans/architecture-delivery-replan-2026-09-26.md
+?? docs/plans/product-feature-completion-2026-09-23/
+?? reports/product/product-feature-prd-2026-09-23.md
+?? reports/product/runtime-durable-recovery-2026-09-26.md
+?? reports/runtime-recovery/
+?? rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/recovery.rs
+?? rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/http_service/recovery_fault.rs
+?? rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/src/postgres_store/execution.rs
+?? rust/agent-runtime-overlay/kernel-rs/core/src/session/handlers.rs
+?? rust/agent-runtime-overlay/kernel-rs/core/src/session/turn_input.rs
+?? rust/agent-runtime-overlay/kernel-rs/core/src/session/turn_suspension.rs
+?? rust/agent-runtime-overlay/kernel-rs/core/tests/
+?? rust/agent-runtime-overlay/kernel-rs/protocol/
+?? scripts/harness/runtime_durable_recovery_gate.py
+?? scripts/harness/runtime_recovery_observe.py
+?? scripts/harness/runtime_recovery_reference.py
+?? scripts/harness/test_agent_runtime_recovery_docker.sh
+?? tests/database/test_runtime_durable_recovery_live.py
+?? tests/services/agent_runtime/test_execution_fence.py

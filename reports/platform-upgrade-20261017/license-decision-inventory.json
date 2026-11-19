@@ -1,0 +1,145 @@
+{
+  "schema": "agentforge/license-decision-inventory/v1",
+  "status": "owner_decision_required_before_relicensing",
+  "authority": "docs/plans/platform-upgrade-2026-10/08-platform-engineering.md section4.2: The owner decides with legal advice.",
+  "observed_first_party_declarations": [
+    {
+      "path": "LICENSE",
+      "declared_license": "MIT"
+    },
+    {
+      "path": "rust/platform-native/Cargo.toml",
+      "declared_license": "Apache-2.0"
+    },
+    {
+      "path": "deploy/agent-runtime-source/NOTICE.md",
+      "declared_license": "Apache-2.0 upstream attribution retained"
+    },
+    {
+      "path": "web/package.json",
+      "declared_license": null,
+      "private": true
+    },
+    {
+      "path": "sdk/cli/package.json",
+      "declared_license": "MIT",
+      "private": false
+    }
+  ],
+  "observed_third_party_policy_rejections": [
+    {
+      "crates": [
+        {
+          "name": "borrow-or-share",
+          "version": "0.2.4"
+        }
+      ],
+      "license_terms": [
+        "MIT-0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "cssparser",
+          "version": "0.34.0"
+        }
+      ],
+      "license_terms": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "cssparser-macros",
+          "version": "0.6.1"
+        }
+      ],
+      "license_terms": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "dtoa-short",
+          "version": "0.3.5"
+        }
+      ],
+      "license_terms": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "epaint_default_fonts",
+          "version": "0.33.3"
+        }
+      ],
+      "license_terms": [
+        "OFL-1.1",
+        "Ubuntu-font-1.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "fernet",
+          "version": "0.2.2"
+        }
+      ],
+      "license_terms": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "selectors",
+          "version": "0.26.0"
+        }
+      ],
+      "license_terms": [
+        "MPL-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "webpki-root-certs",
+          "version": "1.0.9"
+        }
+      ],
+      "license_terms": [
+        "CDLA-Permissive-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "webpki-roots",
+          "version": "0.26.11"
+        }
+      ],
+      "license_terms": [
+        "CDLA-Permissive-2.0"
+      ]
+    },
+    {
+      "crates": [
+        {
+          "name": "webpki-roots",
+          "version": "1.0.9"
+        }
+      ],
+      "license_terms": [
+        "CDLA-Permissive-2.0"
+      ]
+    }
+  ],
+  "plan_recommendation": "Apache-2.0 for owned code, preserve upstream licenses, generate NOTICE and third-party attribution from actual SBOM",
+  "repository_license_changed": false,
+  "dependency_license_policy_weakened": false
+}

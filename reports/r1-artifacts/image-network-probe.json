@@ -1,0 +1,1 @@
+{"read_only_probe": true, "no_generate_request": true, "proxy_environment_present": false, "samples": [{"trust_env": true, "http_status": 200, "json_response": true}, {"trust_env": false, "http_status": 200, "json_response": true}]}

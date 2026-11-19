@@ -1,0 +1,1053 @@
+//! Stateless MCP 2026-07-28. No session, initialization, subscriptions or token
+//! forwarding to third parties. Calls dispatch the established REST handlers.
+use super::config::McpConfiguration;
+use ai_platform_auth::admission::AdmissionService;
+use axum::{
+    Json, Router,
+    body::{Body, to_bytes},
+    extract::{Request, State},
+    http::{HeaderMap, HeaderName, StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
+use base64::Engine;
+use serde_json::{Value, json};
+use std::sync::Arc;
+use tower::ServiceExt;
+pub const VERSION: &str = "2026-07-28";
+#[derive(Clone)]
+struct Server {
+    configuration: McpConfiguration,
+    rest: Router,
+    admission: Arc<AdmissionService>,
+    published_agents: bool,
+    external_agents: Vec<String>,
+    audit_pool: sqlx::PgPool,
+}
+pub fn router(
+    configuration: McpConfiguration,
+    rest: Router,
+    admission: Arc<AdmissionService>,
+    published_agents: bool,
+    external_agents: Vec<String>,
+    audit_pool: sqlx::PgPool,
+) -> Router {
+    Router::new()
+        .route("/mcp", post(dispatch))
+        .route("/.well-known/oauth-protected-resource/mcp", get(metadata))
+        .with_state(Server {
+            configuration,
+            rest,
+            admission,
+            published_agents,
+            external_agents,
+            audit_pool,
+        })
+}
+fn metadata_document(configuration: &McpConfiguration, key_header: &HeaderName) -> Value {
+    let mut document = json!({"resource":configuration.resource,"scopes_supported":["knowledge:read","agents:read","admin:read"]});
+    if configuration.api_key_only {
+        document["auth_methods_supported"] = json!(["api_key"]);
+        document["api_key_header"] = json!(key_header.as_str());
+    } else {
+        document["authorization_servers"] = json!(configuration.authorization_servers);
+        document["bearer_methods_supported"] = json!(["header"]);
+    }
+    document
+}
+fn authentication_challenge(configuration: &McpConfiguration, key_header: &HeaderName) -> String {
+    let origin = configuration.resource.trim_end_matches("/mcp");
+    if configuration.api_key_only {
+        format!(
+            "ApiKey header=\"{}\", resource_metadata=\"{origin}/.well-known/oauth-protected-resource/mcp\"",
+            key_header.as_str()
+        )
+    } else {
+        format!("Bearer resource_metadata=\"{origin}/.well-known/oauth-protected-resource/mcp\"")
+    }
+}
+async fn metadata(State(s): State<Server>) -> Response {
+    (
+        [(header::CACHE_CONTROL, "public, max-age=300")],
+        Json(metadata_document(
+            &s.configuration,
+            s.admission.api_key_header(),
+        )),
+    )
+        .into_response()
+}
+// Called only after AdmissionService has verified the credential against its
+// current database owner, permissions and revocation state. This is a narrowing
+// policy; a header or an unverified decoded JWT can never supply auth_type.
+fn verified_credential_allowed(
+    configuration: &McpConfiguration,
+    headers: &HeaderMap,
+    auth_type: &str,
+) -> bool {
+    match auth_type {
+        "api_key" => true,
+        "jwt" => !configuration.api_key_only && audience(headers, &configuration.resource),
+        _ => false,
+    }
+}
+fn unauthorized(s: &Server, status: StatusCode) -> Response {
+    let mut response = (
+        status,
+        Json(json!({"detail":if s.configuration.api_key_only {format!("Current bound API key required in {}",s.admission.api_key_header())} else {"Audience-bound OAuth access token required".to_owned()}})),
+    )
+        .into_response();
+    if status == StatusCode::UNAUTHORIZED {
+        if let Ok(value) =
+            authentication_challenge(&s.configuration, s.admission.api_key_header()).parse()
+        {
+            response
+                .headers_mut()
+                .insert(header::WWW_AUTHENTICATE, value);
+        }
+    }
+    response
+}
+/// This only narrows a token already verified by AdmissionService. Decoding
+/// without verifying first must never be used as an authentication boundary.
+fn audience(headers: &HeaderMap, expected: &str) -> bool {
+    let Some(raw) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+    else {
+        return false;
+    };
+    let parts = raw.split('.').collect::<Vec<_>>();
+    if parts.len() != 3 || parts[1].len() > 32768 {
+        return false;
+    }
+    let Ok(raw) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[1]) else {
+        return false;
+    };
+    let Ok(claims) = serde_json::from_slice::<Value>(&raw) else {
+        return false;
+    };
+    claims["aud"].as_str() == Some(expected)
+        || claims["aud"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|v| v.as_str() == Some(expected)))
+}
+fn rpc(id: Value, mut result: Value) -> Response {
+    result["_meta"] = json!({"io.modelcontextprotocol/serverInfo":{"name":"AgentForge Gateway","version":"1.0.0"}});
+    (
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(json!({"jsonrpc":"2.0","id":id,"result":result})),
+    )
+        .into_response()
+}
+fn error(id: Value, code: i32, message: &str) -> Response {
+    (
+        [(header::CACHE_CONTROL, "no-store")],
+        Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})),
+    )
+        .into_response()
+}
+fn schema(properties: Value, required: &[&str]) -> Value {
+    json!({"type":"object","properties":properties,"required":required,"additionalProperties":false})
+}
+fn tools() -> Vec<Value> {
+    vec![
+        json!({"name":"knowledge_retrieve","description":"Retrieve authorized dataset evidence through the Knowledge service.","inputSchema":schema(json!({"dataset_id":{"type":"string","minLength":1,"maxLength":255,"pattern":"^[A-Za-z0-9_-]+$"},"query":{"type":"string","minLength":1,"maxLength":16000},"top_k":{"type":"integer","minimum":1,"maximum":50}}),&["dataset_id","query"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":false}}),
+        json!({"name":"agents_list","description":"List Agents visible to the current authenticated tenant and user.","inputSchema":schema(json!({}),&[]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
+        json!({"name":"agent_publications","description":"Read immutable publication/version metadata for an authorized Agent.","inputSchema":schema(json!({"agent_id":{"type":"string","format":"uuid"}}),&["agent_id"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
+        json!({"name":"published_agent_send","description":"Send text to an immutable published Agent. Reuse message_id after a lost response; never invent a replacement ID for an unknown effect.","inputSchema":schema(json!({"publication_id":{"type":"string","format":"uuid"},"message_id":{"type":"string","format":"uuid"},"context_id":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":16000}}),&["publication_id","message_id","text"]),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}}),
+        json!({"name":"external_agent_send","description":"Invoke a registered external Agent through current tenant tool policy and a pre-debited durable budget. Unknown effects must be polled or reviewed; never resubmit with a replacement message ID.","inputSchema":schema(json!({"agent_name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,64}$"},"message_id":{"type":"string","format":"uuid"},"text":{"type":"string","minLength":1,"maxLength":16000}}),&["agent_name","message_id","text"]),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}}),
+        json!({"name":"external_agent_task","description":"Read a current external task using the original local message ID; unknown sends are reconciled by a read-only message lookup.","inputSchema":schema(json!({"agent_name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,64}$"},"message_id":{"type":"string","format":"uuid"}}),&["agent_name","message_id"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":true}}),
+        json!({"name":"external_agent_cancel","description":"Request cancellation once. Unknown acknowledgements require task polling; do not repeat with a replacement ID.","inputSchema":schema(json!({"agent_name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,64}$"},"message_id":{"type":"string","format":"uuid"}}),&["agent_name","message_id"]),"annotations":{"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}}),
+        json!({"name":"external_agent_reconcile","description":"Resolve an ambiguous external send using only the verified peer message lookup. Never sends a new task.","inputSchema":schema(json!({"agent_name":{"type":"string","pattern":"^[A-Za-z0-9_-]{1,64}$"},"message_id":{"type":"string","format":"uuid"}}),&["agent_name","message_id"]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true,"openWorldHint":true}}),
+        json!({"name":"admin_models","description":"Read the registered model catalog using the existing administrative REST policy.","inputSchema":schema(json!({}),&[]),"annotations":{"readOnlyHint":true,"destructiveHint":false,"idempotentHint":true}}),
+    ]
+    .into_iter()
+    .chain(ai_platform_gateway_foundation::mcp_server::space_tools())
+    .collect()
+}
+fn tool_list(published: bool, external: &[String]) -> Vec<Value> {
+    tools()
+        .into_iter()
+        .filter(|t| {
+            (published || t["name"] != "published_agent_send")
+                && (!external.is_empty()
+                    || !t["name"]
+                        .as_str()
+                        .is_some_and(|name| name.starts_with("external_agent_")))
+        })
+        .map(|mut tool| {
+            if tool["name"]
+                .as_str()
+                .is_some_and(|name| name.starts_with("external_agent_"))
+            {
+                tool["inputSchema"]["properties"]["agent_name"]["enum"] = json!(external);
+            }
+            tool
+        })
+        .collect()
+}
+fn target(name: &str, args: &Value) -> Result<(&'static str, String, Value), &'static str> {
+    // Dataset IDs are canonical opaque varchar keys (default kb_...), unlike
+    // Agent/publication IDs. Keep exactly one safe URL segment, including legacy
+    // UUIDs, and use the same rule advertised by the tool's input schema.
+    if let Some(value) = args.get("dataset_id") {
+        if !value.as_str().is_some_and(|id| {
+            !id.is_empty()
+                && id.len() <= 255
+                && id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        }) {
+            return Err("Invalid resource ID");
+        }
+    }
+    for key in ["agent_id", "publication_id", "message_id", "context_id"] {
+        if let Some(id) = args.get(key) {
+            if !id
+                .as_str()
+                .is_some_and(|v| uuid::Uuid::parse_str(v).is_ok())
+            {
+                return Err("Invalid resource ID");
+            }
+        }
+    }
+    if name == "space_append_put" {
+        return Ok((
+            "PUT",
+            format!(
+                "/api/v1/knowledge/space-items/{}/content",
+                args["item_id"].as_str().unwrap_or("")
+            ),
+            json!({"content_format":"markdown","blocks":[],"markdown":args["markdown"]}),
+        ));
+    }
+    let Some(tool) = tools().into_iter().find(|t| t["name"] == name) else {
+        return Err("Unknown tool");
+    };
+    let validator =
+        jsonschema::validator_for(&tool["inputSchema"]).map_err(|_| "Tool schema unavailable")?;
+    if !validator.is_valid(args) {
+        return Err("Invalid tool arguments");
+    }
+    match name {
+        "knowledge_retrieve" => Ok((
+            "POST",
+            format!(
+                "/api/v1/knowledge/{}/retrieve",
+                args["dataset_id"].as_str().unwrap()
+            ),
+            json!({"query":args["query"],"top_k":args.get("top_k").cloned().unwrap_or(json!(5))}),
+        )),
+        "agents_list" => Ok(("GET", "/api/v1/agents".into(), Value::Null)),
+        "agent_publications" => Ok((
+            "GET",
+            format!(
+                "/api/v1/agents/{}/publications",
+                args["agent_id"].as_str().unwrap()
+            ),
+            Value::Null,
+        )),
+        "published_agent_send" => {
+            let mut message = json!({"messageId":args["message_id"],"role":"ROLE_USER","parts":[{"text":args["text"]}]});
+            if let Some(context) = args.get("context_id") {
+                message["contextId"] = context.clone();
+            }
+            Ok((
+                "POST",
+                format!(
+                    "/a2a/{}/message:send",
+                    args["publication_id"].as_str().unwrap()
+                ),
+                json!({"message":message,"configuration":{"returnImmediately":true}}),
+            ))
+        }
+        "external_agent_send" => Ok((
+            "POST",
+            format!(
+                "/a2a/outbound/{}/message:send",
+                args["agent_name"].as_str().unwrap()
+            ),
+            json!({"message":{"messageId":args["message_id"],"role":"ROLE_USER","parts":[{"text":args["text"]}]},"configuration":{"returnImmediately":true}}),
+        )),
+        "external_agent_task" | "external_agent_cancel" | "external_agent_reconcile" => Ok((
+            if name == "external_agent_task" {
+                "GET"
+            } else {
+                "POST"
+            },
+            format!(
+                "/a2a/outbound/{}/tasks/{}{}",
+                args["agent_name"].as_str().unwrap(),
+                args["message_id"].as_str().unwrap(),
+                match name {
+                    "external_agent_cancel" => ":cancel",
+                    "external_agent_reconcile" => ":reconcile",
+                    _ => "",
+                }
+            ),
+            if name == "external_agent_task" {
+                Value::Null
+            } else {
+                json!({})
+            },
+        )),
+        "admin_models" => Ok(("GET", "/api/v1/models".into(), Value::Null)),
+        "space_list" => Ok(("GET", "/api/v1/knowledge/spaces".into(), Value::Null)),
+        "space_search" | "knowledge_search" => {
+            let query = args["query"].as_str().unwrap_or("");
+            let mut path = format!("/api/v1/knowledge/space-items?q={}", query_escape(query));
+            if let Some(space_id) = args["space_id"].as_str() {
+                path.push_str(&format!("&space_id={}", query_escape(space_id)));
+            }
+            Ok(("GET", path, Value::Null))
+        }
+        "space_read_page" => Ok((
+            "GET",
+            format!(
+                "/api/v1/knowledge/space-items/{}/content",
+                args["item_id"].as_str().unwrap_or("")
+            ),
+            Value::Null,
+        )),
+        "space_create_page" => Ok((
+            "POST",
+            format!(
+                "/api/v1/knowledge/spaces/{}/items",
+                args["space_id"].as_str().unwrap_or("")
+            ),
+            json!({"title": args["title"], "kind": "page"}),
+        )),
+        _ => Err("Unknown tool"),
+    }
+}
+fn query_escape(value: &str) -> String {
+    let mut out = String::new();
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            out.push(byte as char);
+        } else {
+            out.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    out
+}
+async fn invoke(
+    s: &Server,
+    headers: &HeaderMap,
+    credential_header: &HeaderName,
+    name: &str,
+    args: &Value,
+) -> Result<(Value, u16), &'static str> {
+    if matches!(name, "space_create_page" | "space_append_blocks")
+        && headers
+            .get("x-agentforge-tool-approval")
+            .and_then(|value| value.to_str().ok())
+            != Some("granted")
+    {
+        return Err("approval_required");
+    }
+    if name == "space_append_blocks" {
+        return append_blocks(s.rest.clone(), headers, credential_header, args).await;
+    }
+    if name == "published_agent_send" && !s.published_agents {
+        return Err("Published Agent invocation is unavailable");
+    }
+    if name.starts_with("external_agent_")
+        && !args["agent_name"]
+            .as_str()
+            .is_some_and(|name| s.external_agents.iter().any(|n| n == name))
+    {
+        return Err("External Agent is unavailable");
+    }
+    delegate(s.rest.clone(), headers, credential_header, name, args).await
+}
+async fn append_blocks(
+    rest: Router,
+    headers: &HeaderMap,
+    credential_header: &HeaderName,
+    args: &Value,
+) -> Result<(Value, u16), &'static str> {
+    let item_id = args["item_id"].as_str().ok_or("Invalid tool arguments")?;
+    let markdown = args["markdown"].as_str().ok_or("Invalid tool arguments")?;
+    let (current, status) = delegate(
+        rest.clone(),
+        headers,
+        credential_header,
+        "space_read_page",
+        &json!({"item_id": item_id}),
+    )
+    .await?;
+    if !(200..300).contains(&status) {
+        return Ok((current, status));
+    }
+    let existing = current["structuredContent"]["markdown"]
+        .as_str()
+        .unwrap_or("");
+    let combined = if existing.is_empty() {
+        markdown.to_owned()
+    } else {
+        format!("{existing}\n\n{markdown}")
+    };
+    delegate(
+        rest,
+        headers,
+        credential_header,
+        "space_append_put",
+        &json!({"item_id": item_id, "markdown": combined}),
+    )
+    .await
+}
+async fn delegate(
+    rest: Router,
+    headers: &HeaderMap,
+    credential_header: &HeaderName,
+    name: &str,
+    args: &Value,
+) -> Result<(Value, u16), &'static str> {
+    let (method, path, body) = target(name, args)?;
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header(header::CONTENT_TYPE, "application/json");
+    // Forward only the credential selected by outer admission. Never let an
+    // unselected bearer/key, client identity or approval header reach REST.
+    if let Some(value) = headers.get(credential_header) {
+        request = request.header(credential_header, value);
+    }
+    for key in ["x-request-id", "traceparent"] {
+        if let Some(v) = headers.get(key) {
+            request = request.header(key, v);
+        }
+    }
+    let request = request
+        .body(if body.is_null() {
+            Body::empty()
+        } else {
+            Body::from(body.to_string())
+        })
+        .map_err(|_| "Invalid tool request")?;
+    let response = rest
+        .oneshot(request)
+        .await
+        .map_err(|_| "Tool unavailable")?;
+    let status = response.status();
+    let raw = to_bytes(response.into_body(), 4 * 1024 * 1024)
+        .await
+        .map_err(|_| "Tool response too large")?;
+    let value = serde_json::from_slice::<Value>(&raw).unwrap_or_else(
+        |_| json!({"detail":"Tool returned a non-JSON response","status":status.as_u16()}),
+    );
+    Ok((
+        json!({"resultType":"complete","isError":!status.is_success(),"structuredContent":value,"content":[{"type":"text","text":value.to_string()}]}),
+        status.as_u16(),
+    ))
+}
+// Both protocol envelopes use the same established REST policy and durable
+// receipt. Legacy compatibility never relaxes authentication or audit failure.
+async fn invoke_audited(
+    s: &Server,
+    headers: &HeaderMap,
+    credential_header: &HeaderName,
+    id: Value,
+    params: &Value,
+    audit_tenant: &str,
+    audit_user: &str,
+) -> Response {
+    let name = params["name"].as_str().unwrap_or("");
+    let invoked = invoke(s, headers, credential_header, name, &params["arguments"]).await;
+    let request_id = headers
+        .get("x-request-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| uuid::Uuid::parse_str(s).is_ok())
+        .map(str::to_owned)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+    let status = invoked.as_ref().map(|(_, status)| *status).unwrap_or(400);
+    let receipt = ai_platform_gateway_foundation::external_a2a_ledger::Receipt {
+        kind: ai_platform_gateway_foundation::external_a2a_ledger::Kind::Mcp,
+        request_id,
+        client_request_id: None,
+        request_sha256: None,
+        wire_response_id: None,
+        tool: Some(
+            if tools().iter().any(|t| t["name"] == name) {
+                name
+            } else {
+                "unknown_tool"
+            }
+            .into(),
+        ),
+        local_message_id: None,
+        remote_task_id: None,
+        outcome: if (200..300).contains(&status) {
+            "completed"
+        } else {
+            "denied"
+        }
+        .into(),
+        http_status: status,
+    };
+    let recorded = ai_platform_gateway_foundation::external_a2a_ledger::record(
+        &s.audit_pool,
+        audit_tenant,
+        audit_user,
+        &receipt,
+    )
+    .await
+    .is_ok();
+    finish_audited_call(id, invoked, recorded)
+}
+fn finish_audited_call(
+    id: Value,
+    invoked: Result<(Value, u16), &'static str>,
+    recorded: bool,
+) -> Response {
+    if !recorded {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    match invoked {
+        Ok((result, _)) => rpc(id, result),
+        Err(message) => error(id, -32602, message),
+    }
+}
+/// MCP clients send the platform API key as `Authorization: Bearer <key>`.
+/// A non-JWT bearer token moves to the configured API-key header so admission
+/// verifies it as an API key; compact JWTs stay JWTs and any ambiguous
+/// combination is left untouched for admission to refuse.
+fn bearer_api_key(headers: &HeaderMap, key_header: &HeaderName) -> HeaderMap {
+    let mut selected = headers.clone();
+    if headers.get_all(header::AUTHORIZATION).iter().count() != 1
+        || headers.contains_key(key_header)
+    {
+        return selected;
+    }
+    let Some(value) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    else {
+        return selected;
+    };
+    let mut words = value.split_whitespace();
+    let (Some(scheme), Some(token), None) = (words.next(), words.next(), words.next()) else {
+        return selected;
+    };
+    if !scheme.eq_ignore_ascii_case("bearer") || token.split('.').count() == 3 {
+        return selected;
+    }
+    if let Ok(token) = token.parse() {
+        selected.remove(header::AUTHORIZATION);
+        selected.insert(key_header.clone(), token);
+    }
+    selected
+}
+async fn dispatch(State(s): State<Server>, request: Request) -> Response {
+    let headers = bearer_api_key(request.headers(), s.admission.api_key_header());
+    if let Some(origin) = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) {
+        if !s.configuration.allowed_origins.iter().any(|o| o == origin) {
+            return StatusCode::FORBIDDEN.into_response();
+        }
+    }
+    if !headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.split(';').next() == Some("application/json"))
+    {
+        return StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response();
+    }
+    let admission = s.admission.request(&headers, "/mcp");
+    let (audit_tenant, audit_user, auth_type) = match admission.resolve().await {
+        Ok(p) if p.jwt_principal().is_some() || p.api_key().is_some() => (
+            p.tenant_id().to_owned(),
+            p.user_id().to_owned(),
+            p.auth_type(),
+        ),
+        Ok(_) => return unauthorized(&s, StatusCode::UNAUTHORIZED),
+        Err(e) => {
+            return unauthorized(
+                &s,
+                StatusCode::from_u16(e.status()).unwrap_or(StatusCode::SERVICE_UNAVAILABLE),
+            );
+        }
+    };
+    if !verified_credential_allowed(&s.configuration, &headers, auth_type) {
+        return unauthorized(&s, StatusCode::UNAUTHORIZED);
+    }
+    let credential_header = if auth_type == "api_key" {
+        s.admission.api_key_header().clone()
+    } else {
+        header::AUTHORIZATION
+    };
+    let bytes = match to_bytes(request.into_body(), 1024 * 1024).await {
+        Ok(v) => v,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let value: Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
+        Err(_) => return error(Value::Null, -32700, "Parse error"),
+    };
+    let notification = value.is_object()
+        && value.get("id").is_none()
+        && value["jsonrpc"] == "2.0"
+        && value["method"].is_string();
+    let id = value.get("id").cloned().unwrap_or(Value::Null);
+    if value["jsonrpc"] != "2.0"
+        || !notification && !(id.is_string() || id.as_i64().is_some())
+        || !value["params"].is_object()
+    {
+        return error(id, -32600, "Invalid request");
+    }
+    let method = value["method"].as_str().unwrap_or("");
+    let protocol = headers
+        .get("mcp-protocol-version")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if protocol == "2025-11-25" || (protocol.is_empty() && method == "initialize") {
+        if method == "initialize" {
+            let mut response = rpc(
+                id,
+                json!({"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"agentforge","version":"m3"}}),
+            );
+            if let Ok(session) = "legacy".parse() {
+                response.headers_mut().insert("mcp-session-id", session);
+            }
+            return response;
+        }
+        if method == "notifications/initialized" {
+            return StatusCode::ACCEPTED.into_response();
+        }
+        return match method {
+            "server/discover" => rpc(
+                id,
+                json!({"resultType":"complete","supportedVersions":[VERSION,"2025-11-25"],"capabilities":{"tools":{}},"cacheScope":"private","ttlMs":0}),
+            ),
+            "tools/list" => rpc(
+                id,
+                json!({"resultType":"complete","tools":tool_list(s.published_agents,&s.external_agents),"cacheScope":"private","ttlMs":0}),
+            ),
+            "tools/call" => {
+                invoke_audited(
+                    &s,
+                    &headers,
+                    &credential_header,
+                    id,
+                    &value["params"],
+                    &audit_tenant,
+                    &audit_user,
+                )
+                .await
+            }
+            _ => error(id, -32601, "Method not found"),
+        };
+    }
+    if headers.get("mcp-method").and_then(|v| v.to_str().ok()) != Some(method) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    if method == "tools/call"
+        && headers.get("mcp-name").and_then(|v| v.to_str().ok()) != value["params"]["name"].as_str()
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let versions = &value["params"]["_meta"]["io.modelcontextprotocol/protocolVersion"];
+    if versions.as_str() != Some(VERSION) {
+        return (StatusCode::BAD_REQUEST,Json(json!({"jsonrpc":"2.0","id":id,"error":{"code":-32022,"message":"Unsupported protocol version","data":{"requested":versions.as_str().unwrap_or(""),"supported":[VERSION]}}}))).into_response();
+    }
+    if headers
+        .get("mcp-protocol-version")
+        .and_then(|v| v.to_str().ok())
+        != Some(VERSION)
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    if !value["params"]["_meta"]["io.modelcontextprotocol/clientCapabilities"].is_object() {
+        return error(id, -32602, "Per-request client capabilities required");
+    }
+    if notification {
+        return StatusCode::ACCEPTED.into_response();
+    }
+    match method {
+        "server/discover" => rpc(
+            id,
+            json!({"resultType":"complete","supportedVersions":[VERSION],"capabilities":{"tools":{}},"cacheScope":"private","ttlMs":0}),
+        ),
+        "tools/list" => rpc(
+            id,
+            json!({"resultType":"complete","tools":tool_list(s.published_agents,&s.external_agents),"cacheScope":"private","ttlMs":0}),
+        ),
+        "tools/call" => {
+            invoke_audited(
+                &s,
+                &headers,
+                &credential_header,
+                id,
+                &value["params"],
+                &audit_tenant,
+                &audit_user,
+            )
+            .await
+        }
+        _ => error(id, -32601, "Method not found"),
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn completed_tool_result_requires_confirmed_audit_in_both_protocols() {
+        let response = finish_audited_call(
+            json!(7),
+            Ok((
+                json!({"isError":false,"structuredContent":{"ok":true}}),
+                200,
+            )),
+            false,
+        );
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let denied = finish_audited_call(json!(7), Err("Invalid tool arguments"), false);
+        assert_eq!(denied.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let response = finish_audited_call(
+            json!(7),
+            Ok((
+                json!({"isError":false,"structuredContent":{"ok":true}}),
+                200,
+            )),
+            true,
+        );
+        assert_eq!(response.status(), StatusCode::OK);
+        let value: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(value["id"], 7);
+        assert_eq!(value["result"]["structuredContent"]["ok"], true);
+    }
+    #[test]
+    fn strict_typed_routes_do_not_accept_path_or_identity_injection() {
+        let (_, path, _) = target(
+            "knowledge_retrieve",
+            &json!({"dataset_id":"kb_m56_canonical_123","query":"q"}),
+        )
+        .unwrap();
+        assert_eq!(path, "/api/v1/knowledge/kb_m56_canonical_123/retrieve");
+        assert!(
+            target(
+                "knowledge_retrieve",
+                &json!({"dataset_id":"00000000-0000-4000-8000-000000000001","query":"q"})
+            )
+            .is_ok()
+        );
+        for id in [
+            "",
+            "../internal",
+            "%2Fadmin",
+            "id?tenant=other",
+            "id#fragment",
+            "two segments",
+        ] {
+            assert!(
+                target("knowledge_retrieve", &json!({"dataset_id":id,"query":"q"})).is_err(),
+                "{id}"
+            );
+        }
+        assert!(
+            target(
+                "knowledge_retrieve",
+                &json!({"dataset_id":"x".repeat(256),"query":"q"})
+            )
+            .is_err()
+        );
+        assert!(
+            target(
+                "knowledge_retrieve",
+                &json!({"dataset_id":"../../internal","query":"q"})
+            )
+            .is_err()
+        );
+        assert!(target("agents_list", &json!({"tenant_id":"other"})).is_err());
+        assert!(target("admin_models", &json!({"method":"DELETE"})).is_err());
+        assert!(target("unknown", &json!({})).is_err());
+    }
+    #[test]
+    fn audience_requires_exact_resource() {
+        let mut h = HeaderMap::new();
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(json!({"aud":["gateway","https://example.test/mcp"]}).to_string());
+        h.insert(
+            header::AUTHORIZATION,
+            format!("Bearer e30.{payload}.sig").parse().unwrap(),
+        );
+        assert!(audience(&h, "https://example.test/mcp"));
+        assert!(!audience(&h, "https://evil.test/mcp"));
+    }
+    #[tokio::test]
+    async fn delegate_forwards_only_the_verified_configured_key_header() {
+        let key_header = HeaderName::from_static("x-task-credential");
+        let rest = Router::new().route(
+            "/api/v1/agents",
+            get(|headers: HeaderMap| async move {
+                assert_eq!(
+                    headers.get("x-task-credential").unwrap(),
+                    "bound-test-credential"
+                );
+                for untrusted in [
+                    "authorization",
+                    "x-api-key",
+                    "x-user-id",
+                    "x-tenant-id",
+                    "x-agentforge-tool-approval",
+                ] {
+                    assert!(headers.get(untrusted).is_none(), "{untrusted}");
+                }
+                (StatusCode::OK, Json(json!({"ok":true})))
+            }),
+        );
+        let mut headers = HeaderMap::new();
+        for (name, value) in [
+            ("x-task-credential", "bound-test-credential"),
+            ("authorization", "Bearer unselected"),
+            ("x-api-key", "another-key"),
+            ("x-user-id", "forged"),
+            ("x-tenant-id", "other"),
+            ("x-agentforge-tool-approval", "granted"),
+        ] {
+            headers.insert(HeaderName::from_static(name), value.parse().unwrap());
+        }
+        let result = delegate(rest, &headers, &key_header, "agents_list", &json!({}))
+            .await
+            .unwrap();
+        assert_eq!(result.1, 200);
+        assert_eq!(result.0["structuredContent"]["ok"], true);
+    }
+    #[test]
+    fn bearer_platform_key_is_admitted_as_api_key_but_jwt_stays_jwt() {
+        let key_header = HeaderName::from_static("x-api-key");
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, "Bearer agk_example".parse().unwrap());
+        let normalized = bearer_api_key(&headers, &key_header);
+        assert!(normalized.get(header::AUTHORIZATION).is_none());
+        assert_eq!(normalized.get(&key_header).unwrap(), "agk_example");
+        let mut jwt = HeaderMap::new();
+        jwt.insert(header::AUTHORIZATION, "Bearer a.b.c".parse().unwrap());
+        assert_eq!(bearer_api_key(&jwt, &key_header), jwt);
+        let mut both = headers.clone();
+        both.insert(key_header.clone(), "agk_other".parse().unwrap());
+        assert_eq!(bearer_api_key(&both, &key_header), both);
+    }
+    #[tokio::test]
+    async fn delegate_preserves_rest_denial_and_never_forwards_identity_headers() {
+        let rest = Router::new().route(
+            "/api/v1/agents",
+            get(|headers: HeaderMap| async move {
+                assert!(headers.get("x-user-id").is_none());
+                assert_eq!(headers.get(header::AUTHORIZATION).unwrap(), "Bearer test");
+                (StatusCode::FORBIDDEN, Json(json!({"detail":"denied"})))
+            }),
+        );
+        let mut headers = HeaderMap::new();
+        headers.insert("authorization", "Bearer test".parse().unwrap());
+        headers.insert("x-user-id", "forged".parse().unwrap());
+        headers.insert("x-tenant-id", "forged".parse().unwrap());
+        let result = delegate(
+            rest,
+            &headers,
+            &header::AUTHORIZATION,
+            "agents_list",
+            &json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(result.0["isError"], true);
+        assert_eq!(result.0["structuredContent"]["detail"], "denied");
+    }
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+    #[test]
+    fn generated_tools_and_stateless_results_match_the_official_pinned_schema() {
+        let schema: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/protocols/mcp-2026-07-28.json"
+        ))
+        .unwrap();
+        for (definition, value) in [
+            (
+                "ListToolsResult",
+                json!({"resultType":"complete","tools":tools(),"cacheScope":"private","ttlMs":0}),
+            ),
+            (
+                "DiscoverResult",
+                json!({"resultType":"complete","supportedVersions":[VERSION],"capabilities":{"tools":{}},"cacheScope":"private","ttlMs":0}),
+            ),
+            (
+                "CallToolResult",
+                json!({"resultType":"complete","isError":false,"structuredContent":{"ok":true},"content":[{"type":"text","text":"ok"}]}),
+            ),
+        ] {
+            let mut selected = schema.clone();
+            selected["$ref"] = json!(format!("#/$defs/{definition}"));
+            let validator = jsonschema::validator_for(&selected).unwrap();
+            assert!(validator.is_valid(&value), "{definition}");
+        }
+    }
+    #[tokio::test]
+    async fn invalid_arguments_cannot_reach_a_rest_handler() {
+        let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let observed = count.clone();
+        let rest = Router::new().fallback(move || {
+            let count = observed.clone();
+            async move {
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                StatusCode::OK
+            }
+        });
+        assert!(
+            delegate(
+                rest,
+                &HeaderMap::new(),
+                &header::AUTHORIZATION,
+                "knowledge_retrieve",
+                &json!({"dataset_id":"../admin","query":"x"})
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(count.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+}
+
+#[cfg(test)]
+mod verified_token_tests {
+    use super::*;
+    #[test]
+    fn resource_audience_is_narrowed_only_after_real_signature_verification() {
+        let resource = "https://gateway.example/mcp";
+        let secret = b"a-native-test-secret-of-at-least-32-bytes";
+        let codec = ai_platform_auth::TokenCodec::new(
+            secret,
+            Some(resource.into()),
+            Some("https://gateway.example".into()),
+        )
+        .unwrap();
+        let now = 1_800_000_000;
+        let claims = ai_platform_auth::Claims {
+            sub: "user".into(),
+            user_id: "user".into(),
+            tenant_id: "tenant".into(),
+            email: None,
+            roles: vec![],
+            permissions: vec![],
+            tier: "normal".into(),
+            exp: now + 300,
+            iat: now,
+            nbf: None,
+            jti: uuid::Uuid::new_v4().to_string(),
+            aud: Some(ai_platform_auth::Audience::One(resource.into())),
+            iss: Some("https://gateway.example".into()),
+        };
+        let token = jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret),
+        )
+        .unwrap();
+        assert!(codec.verify(&token, now).is_ok());
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        assert!(audience(&headers, resource));
+        assert!(!audience(&headers, "https://other.example/mcp"));
+        let mut key_mode: McpConfiguration = serde_json::from_value(
+            json!({"resource":resource,"authorization_servers":[],"api_key_only":true}),
+        )
+        .unwrap();
+        assert!(
+            !verified_credential_allowed(&key_mode, &headers, "jwt"),
+            "even a correctly signed resource-bound JWT is rejected in key-only mode"
+        );
+        assert!(verified_credential_allowed(
+            &key_mode,
+            &HeaderMap::new(),
+            "api_key"
+        ));
+        assert!(!verified_credential_allowed(
+            &key_mode,
+            &HeaderMap::new(),
+            "anonymous"
+        ));
+        let key_header = HeaderName::from_static("x-task-credential");
+        let metadata = metadata_document(&key_mode, &key_header);
+        assert!(metadata.get("authorization_servers").is_none());
+        assert!(metadata.get("bearer_methods_supported").is_none());
+        assert_eq!(metadata["auth_methods_supported"], json!(["api_key"]));
+        assert_eq!(metadata["api_key_header"], "x-task-credential");
+        let challenge = authentication_challenge(&key_mode, &key_header);
+        assert!(challenge.starts_with("ApiKey "));
+        assert!(challenge.contains("header=\"x-task-credential\""));
+        assert!(!challenge.contains("Bearer"));
+        key_mode.api_key_only = false;
+        key_mode.authorization_servers = vec!["https://gateway.example".into()];
+        assert!(verified_credential_allowed(&key_mode, &headers, "jwt"));
+        assert_eq!(
+            metadata_document(&key_mode, &key_header)["authorization_servers"],
+            json!(["https://gateway.example"])
+        );
+        assert_eq!(
+            metadata_document(&key_mode, &key_header)["bearer_methods_supported"],
+            json!(["header"])
+        );
+        assert_eq!(
+            authentication_challenge(&key_mode, &key_header),
+            "Bearer resource_metadata=\"https://gateway.example/.well-known/oauth-protected-resource/mcp\""
+        );
+        let wrong_codec = ai_platform_auth::TokenCodec::new(
+            b"a-different-native-secret-of-at-least-32-bytes",
+            Some(resource.into()),
+            Some("https://gateway.example".into()),
+        )
+        .unwrap();
+        assert!(wrong_codec.verify(&token, now).is_err());
+    }
+}
+
+#[cfg(test)]
+mod external_registration_tests {
+    use super::*;
+    #[test]
+    fn external_tools_publish_only_configured_peer_names_and_share_the_governed_rest_target() {
+        assert!(
+            !tool_list(false, &[])
+                .iter()
+                .any(|t| t["name"] == "external_agent_send")
+        );
+        let listed = tool_list(true, &["peer".into()]);
+        let tool = listed
+            .iter()
+            .find(|t| t["name"] == "external_agent_send")
+            .unwrap();
+        assert_eq!(
+            tool["inputSchema"]["properties"]["agent_name"]["enum"],
+            json!(["peer"])
+        );
+        let(_,path,body)=target("external_agent_send",&json!({"agent_name":"peer","message_id":"00000000-0000-4000-8000-000000000001","text":"x"})).unwrap();
+        assert_eq!(path, "/a2a/outbound/peer/message:send");
+        assert_eq!(body["configuration"]["returnImmediately"], true);
+        for (name, suffix, method) in [
+            ("external_agent_task", "", "GET"),
+            ("external_agent_cancel", ":cancel", "POST"),
+            ("external_agent_reconcile", ":reconcile", "POST"),
+        ] {
+            let (actual, path, _) = target(
+                name,
+                &json!({"agent_name":"peer","message_id":"00000000-0000-4000-8000-000000000001"}),
+            )
+            .unwrap();
+            assert_eq!(actual, method);
+            assert_eq!(
+                path,
+                format!("/a2a/outbound/peer/tasks/00000000-0000-4000-8000-000000000001{suffix}")
+            );
+        }
+
+        assert!(target("external_agent_send",&json!({"agent_name":"../peer","message_id":"00000000-0000-4000-8000-000000000001","text":"x"})).is_err());
+    }
+}

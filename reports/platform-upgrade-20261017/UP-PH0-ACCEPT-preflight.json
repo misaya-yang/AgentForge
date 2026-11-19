@@ -1,0 +1,73 @@
+{
+  "schema": "platform-upgrade/preflight-v1",
+  "package": "UP-PH0-ACCEPT",
+  "observed_at": "2026-10-17T04:54:02.328358Z",
+  "source_base_sha": "7c8a77f0440d8334e35018ac5ed0530aa2d4fbf2",
+  "result": "PREPARED_NOT_ACCEPTED",
+  "private_env": {
+    "initialized": true,
+    "ignored": true,
+    "mode": "0600",
+    "project": "agentforge-dev-7801d4a9a4",
+    "credential_source": "Exact plain clipboard value after owner correction; value matches initial saved extraction. No credential or digest retained in this report.",
+    "default_model": "qwen3.8-flash",
+    "embedding_model": "text-embedding-v4",
+    "embedding_dimension": 1024
+  },
+  "machine_preflight": "make doctor ENV_FILE=.env.dev exited0; does not check all exact toolchain pins",
+  "observed_toolchain_gap": "Node24.14.0/pnpm10.33.0 vs required26.11.1/12.11.2",
+  "docker_inventory": {
+    "containers": 0,
+    "volumes": 0,
+    "builders": [
+      "default (built-in docker driver)",
+      "desktop-linux (built-in docker driver)"
+    ],
+    "mutations_performed": false
+  },
+  "provider_probes": {
+    "scope": "Direct provider probes only; not product acceptance",
+    "credential_source": "Exact plain clipboard value after owner correction",
+    "probes": [
+      {
+        "kind": "chat",
+        "endpoint_kind": "owner-selected Singapore workspace",
+        "path": "/compatible-mode/v1/responses",
+        "model": "qwen3.8-flash",
+        "http_status": 401,
+        "result": "fail",
+        "elapsed_seconds": 3.347
+      },
+      {
+        "kind": "embedding",
+        "endpoint_kind": "owner-selected Singapore workspace",
+        "path": "/api/v1/services/embeddings/text-embedding/text-embedding",
+        "model": "text-embedding-v4",
+        "http_status": 401,
+        "result": "fail",
+        "elapsed_seconds": 3.112
+      }
+    ]
+  },
+  "independent_anthropic_transport_probe": {
+    "kind": "owner-provided-Anthropic-path",
+    "transport": "curl",
+    "header": "x-api-key",
+    "credential_source": "exact plain clipboard value",
+    "curl_exit": 0,
+    "http_status": 401,
+    "elapsed_seconds": 3.025,
+    "error_code": "InvalidApiKey"
+  },
+  "remaining": [
+    "Credential validity/workspace binding unresolved: exact plain key fails Responses, embedding and Anthropic with401 InvalidApiKey.",
+    "Initialize scoped local infra/roles, current source-bound native services, locked Runtime/Worker unit and full original journeys.",
+    "Install pinned frontend tools externally and verify actual browser workflows."
+  ],
+  "not_acceptance": [
+    "No current full stack started or admitted",
+    "No DB migration/restore or role verification ran",
+    "No successful model/embedding result",
+    "No Assistant/Knowledge/Local Node browser or recovery journey ran"
+  ]
+}

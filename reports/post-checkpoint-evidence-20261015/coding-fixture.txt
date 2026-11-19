@@ -1,0 +1,142 @@
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.20.1
+   Compiling zmij v1.0.23
+   Compiling serde_core v1.0.229
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.3
+   Compiling serde_json v1.0.154
+   Compiling indexmap v2.14.2
+   Compiling digest v0.10.7
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.5
+   Compiling foldhash v0.2.0
+   Compiling sha2 v0.10.9
+   Compiling settlement-incident-fixture v2.0.0 (/workspace/shared/platform-verification/full-rust-20261015/coding-v2-offline-check/unsolved)
+    Finished `test` profile [unoptimized] target(s) in 6.42s
+     Running tests/allocation.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/allocation-72463d3d40d2fa3f)
+
+running 2 tests
+test allocation_preserves_every_cent_and_breaks_ties_by_id ... FAILED
+test allocation_uses_largest_fractional_remainder ... FAILED
+
+failures:
+
+---- allocation_preserves_every_cent_and_breaks_ties_by_id stdout ----
+
+thread 'allocation_preserves_every_cent_and_breaks_ties_by_id' (329) panicked at tests/allocation.rs:5:5:
+assertion `left == right` failed
+  left: {"merchant-a": 3, "merchant-b": 3, "merchant-c": 3}
+ right: {"merchant-a": 4, "merchant-b": 3, "merchant-c": 3}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- allocation_uses_largest_fractional_remainder stdout ----
+
+thread 'allocation_uses_largest_fractional_remainder' (330) panicked at tests/allocation.rs:11:5:
+assertion `left == right` failed
+  left: {"reserve": 1, "seller": 5, "tax": 3}
+ right: {"reserve": 2, "seller": 5, "tax": 4}
+
+
+failures:
+    allocation_preserves_every_cent_and_breaks_ties_by_id
+    allocation_uses_largest_fractional_remainder
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test allocation`
+     Running tests/idempotency.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/idempotency-9b8d51d5593c960b)
+
+running 2 tests
+test fingerprint_remains_tenant_scoped ... ok
+test fingerprint_is_stable_across_nested_object_order ... FAILED
+
+failures:
+
+---- fingerprint_is_stable_across_nested_object_order stdout ----
+
+thread 'fingerprint_is_stable_across_nested_object_order' (332) panicked at tests/idempotency.rs:7:5:
+assertion `left == right` failed
+  left: "665410bc5486cf347715bd67c2a1d79d0c0f2830c076c7370cc2f0f94874fdcf"
+ right: "bd2d67820a749142bb9cbefb6baf255971a14dcac72633d74ae6a5d857293eda"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    fingerprint_is_stable_across_nested_object_order
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test idempotency`
+     Running tests/service.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/service-0fd651f3cb0d8890)
+
+running 1 test
+test reordered_retry_is_idempotent_and_balanced_end_to_end ... FAILED
+
+failures:
+
+---- reordered_retry_is_idempotent_and_balanced_end_to_end stdout ----
+
+thread 'reordered_retry_is_idempotent_and_balanced_end_to_end' (335) panicked at tests/service.rs:12:5:
+assertion failed: Arc::ptr_eq(&first, &replay)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    reordered_retry_is_idempotent_and_balanced_end_to_end
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test service`
+error: 3 targets failed:
+    `--test allocation`
+    `--test idempotency`
+    `--test service`
+UNSOLVED_EXIT=101
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.20.1
+   Compiling zmij v1.0.23
+   Compiling serde_core v1.0.229
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling serde_json v1.0.154
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.3
+   Compiling indexmap v2.14.2
+   Compiling digest v0.10.7
+   Compiling foldhash v0.2.0
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling settlement-incident-fixture v2.0.0 (/workspace/shared/platform-verification/full-rust-20261015/coding-v2-offline-check/reference)
+    Finished `test` profile [unoptimized] target(s) in 5.99s
+     Running tests/allocation.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/allocation-72463d3d40d2fa3f)
+
+running 2 tests
+test allocation_uses_largest_fractional_remainder ... ok
+test allocation_preserves_every_cent_and_breaks_ties_by_id ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/idempotency.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/idempotency-9b8d51d5593c960b)
+
+running 2 tests
+test fingerprint_remains_tenant_scoped ... ok
+test fingerprint_is_stable_across_nested_object_order ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/service.rs (/workspace/shared/platform-verification/native-toolchain-restore-20261013/target/debug/deps/service-0fd651f3cb0d8890)
+
+running 1 test
+test reordered_retry_is_idempotent_and_balanced_end_to_end ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,600 @@
+{
+  "base_git_sha": "4e3805409a5bb2a3d0231a8576a58cd9ced537dc",
+  "baseline_id": "2026-08-post-rag",
+  "declared_dependencies": {
+    "ai-gateway-contracts": {
+      "dependencies": [
+        "pydantic>=2.12.0"
+      ],
+      "found": true,
+      "pyproject": "packages/ai-gateway-contracts/pyproject.toml",
+      "workspace_source_deps": []
+    },
+    "ai-gateway-core": {
+      "dependencies": [
+        "PRD §ARC-04). Core",
+        "Pillow>=10",
+        "PyYAML>=6.0",
+        "ai-gateway-contracts",
+        "aioboto3>=12",
+        "aiofiles>=23",
+        "asyncpg>=0.29",
+        "cryptography>=44.0",
+        "fastapi>=0.124.0",
+        "httpx>=0.28.0",
+        "numpy>=1.26",
+        "opentelemetry-api>=1.27",
+        "opentelemetry-exporter-otlp-proto-grpc>=1.27",
+        "opentelemetry-instrumentation-asyncpg>=0.48b0",
+        "opentelemetry-instrumentation-fastapi>=0.48b0",
+        "opentelemetry-instrumentation-httpx>=0.48b0",
+        "opentelemetry-sdk>=1.27",
+        "oss2>=2.18",
+        "redis>=5.0",
+        "starlette>=0.50.0"
+      ],
+      "found": true,
+      "pyproject": "packages/ai-gateway-core/pyproject.toml",
+      "workspace_source_deps": [
+        "ai-gateway-contracts"
+      ]
+    },
+    "gateway (root)": {
+      "dependencies": [
+        "PRD §ARC-04)",
+        "PyJWT>=2.10.0",
+        "PyYAML>=6.0.3",
+        "ai-gateway-contracts",
+        "ai-gateway-core",
+        "bcrypt>=4.2.0",
+        "cachetools>=5.5.0",
+        "email-validator>=2.1.0",
+        "fastapi>=0.124.0",
+        "httpx>=0.28.0",
+        "jsonpath-ng>=1.7.0",
+        "jsonschema>=4.25.0",
+        "langgraph-sdk>=0.2.15",
+        "orjson>=3.11.0",
+        "pydantic-settings>=2.12.0",
+        "pydantic>=2.12.0",
+        "python-dotenv>=1.2.0",
+        "python-multipart>=0.0.21",
+        "scalar-fastapi>=1.8.2",
+        "sse-starlette>=3.0.0",
+        "starlette>=0.50.0",
+        "tiktoken>=0.7.0",
+        "uvicorn>=0.38.0",
+        "websockets>=15.0.0"
+      ],
+      "found": true,
+      "pyproject": "pyproject.toml",
+      "workspace_source_deps": [
+        "ai-gateway-contracts",
+        "ai-gateway-core"
+      ]
+    },
+    "knowledge-service": {
+      "dependencies": [
+        "ai-gateway-contracts",
+        "ai-gateway-core",
+        "aioboto3>=14.0.0",
+        "asyncpg>=0.31.0",
+        "bcrypt>=4.2.0",
+        "beautifulsoup4>=4.12.3",
+        "boto3>=1.38.0",
+        "cachetools>=5.5.0",
+        "dashscope>=1.25.0",
+        "fastapi>=0.124.0",
+        "google-genai>=1.0.0",
+        "httpx>=0.28.0",
+        "lxml>=6.0.0",
+        "orjson>=3.11.0",
+        "prometheus-client>=0.21.0",
+        "pydantic-settings>=2.12.0",
+        "pydantic>=2.12.0",
+        "pymupdf>=1.25.0",
+        "pypdf>=6.1.0",
+        "python-docx>=1.2.0",
+        "python-dotenv>=1.2.0",
+        "python-multipart>=0.0.21",
+        "qdrant-client>=1.16.0",
+        "structlog>=25.1.0",
+        "uvicorn>=0.38.0"
+      ],
+      "found": true,
+      "pyproject": "apps/knowledge-service/pyproject.toml",
+      "workspace_source_deps": [
+        "ai-gateway-contracts",
+        "ai-gateway-core"
+      ]
+    },
+    "local-node": {
+      "dependencies": [],
+      "found": true,
+      "pyproject": "apps/local-node/pyproject.toml",
+      "workspace_source_deps": []
+    },
+    "sdk-python": {
+      "dependencies": [
+        "httpx>=0.27"
+      ],
+      "found": true,
+      "pyproject": "sdk/python/pyproject.toml",
+      "workspace_source_deps": []
+    }
+  },
+  "generator": "scripts/inventory/generate_baselines.py",
+  "import_edges": {
+    "edges": [
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "ai-gateway-contracts",
+        "imported_modules": [
+          "ai_gateway_core.agents",
+          "ai_gateway_core.agents.runtime",
+          "ai_gateway_core.agents.runtime_lease",
+          "ai_gateway_core.auth",
+          "ai_gateway_core.auth.capability_proof",
+          "ai_gateway_core.events",
+          "ai_gateway_core.events.envelope",
+          "ai_gateway_core.events.errors"
+        ],
+        "importing_file_count": 1,
+        "importing_files": [
+          "packages/ai-gateway-contracts/tests/test_shim_identity.py"
+        ],
+        "to_unit": "ai-gateway-core"
+      },
+      {
+        "allowed_by_agents_md": true,
+        "from_unit": "ai-gateway-core",
+        "imported_modules": [
+          "ai_gateway_contracts.agent_runtime",
+          "ai_gateway_contracts.agent_runtime_lease",
+          "ai_gateway_contracts.capability_proof",
+          "ai_gateway_contracts.event_envelope",
+          "ai_gateway_contracts.event_errors",
+          "ai_gateway_contracts.replay"
+        ],
+        "importing_file_count": 11,
+        "importing_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/agents/runtime.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/agents/runtime_lease.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/auth/capability_proof.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/auth/gateway_secret.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/eval/agent_version_candidate.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/events/bus.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/events/consumer.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/events/envelope.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/events/errors.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/metrics/usage_recorder.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/persistence/repositories/agent_repository.py"
+        ],
+        "to_unit": "ai-gateway-contracts"
+      },
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "ai-gateway-core",
+        "imported_modules": [
+          "src.core.observability.metrics",
+          "src.persistence.database"
+        ],
+        "importing_file_count": 2,
+        "importing_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/comm/client.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py"
+        ],
+        "to_unit": "gateway"
+      },
+      {
+        "allowed_by_agents_md": true,
+        "from_unit": "gateway",
+        "imported_modules": [
+          "ai_gateway_contracts.agent_launch",
+          "ai_gateway_contracts.agent_runtime",
+          "ai_gateway_contracts.agent_runtime_lease",
+          "ai_gateway_contracts.capability_proof",
+          "ai_gateway_contracts.event_envelope"
+        ],
+        "importing_file_count": 24,
+        "importing_files": [
+          "src/api/internal/agent_capabilities.py",
+          "src/api/internal/attachment_capabilities.py",
+          "src/api/internal/confluence_capabilities.py",
+          "src/api/internal/image_capabilities.py",
+          "src/api/internal/office_artifacts.py",
+          "src/api/internal_mcp_broker.py",
+          "src/api/v1/_agent_runtime_routes/preview.py",
+          "src/api/v1/_agent_runtime_routes/published.py",
+          "src/api/v1/_agent_runtime_routes/snapshot.py",
+          "src/api/v1/_agent_runtime_routes/streaming.py",
+          "src/api/v1/agent_local_nodes.py",
+          "src/api/v1/agent_public.py",
+          "src/api/v1/agent_runtime.py",
+          "src/api/v1/agents.py",
+          "src/main.py",
+          "src/services/agent_runtime/control/memory_context.py",
+          "src/services/agent_runtime/control/snapshot_builder.py",
+          "src/services/agent_runtime/control/thread_lifecycle.py",
+          "src/services/agent_runtime/control/turn_start.py",
+          "src/services/agent_runtime/control_plane.py",
+          "src/services/agent_runtime/model/authorization.py",
+          "src/services/agent_runtime/model_plane.py",
+          "src/services/agent_runtime/runtime_configuration.py",
+          "src/services/assistant_entry/launch_resolution.py"
+        ],
+        "to_unit": "ai-gateway-contracts"
+      },
+      {
+        "allowed_by_agents_md": true,
+        "from_unit": "gateway",
+        "imported_modules": [
+          "ai_gateway_core",
+          "ai_gateway_core.agents.deletion",
+          "ai_gateway_core.agents.spec",
+          "ai_gateway_core.agents.system_prompt",
+          "ai_gateway_core.auth._core",
+          "ai_gateway_core.auth.gateway_secret",
+          "ai_gateway_core.billing.pricing_catalog",
+          "ai_gateway_core.comm.client",
+          "ai_gateway_core.comm.idempotency",
+          "ai_gateway_core.config",
+          "ai_gateway_core.connectors",
+          "ai_gateway_core.connectors.confluence_format",
+          "ai_gateway_core.enums",
+          "ai_gateway_core.eval",
+          "ai_gateway_core.eval.agent_version_candidate",
+          "ai_gateway_core.eval.evaluator_executor",
+          "ai_gateway_core.eval.runtime_contract",
+          "ai_gateway_core.events.consumer",
+          "ai_gateway_core.events.registry",
+          "ai_gateway_core.exceptions",
+          "ai_gateway_core.image",
+          "ai_gateway_core.image.image_state",
+          "ai_gateway_core.knowledge",
+          "ai_gateway_core.local_node",
+          "ai_gateway_core.logging",
+          "ai_gateway_core.mcp.client",
+          "ai_gateway_core.mcp.resilience",
+          "ai_gateway_core.media",
+          "ai_gateway_core.media.image_generation",
+          "ai_gateway_core.memory",
+          "ai_gateway_core.metrics",
+          "ai_gateway_core.metrics.observability",
+          "ai_gateway_core.metrics.realtime_metrics",
+          "ai_gateway_core.metrics.usage_recorder",
+          "ai_gateway_core.models",
+          "ai_gateway_core.persistence",
+          "ai_gateway_core.persistence.database",
+          "ai_gateway_core.persistence.repositories",
+          "ai_gateway_core.persistence.repositories.agent_repository",
+          "ai_gateway_core.persistence.repositories.agent_trace_repository",
+          "ai_gateway_core.persistence.repositories.mcp_repository",
+          "ai_gateway_core.proxy",
+          "ai_gateway_core.proxy.drain",
+          "ai_gateway_core.proxy.request_id_middleware",
+          "ai_gateway_core.proxy.sse_heartbeat",
+          "ai_gateway_core.proxy.version_middleware",
+          "ai_gateway_core.quiz",
+          "ai_gateway_core.release_manifest",
+          "ai_gateway_core.security",
+          "ai_gateway_core.security.redaction",
+          "ai_gateway_core.session",
+          "ai_gateway_core.sharing",
+          "ai_gateway_core.sharing.artifact_share_manager",
+          "ai_gateway_core.skills",
+          "ai_gateway_core.skills.builtin.skill_create",
+          "ai_gateway_core.skills.executor",
+          "ai_gateway_core.storage",
+          "ai_gateway_core.storage.artifact_storage",
+          "ai_gateway_core.storage.file_storage",
+          "ai_gateway_core.storage.image_storage",
+          "ai_gateway_core.style_presets",
+          "ai_gateway_core.tasks",
+          "ai_gateway_core.tracing"
+        ],
+        "importing_file_count": 152,
+        "importing_files": [
+          "src/adapters/base.py",
+          "src/adapters/comfyui.py",
+          "src/adapters/generic_rest.py",
+          "src/adapters/langgraph.py",
+          "src/adapters/openai.py",
+          "src/adapters/registry.py",
+          "src/adapters/stable_diffusion.py",
+          "src/adapters/tts.py",
+          "src/adapters/whisper.py",
+          "src/api/deps.py",
+          "src/api/internal/agent_capabilities.py",
+          "src/api/internal/attachment_capabilities.py",
+          "src/api/internal/confluence_capabilities.py",
+          "src/api/internal/image_capabilities.py",
+          "src/api/internal/office_artifacts.py",
+          "src/api/schemas/agents.py",
+          "src/api/schemas/assistant.py",
+          "src/api/schemas/request.py",
+          "src/api/schemas/response.py",
+          "src/api/v1/_agent_runtime_routes/attachments.py",
+          "src/api/v1/_agent_runtime_routes/core.py",
+          "src/api/v1/_agent_runtime_routes/preview.py",
+          "src/api/v1/_agent_runtime_routes/published.py",
+          "src/api/v1/_agent_runtime_routes/rate_limit.py",
+          "src/api/v1/_agent_runtime_routes/snapshot.py",
+          "src/api/v1/_agent_runtime_routes/streaming.py",
+          "src/api/v1/_assistant_routes/artifacts.py",
+          "src/api/v1/_assistant_routes/catalog.py",
+          "src/api/v1/_assistant_routes/metrics.py",
+          "src/api/v1/_assistant_routes/sessions.py",
+          "src/api/v1/_eval_dataset_routes.py",
+          "src/api/v1/_proxy_utils.py",
+          "src/api/v1/agent_images.py",
+          "src/api/v1/agent_local_nodes.py",
+          "src/api/v1/agent_public.py",
+          "src/api/v1/agent_runtime.py",
+          "src/api/v1/agents.py",
+          "src/api/v1/artifact_shares.py",
+          "src/api/v1/assistant.py",
+          "src/api/v1/config.py",
+          "src/api/v1/connector_admin.py",
+          "src/api/v1/connectors.py",
+          "src/api/v1/conversation_shares.py",
+          "src/api/v1/eval.py",
+          "src/api/v1/files.py",
+          "src/api/v1/health.py",
+          "src/api/v1/langgraph.py",
+          "src/api/v1/mcp.py",
+          "src/api/v1/models.py",
+          "src/api/v1/proxy.py",
+          "src/api/v1/quiz.py",
+          "src/api/v1/responses.py",
+          "src/api/v1/services.py",
+          "src/api/v1/sessions.py",
+          "src/api/v1/setup.py",
+          "src/api/v1/skills.py",
+          "src/api/v1/stream.py",
+          "src/api/v1/tasks.py",
+          "src/api/v1/tenant_policies.py",
+          "src/api/v2/agent.py",
+          "src/api/version.py",
+          "src/container.py",
+          "src/core/auth/api_key.py",
+          "src/core/auth/jwt.py",
+          "src/core/auth/password.py",
+          "src/core/auth/permissions.py",
+          "src/core/auth/rbac.py",
+          "src/core/auth/service_access_resolver.py",
+          "src/core/auth/user_resolver.py",
+          "src/core/crypto.py",
+          "src/core/file_cleanup.py",
+          "src/core/gateway/admission.py",
+          "src/core/gateway/circuit_breaker.py",
+          "src/core/gateway/dispatcher.py",
+          "src/core/gateway/rate_limiter.py",
+          "src/core/gateway/rate_policy.py",
+          "src/core/gateway/validator.py",
+          "src/core/middleware/_streaming/auth.py",
+          "src/core/middleware/_streaming/logging.py",
+          "src/core/middleware/_streaming/request_context.py",
+          "src/core/middleware/_streaming/tracing.py",
+          "src/core/middleware/rate_limit_http.py",
+          "src/core/middleware/streaming.py",
+          "src/core/observability/__init__.py",
+          "src/core/observability/metrics.py",
+          "src/core/observability/tracing.py",
+          "src/main.py",
+          "src/models/request.py",
+          "src/models/response.py",
+          "src/models/service.py",
+          "src/models/session.py",
+          "src/persistence/database.py",
+          "src/persistence/redis.py",
+          "src/persistence/repositories/__init__.py",
+          "src/proxy/billing_interceptor.py",
+          "src/proxy/billing_stream.py",
+          "src/proxy/config_loader.py",
+          "src/proxy/context_injector.py",
+          "src/proxy/langgraph_governance.py",
+          "src/proxy/langgraph_run_body.py",
+          "src/proxy/response_cache.py",
+          "src/proxy/transparent_proxy.py",
+          "src/services/agent_runtime/capability_catalog.py",
+          "src/services/agent_runtime/control/http_headers.py",
+          "src/services/agent_runtime/control/turn_start.py",
+          "src/services/agent_runtime/control/types.py",
+          "src/services/agent_runtime/control_plane.py",
+          "src/services/agent_runtime/mcp_gateway_broker.py",
+          "src/services/agent_runtime/model/chat_completions.py",
+          "src/services/agent_runtime/model/native_responses.py",
+          "src/services/agent_runtime/model_plane.py",
+          "src/services/agent_runtime_cleanup.py",
+          "src/services/assistant_entry/launch_resolution.py",
+          "src/services/assistant_entry/model_access.py",
+          "src/services/assistant_entry/session_binding.py",
+          "src/services/auth/api_key_service.py",
+          "src/services/billing/pricing_catalog.py",
+          "src/services/eval/eval_candidate_client.py",
+          "src/services/eval/eval_llm_client.py",
+          "src/services/eval/eval_outbox_worker.py",
+          "src/services/eval/golden.py",
+          "src/services/eval/kb_ragas_client.py",
+          "src/services/eval/kb_ragas_service.py",
+          "src/services/eval/trace_capture.py",
+          "src/services/eval/trace_retention_scheduler.py",
+          "src/services/health_contract.py",
+          "src/services/images/repository.py",
+          "src/services/images/service.py",
+          "src/services/knowledge_authz.py",
+          "src/services/llm/gateway_model_meta.py",
+          "src/services/llm/model_catalog_sync.py",
+          "src/services/llm/model_service.py",
+          "src/services/llm/provider_service.py",
+          "src/services/llm/provider_templates.py",
+          "src/services/llm/startup_seeder.py",
+          "src/services/local_node/repository.py",
+          "src/services/metrics/observability.py",
+          "src/services/metrics/realtime_metrics.py",
+          "src/services/metrics/usage_recorder.py",
+          "src/services/registry/database_storage.py",
+          "src/services/registry/service_registry.py",
+          "src/services/session/database_session_manager.py",
+          "src/services/session/guest_session_manager.py",
+          "src/services/session/session_manager.py",
+          "src/services/storage/__init__.py",
+          "src/services/storage/artifact_storage.py",
+          "src/services/storage/file_storage.py",
+          "src/services/storage/image_storage.py",
+          "src/services/task/database_task_storage.py",
+          "src/services/task/task_manager.py",
+          "src/services/task/task_queue.py",
+          "src/transports/base.py"
+        ],
+        "to_unit": "ai-gateway-core"
+      },
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "gateway",
+        "imported_modules": [
+          "knowledge_service.services.eval.retrieval_metrics",
+          "knowledge_service.services.knowledge.text_reranker"
+        ],
+        "importing_file_count": 2,
+        "importing_files": [
+          "src/services/eval/rag_regression.py",
+          "src/services/eval/rerank_bakeoff.py"
+        ],
+        "to_unit": "knowledge-service"
+      },
+      {
+        "allowed_by_agents_md": true,
+        "from_unit": "knowledge-service",
+        "imported_modules": [
+          "ai_gateway_contracts.capability_proof",
+          "ai_gateway_contracts.replay"
+        ],
+        "importing_file_count": 2,
+        "importing_files": [
+          "apps/knowledge-service/src/knowledge_service/api/routes/capability_plane.py",
+          "apps/knowledge-service/src/knowledge_service/main.py"
+        ],
+        "to_unit": "ai-gateway-contracts"
+      },
+      {
+        "allowed_by_agents_md": true,
+        "from_unit": "knowledge-service",
+        "imported_modules": [
+          "ai_gateway_core.auth.gateway_secret",
+          "ai_gateway_core.auth.gateway_secret_middleware",
+          "ai_gateway_core.comm",
+          "ai_gateway_core.config",
+          "ai_gateway_core.config.endpoints",
+          "ai_gateway_core.knowledge",
+          "ai_gateway_core.logging",
+          "ai_gateway_core.proxy",
+          "ai_gateway_core.proxy.drain",
+          "ai_gateway_core.release_manifest",
+          "ai_gateway_core.security",
+          "ai_gateway_core.storage.image_storage",
+          "ai_gateway_core.tracing"
+        ],
+        "importing_file_count": 13,
+        "importing_files": [
+          "apps/knowledge-service/src/knowledge_service/api/routes/eval.py",
+          "apps/knowledge-service/src/knowledge_service/api/routes/knowledge.py",
+          "apps/knowledge-service/src/knowledge_service/api/version.py",
+          "apps/knowledge-service/src/knowledge_service/auth/gateway_secret_mw.py",
+          "apps/knowledge-service/src/knowledge_service/main.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/confluence/sync_service.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/document_service.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/embedding_manager.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/ingestion/document_image_extractor.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/metadata_extractor.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/tenant_provider.py",
+          "apps/knowledge-service/src/knowledge_service/services/knowledge/vlm_ocr_service.py"
+        ],
+        "to_unit": "ai-gateway-core"
+      }
+    ],
+    "rule": "docs/harness/architecture.md: src/ and apps/* are siblings that may depend on packages/ai-gateway-core; they must not import each other, and one app must not import another. Static enforcement is an ARC-00B gate.",
+    "violations": [
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "ai-gateway-contracts",
+        "imported_modules": [
+          "ai_gateway_core.agents",
+          "ai_gateway_core.agents.runtime",
+          "ai_gateway_core.agents.runtime_lease",
+          "ai_gateway_core.auth",
+          "ai_gateway_core.auth.capability_proof",
+          "ai_gateway_core.events",
+          "ai_gateway_core.events.envelope",
+          "ai_gateway_core.events.errors"
+        ],
+        "importing_file_count": 1,
+        "importing_files": [
+          "packages/ai-gateway-contracts/tests/test_shim_identity.py"
+        ],
+        "to_unit": "ai-gateway-core"
+      },
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "ai-gateway-core",
+        "imported_modules": [
+          "src.core.observability.metrics",
+          "src.persistence.database"
+        ],
+        "importing_file_count": 2,
+        "importing_files": [
+          "packages/ai-gateway-core/src/ai_gateway_core/comm/client.py",
+          "packages/ai-gateway-core/src/ai_gateway_core/storage/artifact_storage.py"
+        ],
+        "to_unit": "gateway"
+      },
+      {
+        "allowed_by_agents_md": false,
+        "from_unit": "gateway",
+        "imported_modules": [
+          "knowledge_service.services.eval.retrieval_metrics",
+          "knowledge_service.services.knowledge.text_reranker"
+        ],
+        "importing_file_count": 2,
+        "importing_files": [
+          "src/services/eval/rag_regression.py",
+          "src/services/eval/rerank_bakeoff.py"
+        ],
+        "to_unit": "knowledge-service"
+      }
+    ]
+  },
+  "non_python_edges": {
+    "rust": "rust/agent-runtime-overlay is a pinned fork + ai-platform crates; it shares no Python imports. Cross-language contracts travel as JSON schema/fixtures (see contract-freeze.json) — a Rust contract crate is the authority (ADR-006 §4).",
+    "web": "web/ talks to gateway over HTTP only; no code-level dependency on Python units."
+  },
+  "python_units": {
+    "ai-gateway-contracts": {
+      "path": "packages/ai-gateway-contracts/",
+      "role": "I/O-free cross-service protocol contracts (ARC-04)"
+    },
+    "ai-gateway-core": {
+      "path": "packages/ai-gateway-core/",
+      "role": "Shared primitives package"
+    },
+    "gateway": {
+      "path": "src/",
+      "role": "Gateway service (public API + control/model planes)"
+    },
+    "knowledge-service": {
+      "path": "apps/knowledge-service/",
+      "role": "Knowledge API + worker roles"
+    },
+    "local-node": {
+      "path": "apps/local-node/",
+      "role": "Host-side Local Node daemon"
+    },
+    "sdk-python": {
+      "path": "sdk/python/",
+      "role": "Published Python SDK"
+    }
+  },
+  "schema": "ai-gateway/baseline/dependency-baseline/v1"
+}

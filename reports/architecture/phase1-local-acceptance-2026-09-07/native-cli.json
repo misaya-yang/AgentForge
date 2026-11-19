@@ -1,0 +1,18 @@
+{
+  "schema_version": "ai-gateway-cli/native-artifact/v1",
+  "upstream_sha": "94cbbddafc1776d5e377bca1b05932c697e82238",
+  "overlay_sha256": "80992c9505b06a2e9993980efc739ce33ee79c1fcc79b60914c894b2f62129ba",
+  "target_system": "linux",
+  "target_arch": "arm64",
+  "binary": "codex",
+  "sha256": "6c671e2365de1724d24b2e5f76b3011380af12ee7bf4856bd9fc418fd6f27ce3",
+  "materials": {
+    "LICENSE": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc",
+    "NOTICE": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915",
+    "NOTICE.ai-platform.md": "87e497f9aeef8b35848fac983a0466f813322dd0712dd3c16acf221b038155ad",
+    "sbom.cdx.json": "183f270c8c148f4e0d1f15ddfb0c8494697f7b2a412625da5299a6f19a7804ba",
+    "source-receipt.json": "c867e29082c7e8ebd83d7bf8c56603a7cf8dce78ca63317bffcd35a60d792a57"
+  },
+  "version_execution": "codex-cli 0.0.0",
+  "scope": "Linux arm64 native binary built and launched in Docker; provenance/materials verified; Node adapter tests separate; no claim for x64/Darwin/Windows or native live-provider tool journey"
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": "codex-refresh-iab-acceptance/v1",
+  "browser": "Codex in-app browser",
+  "base_url": "http://127.0.0.1:8081",
+  "model": "qwen3.7-plus",
+  "upstream_sha": "279ba894152b2c01c5294cc0723b463b209bdca4",
+  "overlay_sha256": "5dc36c43638a48bc63e7069d4513ccc3c4f45ad9d930092c88c4a4a75c3b2e85",
+  "final_source_receipt": "live-source-closeout.json",
+  "checks": {
+    "login": "PASS",
+    "page_identity_nonblank_no_framework_overlay": "PASS",
+    "console_errors_final": 0,
+    "text_exact_marker": "PASS",
+    "history_after_reload": "PASS",
+    "second_turn_recall": "PASS",
+    "python_approve_print42": "PASS_PG_ONE_SUCCEEDED_EXECUTION",
+    "python_deny": "PASS_PG_ZERO_EXECUTIONS_AND_DISPATCH",
+    "cancel_run": "PASS_CANCELLED_AND_ZERO_ACTIVE_MODEL_LEASES",
+    "cancel_worker_cleanup": "NOT_PROVEN_SIDE_EFFECT_UNKNOWN",
+    "kb_hybrid_retrieval": "PASS_VECTOR_ONE_BM25_ONE",
+    "kb_qa_citation": "PASS_P1_ORION_739_AND_SOURCE",
+    "agent_studio": "PASS_RENDER_ONLY",
+    "cold_resume_after_runtime_restart": "PASS_EXACT_COLD_RESUME_QWEN_OK"
+  },
+  "cold_resume_latency_seconds": 6.13,
+  "synthetic_session_id": "51fc4288-237c-4476-9951-b81fd0d2ed25",
+  "screenshots": [
+    "tmp/codex-refresh-integration/iab-python-pass.png",
+    "tmp/codex-refresh-integration/iab-kb-retrieval-pass.png",
+    "tmp/codex-refresh-integration/iab-kb-qa-pass.png",
+    "tmp/codex-refresh-integration/iab-cold-resume-pass.png"
+  ],
+  "failures_preserved": [
+    "live-ui-recovery-connect-error-20260922.json",
+    "live-ui-final-recovery-provider-fallback-20260922.json",
+    "api-acceptance-initial-failed.json",
+    "api-acceptance-final.json"
+  ],
+  "not_verified": [
+    "full compatibility C01-C20 matrix",
+    "new knowledge ingestion path",
+    "full Eval runtime regressions",
+    "hosted Rust tests",
+    "multi-architecture distribution and fresh machine",
+    "restore rehearsal"
+  ],
+  "new_permission_modes": "RESEARCH_ONLY_NOT_IMPLEMENTED"
+}

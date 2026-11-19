@@ -1,0 +1,15 @@
+{
+  "method": "Extract official old immutable Git tree checked-in schema/json and schema/typescript; combine by relative schema filename; exclude precomputed inputs",
+  "revision": "279ba894152b2c01c5294cc0723b463b209bdca4",
+  "actual": {
+    "sha256": "0bbd1819a6f910bd40f4143022897a502156d26011736e9f0455476b6d2492ab",
+    "file_count": 1054,
+    "total_bytes": 4017931
+  },
+  "expected_old_release": {
+    "file_count": 1054,
+    "sha256": "0bbd1819a6f910bd40f4143022897a502156d26011736e9f0455476b6d2492ab",
+    "total_bytes": 4017931
+  },
+  "matches_release": true
+}

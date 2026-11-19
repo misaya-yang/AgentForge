@@ -1,0 +1,18 @@
+{
+  "source": "https://pypi.org",
+  "resolution_tool": "uv 0.11.19",
+  "python": "3.14",
+  "wheel_bytes_verified": false,
+  "architectures": {
+    "amd64": {
+      "resolved_distributions": 15,
+      "catalog_sha256": "380b17a6047c7c82948aa2191a981b014eb39d4f70a5691e570511062b21782f",
+      "metadata_selected_wheels": 16
+    },
+    "arm64": {
+      "resolved_distributions": 15,
+      "catalog_sha256": "4d080ec548b410b7817c97b5ad3cbb47402a37522642fd690d488a89d10b328f",
+      "metadata_selected_wheels": 16
+    }
+  }
+}

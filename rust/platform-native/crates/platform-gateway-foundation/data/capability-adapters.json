@@ -1,0 +1,338 @@
+[
+  {
+    "id": "reasoning/none-v1",
+    "kind": "reasoning",
+    "label": "No reasoning control",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/dashscope-thinking-v1",
+    "kind": "reasoning",
+    "label": "DashScope thinking toggle and budget",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "budget_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/dashscope-responses-effort-v1",
+    "kind": "reasoning",
+    "label": "DashScope Responses reasoning effort",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "medium",
+            "high"
+          ]
+        },
+        "chat_enabled": {
+          "type": "boolean"
+        },
+        "chat_budget_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        }
+      },
+      "required": [
+        "effort",
+        "chat_enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/deepseek-thinking-effort-v1",
+    "kind": "reasoning",
+    "label": "DeepSeek thinking toggle and effort",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "high",
+            "max"
+          ]
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/anthropic-adaptive-v1",
+    "kind": "reasoning",
+    "label": "Anthropic adaptive thinking",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "effort": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/anthropic-budget-v1",
+    "kind": "reasoning",
+    "label": "Anthropic fixed thinking budget",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "budget_tokens": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 65536
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/openai-responses-effort-v1",
+    "kind": "reasoning",
+    "label": "OpenAI Responses reasoning effort",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ]
+        }
+      },
+      "required": [
+        "effort"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/gemini-thinking-v1",
+    "kind": "reasoning",
+    "label": "Gemini thinking level or budget",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "budget_tokens": {
+          "type": "integer",
+          "minimum": -1,
+          "maximum": 24576
+        },
+        "include_thoughts": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/xai-effort-v1",
+    "kind": "reasoning",
+    "label": "xAI reasoning effort",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "effort": {
+          "type": "string",
+          "enum": [
+            "none",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        }
+      },
+      "required": [
+        "effort"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "reasoning/openai-compatible-binary-v1",
+    "kind": "reasoning",
+    "label": "OpenAI-compatible binary thinking",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "cache/none-v1",
+    "kind": "prompt_cache",
+    "label": "No prompt cache controls",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "cache/automatic-v1",
+    "kind": "prompt_cache",
+    "label": "Provider automatic prefix cache",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "cache/dashscope-session-v1",
+    "kind": "prompt_cache",
+    "label": "DashScope Responses session cache",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "cache/anthropic-breakpoint-v1",
+    "kind": "prompt_cache",
+    "label": "Anthropic explicit cache breakpoints",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "cache/openai-content-breakpoint-v1",
+    "kind": "prompt_cache",
+    "label": "OpenAI-compatible content cache breakpoint",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "search/none-v1",
+    "kind": "native_search",
+    "label": "No native search",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "search/openai-web-search-v1",
+    "kind": "native_search",
+    "label": "OpenAI web search",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "search/anthropic-server-tool-v1",
+    "kind": "native_search",
+    "label": "Anthropic web search server tool",
+    "settings_schema": {
+      "type": "object",
+      "properties": {
+        "max_uses": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "search/gemini-google-search-v1",
+    "kind": "native_search",
+    "label": "Gemini Google Search",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  {
+    "id": "search/dashscope-native-v1",
+    "kind": "native_search",
+    "label": "DashScope native search",
+    "settings_schema": {
+      "type": "object",
+      "additionalProperties": false
+    }
+  }
+]

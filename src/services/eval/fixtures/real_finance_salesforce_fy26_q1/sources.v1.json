@@ -1,0 +1,50 @@
+{
+  "schema_version": "fixed-primary-source-manifest/v1",
+  "snapshot_id": "salesforce-fy25-q1fy26-sec-primary-2025-05-29",
+  "company": "Salesforce, Inc.",
+  "ticker": "CRM",
+  "cik": "0001108524",
+  "currency": "USD",
+  "statement_unit": "millions",
+  "retrieved_at": "2026-08-12T00:00:00Z",
+  "source_policy": "Only these immutable SEC accession documents and the checked-in derived source packet are allowed.",
+  "source_packet": {
+    "path": "source_packet.md",
+    "sha256": "2ed163986166adf9283ac64e5d6875a51922a2a69eacb0ae29803548118e1899"
+  },
+  "documents": [
+    {
+      "source_id": "SEC-10K-FY25",
+      "authority": "U.S. Securities and Exchange Commission EDGAR",
+      "form": "10-K",
+      "accession": "0001108524-25-000006",
+      "period_end": "2025-01-31",
+      "filed_at": "2025-03-05",
+      "url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852425000006/crm-20250131.htm",
+      "sha256": "4b181008a668650f4722d04347eb71ffa058ccc62a2e44f7b992d2b5261f9eaf",
+      "bytes": 2454201
+    },
+    {
+      "source_id": "SEC-10Q-Q1FY26",
+      "authority": "U.S. Securities and Exchange Commission EDGAR",
+      "form": "10-Q",
+      "accession": "0001108524-25-000030",
+      "period_end": "2025-04-30",
+      "filed_at": "2025-05-29",
+      "url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852425000030/crm-20250430.htm",
+      "sha256": "8f5596d392cb201798dea964390a00a2c0a4cf483f640396a962a48994935d04",
+      "bytes": 1672571
+    },
+    {
+      "source_id": "SEC-8K-EX99-Q1FY26",
+      "authority": "U.S. Securities and Exchange Commission EDGAR",
+      "form": "8-K Exhibit 99.1",
+      "accession": "0001108524-25-000027",
+      "period_end": "2025-04-30",
+      "filed_at": "2025-05-28",
+      "url": "https://www.sec.gov/Archives/edgar/data/1108524/000110852425000027/crm-q1fy26xexhibit991.htm",
+      "sha256": "1b4688af9719657d9d34665be485f184a1bc707bcade2de12667b1669244ab5d",
+      "bytes": 437286
+    }
+  ]
+}

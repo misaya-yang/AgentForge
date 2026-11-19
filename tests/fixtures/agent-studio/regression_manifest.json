@@ -1,0 +1,288 @@
+{
+  "schema_version": "agent-studio-regression/v1",
+  "manifest_version": "1.1.0",
+  "scope": "AS-00..AS-08",
+  "gates": [
+    {
+      "phase": "AS-00",
+      "id": "branch-baseline",
+      "cwd": ".",
+      "command": "git status --short --branch && git log --oneline --decorate HEAD..origin/main --max-count=30 && git diff --name-only HEAD..origin/main",
+      "required": true
+    },
+    {
+      "phase": "AS-00",
+      "id": "capability-tests",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_capability_proof --test runtime_control_plane -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-00",
+      "id": "assistant-isolation",
+      "cwd": ".",
+      "command": "make test-isolation",
+      "required": true
+    },
+    {
+      "phase": "AS-00",
+      "id": "lint",
+      "cwd": ".",
+      "command": "cargo clippy --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --all-targets -- -D warnings",
+      "required": true
+    },
+    {
+      "phase": "AS-01",
+      "id": "migration-contract",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_database -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-01",
+      "id": "agent-api",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_agents_api --test agent_studio_rbac -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-01",
+      "id": "lint",
+      "cwd": ".",
+      "command": "cargo clippy --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --all-targets -- -D warnings",
+      "required": true
+    },
+    {
+      "phase": "AS-01",
+      "id": "gateway-regression",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_boot --test agent_studio_authorization -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "gateway-envelope",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_envelope -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "connector-binding",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_connector -- --include-ignored",
+      "expected": "Catalog-model connector bindings (provider + tool_name, no grant) resolve only when the provider has an enabled connector_configs row visible to the tenant and the calling user holds a connected user_connectors row; disabled, ingest-only, unauthenticated, public-channel and disconnected cases are stripped, while grant-based bindings keep the credential-principal authorization path.",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "resolver-isolation",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_control_plane --test runtime_capability_contract -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "trace-session",
+      "cwd": ".",
+      "command": "make agent-runtime-eval-contract-gate",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "runtime-gate",
+      "cwd": ".",
+      "command": "make verify-assistant-runtime-dev && make test-isolation",
+      "required": true
+    },
+    {
+      "phase": "AS-02",
+      "id": "lint",
+      "cwd": ".",
+      "command": "cargo clippy --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --all-targets -- -D warnings",
+      "required": true
+    },
+    {
+      "phase": "AS-03",
+      "id": "mcp-api-runtime",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_mcp --test agent_studio_mcp_api -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-03",
+      "id": "mcp-security",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_mcp --test agent_studio_mcp_api -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-03",
+      "id": "lint",
+      "cwd": ".",
+      "command": "cargo clippy --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --all-targets -- -D warnings",
+      "required": true
+    },
+    {
+      "phase": "AS-03",
+      "id": "assistant-regression",
+      "cwd": ".",
+      "command": "make test-isolation && make verify-assistant-runtime-dev",
+      "required": true
+    },
+    {
+      "phase": "AS-04",
+      "id": "skill-api-isolation",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_skills_api --test agent_studio_skill_isolation --test agent_studio_skill_entrypoint -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-04",
+      "id": "skill-runtime",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test runtime_control_plane -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-04",
+      "id": "knowledge-binding",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_knowledge_capability --test agent_studio_capability_proof -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-04",
+      "id": "lint",
+      "cwd": ".",
+      "command": "cargo clippy --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --all-targets -- -D warnings",
+      "required": true
+    },
+    {
+      "phase": "AS-05",
+      "id": "frontend-static",
+      "cwd": ".",
+      "command": "pnpm -C web lint && pnpm -C web type-check && pnpm -C web i18n:check && pnpm -C web build",
+      "required": true
+    },
+    {
+      "phase": "AS-05",
+      "id": "agent-studio-e2e",
+      "cwd": ".",
+      "command": "pnpm -C web exec playwright test e2e/agent-studio.spec.ts --config playwright.opensource.config.ts",
+      "required": true
+    },
+    {
+      "phase": "AS-05",
+      "id": "existing-route-e2e",
+      "cwd": ".",
+      "command": "pnpm -C web e2e:opensource",
+      "required": true
+    },
+    {
+      "phase": "AS-05",
+      "id": "preview-contract",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_agents_api --test runtime_control_plane -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-06",
+      "id": "publish-api-atomicity",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_publication --test agent_studio_eval -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-06",
+      "id": "agent-eval",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_eval -- --include-ignored && make eval-regression-gate && make verify-eval-dev",
+      "required": true
+    },
+    {
+      "phase": "AS-06",
+      "id": "frontend",
+      "cwd": ".",
+      "command": "pnpm -C web lint && pnpm -C web type-check && pnpm -C web i18n:check && pnpm -C web build && pnpm -C web exec playwright test e2e/agent-publish.spec.ts --config playwright.opensource.config.ts",
+      "required": true
+    },
+    {
+      "phase": "AS-06",
+      "id": "runtime-regression",
+      "cwd": ".",
+      "command": "make verify-assistant-runtime-dev && make test-isolation",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "runtime-api",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_runtime --test agent_studio_channel -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "frontend-build",
+      "cwd": ".",
+      "command": "pnpm -C web lint && pnpm -C web type-check && pnpm -C web i18n:check && pnpm -C web build",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "embed-header-contract",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_embed_headers -- --include-ignored && bash scripts/new/test-agent-embed-headers.sh --config-only",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "built-nginx-header-smoke",
+      "cwd": ".",
+      "command": "bash scripts/new/test-agent-embed-headers.sh --built-image",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "channel-browser",
+      "cwd": ".",
+      "command": "pnpm -C web exec playwright test e2e/agent-hosted.spec.ts e2e/agent-embed.spec.ts --config playwright.opensource.config.ts",
+      "required": true
+    },
+    {
+      "phase": "AS-07",
+      "id": "runtime-regression",
+      "cwd": ".",
+      "command": "make verify-assistant-runtime-dev && make test-isolation && pnpm -C web e2e:opensource",
+      "required": true
+    },
+    {
+      "phase": "AS-08",
+      "id": "operations-governance",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-gateway --test agent_studio_observability --test agent_studio_agents_api --test agent_studio_database -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-08",
+      "id": "aggregate-manifest",
+      "cwd": ".",
+      "command": "cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-eval --test studio_manifest -- --include-ignored",
+      "required": true
+    },
+    {
+      "phase": "AS-08",
+      "id": "analytics-frontend",
+      "cwd": ".",
+      "command": "pnpm -C web lint && pnpm -C web type-check && pnpm -C web i18n:check && pnpm -C web build && pnpm -C web exec playwright test e2e/agent-analytics.spec.ts --config playwright.opensource.config.ts",
+      "required": true
+    },
+    {
+      "phase": "AS-08",
+      "id": "compatibility",
+      "cwd": ".",
+      "command": "make test-isolation && make verify-assistant-runtime-dev && make validate-example-config",
+      "required": true
+    }
+  ]
+}

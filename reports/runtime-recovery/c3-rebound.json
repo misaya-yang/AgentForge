@@ -1,0 +1,39 @@
+{
+  "run": {
+    "run_id": "4d79bf85-4222-45f8-9d3f-14b69a5b943d",
+    "status": "running",
+    "session_id": "c15cbf2d-d3c9-4897-a922-0035cd444103",
+    "harness_thread_id": "01a0dc46-c4ad-7143-9065-728f2a63d727",
+    "owner_id": "01a0dc59-ae8d-71f0-a8a2-e85d7dd201d0",
+    "fence": 2,
+    "lease_id": "1a3f54e9-2e8a-4dc1-a847-81ea6585ab05",
+    "snapshot_id": "eb14677d-89b7-4e5e-bd2c-7a8022fc5b1e",
+    "model_id": "qwen3.8-flash",
+    "lease_status": "active"
+  },
+  "approvals": [
+    {
+      "approval_id": "01a0dc58-a038-7900-b287-b26777628e27",
+      "status": "pending",
+      "tool_call_id": "call_6f1dee9f648c47db8a90bb04",
+      "expires_at": "2026-09-26 06:23:10.838556+00:00"
+    }
+  ],
+  "invocations": [
+    {
+      "call_id": "call_6f1dee9f648c47db8a90bb04",
+      "tool": "generate_quiz",
+      "has_response": false
+    }
+  ],
+  "executions": [],
+  "core": {
+    "started": 1,
+    "complete": 0,
+    "aborted": 0,
+    "calls": {
+      "call_6f1dee9f648c47db8a90bb04": 1
+    },
+    "outputs": {}
+  }
+}

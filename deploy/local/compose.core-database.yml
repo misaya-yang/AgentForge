@@ -1,0 +1,259 @@
+# Exact database-only projection of compose.core.yml; same project, volumes and authority.
+services:
+  files-postgres:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - postgres
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-postgres-tls:/output
+  files-socket:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - socket
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - fresh-postgres-socket:/output
+  files-authority:
+    image: ${LOCAL_FRESH_TOOLS_IMAGE:?Native preparation required}
+    pull_policy: never
+    entrypoint:
+    - /usr/local/bin/platform-tools
+    command:
+    - local-fresh-files
+    - --input
+    - /input
+    - --directory
+    - /output
+    - --lane
+    - authority
+    user: 0:0
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    restart: 'no'
+    volumes:
+    - type: bind
+      source: ${LOCAL_FRESH_DATA_INPUT:?Native preparation required}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - fresh-authority:/output
+  postgres:
+    cap_drop:
+    - ALL
+    read_only: true
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 256
+    user: 70:70
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=70,gid=70,mode=1777
+    networks:
+    - data-postgres
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${LOCAL_FRESH_SOURCE_DATABASE:?Native prepare records original database}
+      POSTGRES_PASSWORD_FILE: /run/data-tls/bootstrap-password
+    ports:
+    - 127.0.0.1:${POSTGRES_PORT}:5432
+    volumes:
+    - postgres:/var/lib/postgresql/data
+    - fresh-postgres-tls:/run/data-tls:ro
+    - fresh-postgres-socket:/var/run/postgresql
+    mem_limit: 512m
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    command:
+    - postgres
+    - -c
+    - ssl=on
+    - -c
+    - ssl_min_protocol_version=TLSv1.3
+    - -c
+    - ssl_cert_file=/run/data-tls/postgres.crt
+    - -c
+    - ssl_key_file=/run/data-tls/postgres.key
+    - -c
+    - ssl_ca_file=/run/data-tls/ca-bundle.pem
+    - -c
+    - hba_file=/run/data-tls/pg_hba.conf
+    - -c
+    - password_encryption=scram-sha-256
+    depends_on:
+      files-postgres:
+        condition: service_completed_successfully
+      files-socket:
+        condition: service_completed_successfully
+  database-fresh:
+    image: ${MIGRATE_IMAGE:?Select the owned native authority image}
+    pull_policy: never
+    user: 70:70
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=128m,mode=1777
+    networks:
+    - data-postgres
+    environment:
+      AI_GATEWAY_ROLE_PREFIX: ai_gateway_
+      AI_GATEWAY_FRESH_OPERATOR_USER: ${POSTGRES_USER:?Existing Unix operator identity required}
+      AI_GATEWAY_FRESH_OPERATOR_SOCKET_DIRECTORY: /var/run/postgresql
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN_FILE: /run/data/authority/migrator/dsn
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CA_FILE: /run/data/authority/migrator/ca-bundle.pem
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CERT_FILE: /run/data/authority/migrator/tls.crt
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_KEY_FILE: /run/data/authority/migrator/tls.key
+      AI_GATEWAY_DATABASE_GATEWAY_DSN_FILE: /run/data/authority/gateway/dsn
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CA_FILE: /run/data/authority/gateway/ca-bundle.pem
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CERT_FILE: /run/data/authority/gateway/tls.crt
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_KEY_FILE: /run/data/authority/gateway/tls.key
+      AI_GATEWAY_DATABASE_RUNTIME_DSN_FILE: /run/data/authority/runtime/dsn
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CA_FILE: /run/data/authority/runtime/ca-bundle.pem
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CERT_FILE: /run/data/authority/runtime/tls.crt
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_KEY_FILE: /run/data/authority/runtime/tls.key
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN_FILE: /run/data/authority/capability_worker/dsn
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CA_FILE: /run/data/authority/capability_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CERT_FILE: /run/data/authority/capability_worker/tls.crt
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_KEY_FILE: /run/data/authority/capability_worker/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN_FILE: /run/data/authority/knowledge_api/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CA_FILE: /run/data/authority/knowledge_api/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CERT_FILE: /run/data/authority/knowledge_api/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_KEY_FILE: /run/data/authority/knowledge_api/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN_FILE: /run/data/authority/knowledge_worker/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CA_FILE: /run/data/authority/knowledge_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CERT_FILE: /run/data/authority/knowledge_worker/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_KEY_FILE: /run/data/authority/knowledge_worker/tls.key
+      AI_GATEWAY_DATABASE_MIGRATOR_PASSWORD_FILE: /run/data/authority/migrator/password
+      AI_GATEWAY_DATABASE_MIGRATOR_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_MIGRATOR_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_MIGRATOR_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_MIGRATOR_EXPECTED_ROLE: ai_gateway_migrator
+      AI_GATEWAY_DATABASE_MIGRATOR_MODE: direct
+      AI_GATEWAY_DATABASE_GATEWAY_PASSWORD_FILE: /run/data/authority/gateway/password
+      AI_GATEWAY_DATABASE_GATEWAY_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_GATEWAY_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_GATEWAY_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_GATEWAY_EXPECTED_ROLE: ai_gateway_gateway
+      AI_GATEWAY_DATABASE_GATEWAY_MODE: direct
+      AI_GATEWAY_DATABASE_RUNTIME_PASSWORD_FILE: /run/data/authority/runtime/password
+      AI_GATEWAY_DATABASE_RUNTIME_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_RUNTIME_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_RUNTIME_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_RUNTIME_EXPECTED_ROLE: ai_gateway_runtime
+      AI_GATEWAY_DATABASE_RUNTIME_MODE: direct
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_PASSWORD_FILE: /run/data/authority/capability_worker/password
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_EXPECTED_ROLE: ai_gateway_capability_worker
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_MODE: direct
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_PASSWORD_FILE: /run/data/authority/knowledge_api/password
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_EXPECTED_ROLE: ai_gateway_knowledge_api
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_MODE: direct
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_PASSWORD_FILE: /run/data/authority/knowledge_worker/password
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_EXPECTED_HOST: postgres
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DATABASE_ALIAS: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_PHYSICAL_DATABASE: gateway_dev_fresh
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_EXPECTED_ROLE: ai_gateway_knowledge_worker
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_MODE: direct
+    entrypoint:
+    - /usr/local/bin/database-authority
+    command:
+    - fresh-development-init
+    - --expected-database
+    - ${POSTGRES_DB:?Select explicit fresh database}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      files-authority:
+        condition: service_completed_successfully
+    restart: 'no'
+    volumes:
+    - fresh-authority:/run/data/authority:ro
+    - fresh-postgres-socket:/var/run/postgresql:ro
+    mem_limit: 256m
+    pids_limit: 64
+networks:
+  data-postgres:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+      - subnet: ${DATA_CLIENT_CIDR:?Native preparation required}
+volumes:
+  postgres: null
+  fresh-postgres-tls: {}
+  fresh-postgres-socket: {}
+  fresh-authority: {}

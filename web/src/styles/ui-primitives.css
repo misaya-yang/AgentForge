@@ -1,0 +1,67 @@
+/* Shared primitive defaults live below utilities in the CSS cascade.
+ * Caller layout utilities override these defaults without a runtime class-merger. */
+@layer components {
+  .ui-alert-dialog-slot-1 { @apply mt-2 sm:mt-0; }
+  .ui-badge-slot-1 { @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2; }
+  .ui-button-slot-1 { @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none active:translate-y-px; }
+  .ui-card-slot-1 { @apply rounded-lg text-card-foreground; }
+  .ui-card-slot-2 { @apply flex flex-col space-y-1.5 p-6; }
+  .ui-card-slot-3 { @apply text-lg font-semibold leading-none tracking-tight; }
+  .ui-card-slot-4 { @apply text-sm text-muted-foreground; }
+  .ui-card-slot-5 { @apply p-6 pt-0; }
+  .ui-card-slot-6 { @apply flex items-center p-6 pt-0; }
+  .ui-checkbox-slot-1 { @apply h-4 w-4 rounded border-border text-primary focus:ring-primary; }
+  .ui-checkbox-slot-2 { @apply cursor-pointer disabled:cursor-not-allowed disabled:opacity-50; }
+  .ui-collapsible-slot-1 { @apply overflow-hidden transition-all duration-200 ease-out; }
+  .ui-combobox-slot-3 { @apply text-xs truncate mt-0.5; }
+  .ui-combobox-slot-4 { @apply rounded-xl overflow-hidden; }
+  .ui-combobox-slot-5 { @apply border border-border/60 ring-1 ring-black/5 dark:ring-white/10; }
+  .ui-combobox-slot-8 { animation: ui-pop-in 150ms ease-out; }
+  .ui-combobox-slot-9 { @apply w-full h-10 pl-9 pr-9 rounded-lg text-sm; }
+  .ui-combobox-slot-11 { @apply border border-border/60; }
+  .ui-combobox-slot-14 { @apply focus:border-primary/50 focus:ring-2 focus:ring-primary/20; }
+  .ui-combobox-slot-15 { @apply transition-all duration-150; }
+  .ui-combobox-slot-16 { @apply relative flex cursor-pointer select-none items-center; }
+  .ui-combobox-slot-17 { @apply rounded-lg px-3 py-2.5 text-sm outline-hidden; }
+  .ui-combobox-slot-18 { @apply transition-all duration-100; }
+  .ui-combobox-slot-21 { @apply flex h-10 w-full items-center justify-between; }
+  .ui-combobox-slot-22 { @apply rounded-lg border border-input bg-background px-3 py-2 text-sm; }
+  .ui-combobox-slot-24 { @apply focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2; }
+  .ui-combobox-slot-25 { @apply disabled:cursor-not-allowed disabled:opacity-50; }
+  .ui-combobox-slot-26 { @apply transition-all duration-200; }
+  .ui-combobox-slot-28 { @apply h-4 w-4 text-muted-foreground transition-transform duration-200; }
+  .ui-dialog-slot-1 { @apply grid max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-lg gap-4 overflow-y-auto rounded-xl border border-border bg-background p-5 shadow-xl sm:p-6; }
+  .ui-dialog-slot-2 { @apply flex flex-col space-y-1.5 text-center sm:text-left; }
+  .ui-dialog-slot-3 { @apply flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2; }
+  .ui-dialog-slot-4 { @apply text-lg font-semibold leading-none tracking-tight; }
+  .ui-dialog-slot-5 { @apply text-sm text-muted-foreground; }
+  .ui-dropdown-menu-slot-1 { @apply ml-auto text-xs tracking-widest opacity-60; }
+  .ui-input-slot-1 { @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground transition-[border-color,box-shadow] duration-150 focus-visible:outline-hidden focus-visible:border-primary/50 focus-visible:ring-[3px] focus-visible:ring-ring/10 disabled:cursor-not-allowed disabled:opacity-50; }
+  .ui-label-slot-1 { @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70; }
+  .ui-popover-slot-1 { @apply z-50 min-w-32 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2 text-popover-foreground shadow-xl; }
+  .ui-popover-slot-2 { animation: ui-pop-in 150ms ease-out; }
+  .ui-scroll-area-slot-1 { @apply relative overflow-auto; scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+  .ui-table-slot-1 { @apply w-full caption-bottom text-sm; }
+  .ui-table-slot-4 { @apply border-b border-border/60 transition-colors hover:bg-muted/40; }
+  .ui-table-slot-5 { @apply h-11 px-4 text-left align-middle font-medium text-muted-foreground bg-muted/20; }
+  .ui-table-slot-6 { @apply p-4 align-middle text-foreground; }
+  .ui-textarea-slot-1 { @apply flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground transition-[border-color,box-shadow] duration-150 focus-visible:outline-hidden focus-visible:border-primary/50 focus-visible:ring-[3px] focus-visible:ring-ring/10 disabled:cursor-not-allowed disabled:opacity-50; }
+  .ui-badge-variant-default { @apply border-transparent bg-primary text-primary-foreground; }
+  .ui-badge-variant-secondary { @apply border-transparent bg-secondary text-secondary-foreground; }
+  .ui-badge-variant-destructive { @apply border-transparent bg-destructive text-destructive-foreground; }
+  .ui-button-variant-default { @apply bg-primary/8 text-primary border border-primary/15 hover:bg-primary/[0.14] hover:border-primary/25 dark:bg-primary/12 dark:border-primary/20 dark:hover:bg-primary/20 dark:hover:border-primary/30; }
+  .ui-button-variant-primary { @apply border border-primary bg-primary text-primary-foreground shadow-[0_1px_2px_hsl(var(--foreground)/0.08)] hover:bg-primary/90 hover:border-primary/90 disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100; }
+  .ui-button-variant-quiet { @apply border border-transparent bg-muted/55 text-foreground hover:bg-muted; }
+  .ui-button-variant-secondary { @apply bg-secondary text-secondary-foreground border border-border hover:bg-secondary/70 hover:border-border/80; }
+  .ui-button-variant-outline { @apply border border-input bg-background hover:bg-muted hover:text-foreground; }
+  .ui-button-variant-ghost { @apply hover:bg-muted hover:text-foreground; }
+  .ui-button-variant-destructive { @apply bg-destructive/8 text-destructive border border-destructive/15 hover:bg-destructive/[0.14] hover:border-destructive/25 dark:bg-destructive/12 dark:border-destructive/20 dark:hover:bg-destructive/20; }
+  .ui-button-variant-link { @apply text-primary underline-offset-4 hover:underline; }
+  .ui-button-size-default { @apply h-9 px-4 py-2; }
+  .ui-button-size-sm { @apply h-8 rounded-md px-3 text-xs; }
+  .ui-button-size-lg { @apply h-10 rounded-md px-6; }
+  .ui-button-size-icon { @apply h-9 w-9; }
+}
+
+@keyframes ui-pop-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .ui-combobox-slot-8, .ui-popover-slot-2 { animation: none; } }

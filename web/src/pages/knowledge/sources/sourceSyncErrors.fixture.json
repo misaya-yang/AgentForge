@@ -1,0 +1,54 @@
+{
+  "not_accepted_403": {
+    "status": 403,
+    "body": {
+      "detail": {
+        "code": "CONFLUENCE_SYNC_NOT_ACCEPTED",
+        "accepted": false,
+        "message": "Source owner and current dataset editor access required"
+      }
+    }
+  },
+  "not_accepted_409": {
+    "status": 409,
+    "body": {
+      "detail": {
+        "code": "CONFLUENCE_SYNC_NOT_ACCEPTED",
+        "accepted": false,
+        "message": "Synchronization request was not accepted; refresh source status"
+      }
+    }
+  },
+  "unknown_get_404": {
+    "status": 404,
+    "body": {
+      "detail": "Confluence sync task not available"
+    }
+  },
+  "not_accepted_503": {
+    "status": 503,
+    "body": {
+      "detail": {
+        "code": "CONFLUENCE_SYNC_NOT_ACCEPTED",
+        "accepted": false,
+        "message": "Manual synchronization is unavailable"
+      }
+    }
+  },
+  "unavailable_get_503": {
+    "status": 503,
+    "body": {
+      "detail": {
+        "code": "CONFLUENCE_SYNC_NOT_ACCEPTED",
+        "accepted": false,
+        "message": "Manual synchronization is unavailable"
+      }
+    }
+  },
+  "unknown_post_503": {
+    "status": 503,
+    "body": {
+      "detail": "capability identity unavailable"
+    }
+  }
+}

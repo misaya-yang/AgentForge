@@ -1,0 +1,97 @@
+{{- if .Values.enabled }}
+{{- if not (regexMatch "^ghcr[.]io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" .Values.verifierImage) }}{{ fail "reviewed digest-pinned delivery-verifier image required" }}{{ end }}
+{{- range $unit := list "gateway" "frontend" "knowledge-service" "knowledge-worker" "migrate" "agent-runtime" "agent-capability-worker" }}
+{{- $image := required (printf "missing immutable release image: %s" $unit) (index $.Values.images $unit) }}
+{{- if not (regexMatch "^ghcr[.]io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$" $image) }}{{ fail "all release image references must be immutable" }}{{ end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-delivery-policy
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: '-30'
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+data:
+  supply-chain-policy.json: {{ .Files.Get "files/supply-chain-policy.json" | quote }}
+  dependency-policy.json: {{ .Files.Get "files/dependency-policy.json" | quote }}
+  {{- /* Only public immutable image identities are copied, never service env/credentials. */}}
+  image-refs.json: {{ .Values.images | toJson | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-verify-delivery
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: '-25'
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/component: delivery-admission}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      imagePullSecrets: {{ .Values.imagePullSecrets | toJson }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+      - name: verify
+        image: {{ .Values.verifierImage | quote }}
+        # The independently reviewed verifier digest is a cluster bootstrap trust input.
+        # Native verifier performs online cosign/Fulcio/Rekor verification, never skip flags.
+        command: [/usr/local/bin/platform-tools]
+        args: [delivery-policy, verify-release-set, --repo-root, /admission, --images, /admission/image-refs.json]
+        env: [{name: HOME, value: /tmp}]
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities: {drop: [ALL]}
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits: {cpu: '1', memory: 512Mi}
+        volumeMounts:
+        - {name: policy, mountPath: /admission, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: policy
+        configMap:
+          name: {{ .Release.Name }}-delivery-policy
+          items:
+          - {key: supply-chain-policy.json, path: deploy/security/supply-chain-policy.json}
+          - {key: dependency-policy.json, path: deploy/security/dependency-policy.json}
+          - {key: image-refs.json, path: image-refs.json}
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 64Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-delivery-admission
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: '-30'
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/component: delivery-admission}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+  - to:
+    - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+      podSelector: {matchLabels: {k8s-app: kube-dns}}
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except: [0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.168.0.0/16, 224.0.0.0/4, 240.0.0.0/4]
+    ports: [{protocol: TCP, port: 443}]
+{{- end }}

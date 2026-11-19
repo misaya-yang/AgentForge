@@ -1,0 +1,90 @@
+{
+  "scope": "design/document verification only; target runtime not built or tested",
+  "platform_base_sha": "305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6",
+  "target_upstream_sha": "279ba894152b2c01c5294cc0723b463b209bdca4",
+  "work_packages": 7,
+  "required_package_fields": "PASS",
+  "dependency_order": "PASS",
+  "owned_and_integration_paths_exist": "PASS",
+  "requirements_covered": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "C09",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20"
+  ],
+  "new_document_links_checked": 12,
+  "new_document_links": "PASS",
+  "overlay_inventory": "107 files; 23 both-changed; 10 conflict / 13 clean text merge",
+  "source_lock_and_overlay_manifest_unchanged": true,
+  "upstream_checkout_clean_and_unchanged": true,
+  "current_pin_source_contract": {
+    "command": "make agent-runtime-source-contract",
+    "exit_code": 0,
+    "passed": 17,
+    "scope": "old pin source identity, not target compatibility"
+  },
+  "implementation_phase_states": "all pending/queued",
+  "target_compile": "NOT_RUN",
+  "target_docker_live": "NOT_RUN",
+  "artifact_hashes": {
+    "docs/plans/codex-harness-refresh-2026-09-22.md": "7b91acd2a62d3071ef85621931da45e9d6d3e55c3248a61430d65514699c69dc",
+    "docs/plans/codex-harness-refresh-2026-09-22-acceptance.md": "c50c5fb71d93892ec981e7a66d831a49e07cdc606aed06109c1f0cc058bb9b43",
+    "deploy/runbooks/codex-harness-refresh-2026-09-22/README.md": "9debd844a5600711b245a34f9540ceaece99cc54f73c214755657806e58fc3a3",
+    "deploy/runbooks/codex-harness-refresh-2026-09-22/HANDOFF.md": "7ab26d1395c0d0b0dbe30676d498be7f9b51d727a7983a550cd17e659c365ce2",
+    "reports/architecture/codex-harness-refresh-2026-09-22/README.md": "2d355a5ee822a2674a44f3a0c361e20f779fc27cee1af6368883067c284b2584",
+    "deploy/runbooks/codex-harness-refresh-2026-09-22/loop-state.json": "880e343e5b125f3ba758faffda738f7fe2a38727bb0154b53acd2b1457fa6eb2",
+    "deploy/runbooks/codex-harness-refresh-2026-09-22/work-packages.yml": "bdec513d0a6ee8a4a487dc6c1fc4370e0cede96968bd9e592365df7f0beb5bb8",
+    "deploy/runbooks/codex-harness-refresh-2026-09-22/init.sh": "0015891f4bc284a67bbf2da48fef872dc91eab7b32c15099e5b21f28643fed00"
+  },
+  "harness_check": {
+    "command": "make harness-check",
+    "exit_code": 0,
+    "warning": "existing kb-rag-ui-t5 unknown loop-state schema"
+  },
+  "init_script_syntax_and_readonly_execution": "PASS",
+  "git_diff_check": "PASS",
+  "goal_requirement_audit": [
+    {
+      "requirement": "结合指定codex-harness源代码",
+      "design_evidence": "source-delta.json: exact old/new SHA, 107 overlay files, three-way text probes; README source symbols",
+      "status": "design_complete"
+    },
+    {
+      "requirement": "完善的更新计划",
+      "design_evidence": "main plan sections 1-4 and 6; U0-U4 work packages, generated artifacts and dependency sequence",
+      "status": "design_complete"
+    },
+    {
+      "requirement": "完善的优化计划",
+      "design_evidence": "main plan section 5; U5 and C17 fixed paired measurements, budgets, regression rules",
+      "status": "design_complete"
+    },
+    {
+      "requirement": "基于Codex内核",
+      "design_evidence": "current Cargo and InProcessAppServerClient source inspected; target whole snapshot + minimum host seams; C01,C06,C07,C20",
+      "status": "design_complete"
+    },
+    {
+      "requirement": "兼容Gateway系统",
+      "design_evidence": "ownership/model/identity/PG/capability/API/Web/SDK/Eval/KB mappings and C01-C20; failure/rollback/release gates",
+      "status": "design_complete"
+    }
+  ],
+  "runtime_compatibility_claim": "NOT_CLAIMED: objective is design; target update and all implementation gates remain queued"
+}

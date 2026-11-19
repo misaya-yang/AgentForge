@@ -1,0 +1,7 @@
+apiVersion: v2
+name: ai-gateway
+description: Native Rust Gateway, Knowledge roles, Runtime and isolated capability execution
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords: [agentforge, rust, gateway]

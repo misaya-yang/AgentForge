@@ -1,0 +1,20 @@
+[package]
+name = "ai-platform-release"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "platform-release"
+path = "src/main.rs"
+[dependencies]
+serde_json.workspace = true
+sha2 = "0.10"
+regex = "1"
+reqwest = { workspace = true, features = ["multipart"] }
+tokio.workspace = true
+sqlx = { workspace = true, features = ["runtime-tokio-rustls", "postgres"] }
+uuid = { version = "1", features = ["v4"] }
+zip.workspace = true
+libc = "0.2"
+ai-platform-service-primitives = { path = "../platform-service-primitives", version = "0.1.0" }
+ai-platform-migration-authority = { path = "../platform-migration-authority", version = "0.1.0" }

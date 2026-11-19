@@ -1,0 +1,291 @@
+# Release-specific admission inputs required.
+global:
+  deploymentMode: multi-instance
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+fullnameOverride: ''
+images:
+  gateway:
+    repository: ghcr.io/misaya-yang/ai-gateway
+    digest: ''
+  knowledge:
+    repository: ghcr.io/misaya-yang/ai-gateway-knowledge-service
+    digest: ''
+  migrate:
+    repository: ghcr.io/misaya-yang/ai-gateway-migrate
+    digest: ''
+  frontend:
+    repository: ghcr.io/misaya-yang/ai-gateway-web
+    digest: ''
+  runtime:
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-runtime
+    digest: ''
+  control:
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-capability-worker
+    digest: ''
+  sandbox:
+    repository: ghcr.io/misaya-yang/ai-gateway-agent-python-sandbox
+    digest: ''
+  tools:
+    repository: ghcr.io/misaya-yang/ai-gateway-tools
+    digest: ''
+  sdk:
+    repository: ghcr.io/misaya-yang/ai-gateway-sdk-agent-worker
+    digest: ''
+databaseRoles:
+  existingSecret: ''
+  rolePrefix: ai_gateway_
+credentials:
+  gateway: ''
+  knowledge: ''
+  runtime: ''
+  control: ''
+lease:
+  gatewayPrivateSecret: ''
+  publicConfigMap: ''
+data:
+  postgres:
+    peer: {}
+    port: 5432
+  valkey:
+    peer: {}
+    port: 6379
+  qdrant:
+    url: ''
+    existingSecret: ''
+    caConfigMap: ''
+    peer: {}
+    port: 6333
+  objectStore:
+    enabled: true
+    peer: {}
+    port: 9000
+    existingSecret: ''
+    endpoint: ''
+    bucket: ''
+    region: us-east-1
+network:
+  dnsResolver: ''
+  dnsNamespace: kube-system
+  dnsLabels:
+    k8s-app: kube-dns
+  providerCIDRs: []
+  edgePeer: {}
+persistence:
+  gateway:
+    existingClaim: ''
+  knowledge:
+    existingClaim: ''
+  runtime:
+    existingClaim: ''
+  control:
+    existingClaim: ''
+gateway:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+  nativeOptions:
+    kernel_revision: ''
+    worker_writes_enabled: true
+    local_utc_offset_seconds: 0
+    allow_private_knowledge_http: true
+    pdf:
+      pdfinfo: /usr/bin/pdfinfo
+      pdftotext: /usr/bin/pdftotext
+      pdftoppm: /usr/bin/pdftoppm
+      scratch_root: /app/data/pdf-scratch
+      allow_attachment_alternative: false
+    local_channel: disabled
+    confluence_registration: disabled
+    model_publication: required
+    provider_publication: required
+knowledgeService:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 70
+knowledgeWorker:
+  replicaCount: 1
+  keda:
+    enabled: false
+    query: ''
+    authenticationRef: ''
+agentRuntime:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+capabilityWorker:
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+frontend:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+  env:
+    FRONTEND_CSP_MODE: report-only
+    FRONTEND_CONNECT_ORIGINS: ""
+    FRONTEND_IMAGE_ORIGINS: ""
+sandbox:
+  # Strong pool is separately admitted node infrastructure, never an automatic fallback.
+  # When enabled supply every field in deploy/sandbox/strong-pool.schema.json,
+  # plus sandbox.signingSecret for the Worker's job-only signer. No key bytes here.
+  strongPool:
+    enabled: false
+    warm: 2
+    maximum: 8
+  enabled: false
+  nodeName: ''
+  runtimeClassName: ''
+  seccompProfile: ''
+  socketClaim: ''
+  workspaceClaim: ''
+  journalClaim: ''
+  cgroupCSI: {}
+  socketFsGroupMutationDisabled: false
+  signingSecret: ''
+  publicKeyId: ''
+  publicKeyHex: ''
+migration:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+routing:
+  enabled: false
+  gatewayClassName: ''
+  parentRef:
+    name: ''
+    namespace: ''
+    sectionName: ''
+  hostnames: []
+  tlsSecretName: ''
+  certificate:
+    enabled: false
+    issuerName: ''
+    issuerKind: ClusterIssuer
+  internalGrpc:
+    enabled: false
+    parentRef:
+      name: ''
+      namespace: ''
+      sectionName: ''
+availability:
+  pdb: true
+resources:
+  gateway:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  knowledge:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  knowledge-worker:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  runtime:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  control:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  sandbox:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: '2'
+      memory: 1536Mi
+  frontend:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  migration:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 512Mi
+  sdk:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: '1'
+      memory: 768Mi
+modelPlane:
+  knowledgeWorkloadPublicConfigMap: ''
+  gatewayPublicConfigMap: ''
+  knowledgeWorkloadSecret: ''
+  priceBookRevision: ''
+  modelRevisions: {}
+sdkWorker:
+  enabled: false
+  existingClaim: ''
+  workerTLSSecret: ''
+  callbackTLSSecret: ''
+  credentialsSecret: ''
+  retentionSeconds: 86400
+
+# Explicit staged migration. Disabled retains the existing admission contract.
+workloadIdentity:
+  mode: disabled
+  trustDomain: agentforge.internal
+  applicationSecretGeneration: ''
+  rotationPollSeconds: 15
+  # Each Secret contains ca.pem, cert.pem, key.pem for exactly one SPIFFE service.
+  secrets: {gateway: '', runtime: '', control: '', knowledge: '', knowledgeWorker: '', sdk: ''}
+# Direct/session PostgreSQL mTLS, with one Secret per role. Secret keys:
+# dsn, ca-bundle.pem, tls.crt, tls.key (and password only for pooler SCRAM).
+dataSecurity:
+  enabled: false
+  generation: ''
+  mode: direct
+  expectedHost: postgres
+  controlHost: postgres
+  directPostgres: {peer: {}, port: 5432}
+  physicalDatabase: gateway
+  poolMax: 4
+  roleConnectionLimit: 64
+  pooledBackendLimit: 8
+  statementTimeoutMs: 30000
+  roles: {gateway: '', runtime: '', control: '', knowledge: '', knowledgeWorker: '', migrator: ''}
+
+# One rollout controls Gateway dataset PDP and both Knowledge clients together.
+# Pins come from the native Cedar differential report for the admitted role map.
+datasetAuthorization:
+  mode: 'off'
+  expectedPolicySha256: ''
+  expectedMatrixSha256: ''

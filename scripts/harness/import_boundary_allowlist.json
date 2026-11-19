@@ -1,0 +1,5 @@
+{
+  "schema": "ai-gateway/harness/import-boundary-allowlist/v1",
+  "policy": "Every entry needs owner + reason + expires (YYYY-MM-DD). architecture-boundary-gate fails when an entry is expired or no longer matches a live violation. Add entries only for legacy coupling with a scheduled cleanup; never for new code.",
+  "entries": []
+}

@@ -1,0 +1,6 @@
+{"case_id": "rag.retrieval.refund", "status": "succeeded", "ranked_segment_ids": ["refund-primary", "refund-window"]}
+{"case_id": "rag.retrieval.password", "status": "succeeded", "ranked_segment_ids": ["password-primary", "password-security"]}
+{"case_id": "rag.retrieval.invoice", "status": "succeeded", "ranked_segment_ids": ["invoice-primary", "invoice-history"]}
+{"case_id": "rag.retrieval.approval", "status": "succeeded", "ranked_segment_ids": ["approval-primary", "approval-audit"]}
+{"case_id": "rag.retrieval.compaction", "status": "succeeded", "ranked_segment_ids": ["compaction-primary", "compaction-checkpoint"]}
+{"case_id": "rag.retrieval.tenant", "status": "succeeded", "ranked_segment_ids": ["tenant-primary", "tenant-authz"]}

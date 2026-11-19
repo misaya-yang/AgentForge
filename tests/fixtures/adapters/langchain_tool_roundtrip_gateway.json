@@ -1,0 +1,1362 @@
+[
+  {
+    "name": "success",
+    "status": "success",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "success",
+        "content": "tool succeeded",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "ai",
+        "content": "Done",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-success",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-success",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-success",
+        "chunk_index": 2,
+        "content": {
+          "type": "text",
+          "data": "tool succeeded",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "completed"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-success",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "Done",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-success",
+        "chunk_index": 4,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-success",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 1,
+            "total_tokens": 3,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "Done",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "tool succeeded",
+                "status": "completed"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 1,
+              "total_tokens": 3,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "error",
+    "status": "error",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "error",
+        "content": "tool execution failed",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "ai",
+        "content": "Unable to finish",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-error",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-error",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-error",
+        "chunk_index": 2,
+        "content": {
+          "type": "text",
+          "data": "tool execution failed",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "error"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-error",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "Unable to finish",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-error",
+        "chunk_index": 4,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-error",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 4,
+            "total_tokens": 6,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "Unable to finish",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "tool execution failed",
+                "status": "error"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 4,
+              "total_tokens": 6,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty_success",
+    "status": "success",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "success",
+        "content": "",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "ai",
+        "content": "Done",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 2,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "completed"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "Done",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 4,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_success",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 1,
+            "total_tokens": 3,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "Done",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "",
+                "status": "completed"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 1,
+              "total_tokens": 3,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "tool_only_error",
+    "status": "error",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "error",
+        "content": "tool execution failed",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-tool_only_error",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_error",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_error",
+        "chunk_index": 2,
+        "content": {
+          "type": "text",
+          "data": "tool execution failed",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "error"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_error",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_error",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 0,
+            "total_tokens": 2,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "tool execution failed",
+                "status": "error"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 0,
+              "total_tokens": 2,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "tool_only_success",
+    "status": "success",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "success",
+        "content": "tool succeeded",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-tool_only_success",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_success",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_success",
+        "chunk_index": 2,
+        "content": {
+          "type": "text",
+          "data": "tool succeeded",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "completed"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_success",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_success",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 0,
+            "total_tokens": 2,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "tool succeeded",
+                "status": "completed"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 0,
+              "total_tokens": 2,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "tool_only_empty",
+    "status": "success",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "success",
+        "content": "",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-tool_only_empty",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_empty",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_empty",
+        "chunk_index": 2,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "completed"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_empty",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-tool_only_empty",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 0,
+            "total_tokens": 2,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "",
+                "status": "completed"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 0,
+              "total_tokens": 2,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty_error",
+    "status": "error",
+    "messages": [
+      {
+        "type": "ai",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call-1",
+            "name": "lookup",
+            "args": {
+              "query": "fixture"
+            }
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "error",
+        "content": "",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      },
+      {
+        "type": "ai",
+        "content": "Unable to finish",
+        "tool_calls": [],
+        "invalid_tool_calls": [],
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 1,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_call_start",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "running"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 2,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "{\"query\": \"fixture\"}",
+          "status": "error"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 3,
+        "content": {
+          "type": "text",
+          "data": "Unable to finish",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 4,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-empty_error",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 4,
+            "total_tokens": 6,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "Unable to finish",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "{\"query\": \"fixture\"}",
+                "result": "",
+                "status": "error"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 4,
+              "total_tokens": 6,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "result_only_error",
+    "status": "error",
+    "messages": [
+      {
+        "type": "tool",
+        "tool_call_id": "call-1",
+        "name": "lookup",
+        "status": "error",
+        "content": "tool execution failed",
+        "additional_kwargs": {},
+        "response_metadata": {}
+      }
+    ],
+    "chunks": [
+      {
+        "request_id": "request-result_only_error",
+        "chunk_index": 0,
+        "content": {
+          "type": "tool_call",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "thinking",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-result_only_error",
+        "chunk_index": 1,
+        "content": {
+          "type": "text",
+          "data": "tool execution failed",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "tool_result",
+        "tool_call": {
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "arguments": "",
+          "status": "error"
+        },
+        "metadata": null
+      },
+      {
+        "request_id": "request-result_only_error",
+        "chunk_index": 2,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": false,
+        "event_type": "text_delta",
+        "tool_call": null,
+        "metadata": null
+      },
+      {
+        "request_id": "request-result_only_error",
+        "chunk_index": 9999,
+        "content": {
+          "type": "text",
+          "data": "",
+          "url": null,
+          "mime_type": null,
+          "metadata": null
+        },
+        "is_final": true,
+        "event_type": "stream_end",
+        "tool_call": null,
+        "metadata": {
+          "usage": {
+            "input_tokens": 2,
+            "output_tokens": 0,
+            "total_tokens": 2,
+            "token_provenance": {
+              "input_tokens": "estimated",
+              "output_tokens": "estimated",
+              "total_tokens": "derived"
+            }
+          }
+        }
+      }
+    ],
+    "session": {
+      "history": [
+        {
+          "role": "user",
+          "content": "Question",
+          "metadata": null
+        },
+        {
+          "role": "assistant",
+          "content": "",
+          "metadata": {
+            "tool_calls": [
+              {
+                "tool_call_id": "call-1",
+                "name": "lookup",
+                "arguments": "",
+                "result": "tool execution failed",
+                "status": "error"
+              }
+            ],
+            "stats": {
+              "input_tokens": 2,
+              "output_tokens": 0,
+              "total_tokens": 2,
+              "token_provenance": {
+                "input_tokens": "estimated",
+                "output_tokens": "estimated",
+                "total_tokens": "derived"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+]

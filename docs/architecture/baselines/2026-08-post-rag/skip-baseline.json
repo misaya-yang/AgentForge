@@ -1,0 +1,419 @@
+{
+  "base_git_sha": "4e3805409a5bb2a3d0231a8576a58cd9ced537dc",
+  "baseline_id": "2026-08-post-rag",
+  "generator": "scripts/inventory/generate_baselines.py",
+  "known_gap_context": "The frontend type-check gate historically checked zero files (kb-rag-ui-t5 loop-state notes); its green results were no-ops. That is an ARC-00B fix target, recorded here so the skip baseline and the false-green gate list stay in one place.",
+  "policy": "AC-M16: release-required gates must show zero unexpected skips. Skips are legal only when named and classified; this baseline is the reference set.",
+  "python": {
+    "classification": {
+      "conditional_live_or_env_gated": 18,
+      "unconditional_or_static": 34
+    },
+    "file_count": 21,
+    "marker_count": 52,
+    "markers": [
+      {
+        "file": "apps/local-node/tests/test_macos_native_backend.py",
+        "kind": "pytest.mark.skipif",
+        "line": 116,
+        "reason": "native helper is macOS-only",
+        "target": "test_bundled_swift_helper_compiles_and_reports_real_permission_truth"
+      },
+      {
+        "file": "apps/local-node/tests/test_macos_native_backend.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 120,
+        "reason": "Swift compiler is unavailable",
+        "target": "<runtime>"
+      },
+      {
+        "file": "apps/local-node/tests/test_processes.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 52,
+        "reason": "env executable unavailable",
+        "target": "<runtime>"
+      },
+      {
+        "file": "apps/local-node/tests/test_processes.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 78,
+        "reason": "env executable unavailable",
+        "target": "<runtime>"
+      },
+      {
+        "file": "apps/local-node/tests/test_processes.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 120,
+        "reason": "env executable unavailable",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/database/test_artifact_share_migration.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 74,
+        "reason": "set ARTIFACT_SHARE_TEST_DATABASE_URL or ARTIFACT_SHARE_TEST_ENABLED=1 for the PostgreSQL migration gate",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/database/test_migration_authority_roles_grants.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 633,
+        "reason": "ARC03_SCRATCH_DATABASE_URL is not configured",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/database/test_platform_admin_migration.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 41,
+        "reason": "set PLATFORM_ADMIN_TEST_ENABLED=1 for the PostgreSQL migration gate",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_assistant_api_e2e_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 41,
+        "reason": "Set RUN_ASSISTANT_API_E2E=1 to run live API validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_assistant_api_e2e_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 43,
+        "reason": "Set ASSISTANT_E2E_PASSWORD to run live API validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_assistant_api_e2e_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 632,
+        "reason": "ASSISTANT_CODE_EXECUTOR_ENABLED is off; run the dedicated docgen live test for the default quickstart capability",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_assistant_kb_capability_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 177,
+        "reason": "Set RUN_ASSISTANT_KB_CAPABILITY=1 to run live Assistant×KB validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_assistant_kb_capability_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 179,
+        "reason": "Set ASSISTANT_E2E_PASSWORD to run live Assistant×KB validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_gateway_openapi_contract.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 41,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_gateway_openapi_contract.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 45,
+        "reason": "Gateway OpenAPI unavailable; run against the Gateway",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_responses_api_e2e_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 28,
+        "reason": "Set RUN_RESPONSES_API_E2E=1 to run live Responses validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_responses_api_e2e_live.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 30,
+        "reason": "Set dedicated Assistant E2E credentials for live Responses validation",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 143,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 183,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 198,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 293,
+        "reason": "INTEGRATION_USE_LIVE_STACK=true; skipping docker stop/start tests",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 295,
+        "reason": "agent-runtime not in running compose stack",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 360,
+        "reason": "INTEGRATION_USE_LIVE_STACK=true; skipping docker stop/start tests",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 362,
+        "reason": "knowledge-service not in running compose stack",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 439,
+        "reason": "INTEGRATION_USE_LIVE_STACK=true; skipping docker stop/start tests",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 444,
+        "reason": "langgraph-agent not in running compose stack (Helm-only deploy?)",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 499,
+        "reason": "INTEGRATION_USE_LIVE_STACK=true; skipping docker stop/start tests",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/integration/test_service_failure_isolation.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 501,
+        "reason": "gateway not in running compose stack",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/proxy/test_drain.py",
+        "kind": "pytest.mark.skipif",
+        "line": 292,
+        "reason": "loop.add_signal_handler is not supported on Windows",
+        "target": "test_sigterm_triggers_begin_drain"
+      },
+      {
+        "file": "tests/proxy/test_drain.py",
+        "kind": "pytest.mark.skipif",
+        "line": 311,
+        "reason": "POSIX signal chaining is not available on Windows",
+        "target": "test_sigterm_chains_existing_shutdown_handler"
+      },
+      {
+        "file": "tests/proxy/test_drain.py",
+        "kind": "pytest.mark.skipif",
+        "line": 338,
+        "reason": "Windows-only no-op check",
+        "target": "test_install_signal_handlers_noop_on_windows"
+      },
+      {
+        "file": "tests/scripts/test_backfill_bm25_v2.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 637,
+        "reason": "KB_BACKFILL_POSTGRES_TEST_DSN is not configured",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/scripts/test_open_source_container_distribution.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 36,
+        "reason": "docker CLI is required to verify rendered Compose config",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/scripts/test_rust_resource_lock.py",
+        "kind": "pytest.mark.skipif",
+        "line": 591,
+        "reason": "process-group cleanup is POSIX-only",
+        "target": "test_heartbeat_failure_kills_descendant_process_group"
+      },
+      {
+        "file": "tests/services/assistant/local_os_acceptance/test_runtime_fail_closed.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 175,
+        "reason": "platform has no /usr/bin/env binary",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/eval/test_coding_parallel_fixture.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 51,
+        "reason": "pinned coding sandbox image is not available locally",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/eval/test_coding_parallel_fixture.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 53,
+        "reason": "pinned coding sandbox image is not available locally",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/knowledge/test_durable_ingestion_queue.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 656,
+        "reason": "fixture config is accepted by the validator; nothing to prove",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/knowledge/test_pdf_splitter.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 16,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/knowledge/test_vlm_ocr_service.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 73,
+        "reason": "google-genai not available",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/knowledge/test_vlm_ocr_service.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 81,
+        "reason": "dashscope not available",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.mark.skipif",
+        "line": 772,
+        "reason": null,
+        "target": "TestRealDocuments"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 792,
+        "reason": "PyMuPDF (fitz) not installed",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.mark.skipif",
+        "line": 794,
+        "reason": "Test data directory not found",
+        "target": "test_automatic_chunking_on_pdfs"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 801,
+        "reason": "PyMuPDF not installed",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 804,
+        "reason": "No PDF files found",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.mark.skipif",
+        "line": 847,
+        "reason": "Test data directory not found",
+        "target": "test_hierarchical_vs_recursive"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 854,
+        "reason": "PyMuPDF not installed",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 857,
+        "reason": "No PDF files found",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 864,
+        "reason": "No PDF files found",
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_chunking.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 868,
+        "reason": null,
+        "target": "<runtime>"
+      },
+      {
+        "file": "tests/services/test_image_sync.py",
+        "kind": "pytest.skip (runtime)",
+        "line": 520,
+        "reason": null,
+        "target": "<runtime>"
+      }
+    ]
+  },
+  "schema": "ai-gateway/baseline/skip-baseline/v1",
+  "typescript": {
+    "file_count": 5,
+    "marker_count": 6,
+    "markers": [
+      {
+        "file": "web/e2e/agent-publish-live.spec.ts",
+        "kind": "skip",
+        "line": 255
+      },
+      {
+        "file": "web/e2e/agent-studio-live.spec.ts",
+        "kind": "skip",
+        "line": 28
+      },
+      {
+        "file": "web/e2e/agent-studio-live.spec.ts",
+        "kind": "skip",
+        "line": 111
+      },
+      {
+        "file": "web/e2e/chat-experience.spec.ts",
+        "kind": "skip",
+        "line": 770
+      },
+      {
+        "file": "web/e2e/playground-history.spec.ts",
+        "kind": "skip",
+        "line": 15
+      },
+      {
+        "file": "web/e2e/quiz-history.spec.ts",
+        "kind": "skip",
+        "line": 164
+      }
+    ],
+    "note": "scan of *.spec.ts/*.test.ts(x) under web/ and sdk/ for test/describe .skip/.fixme/.only"
+  }
+}

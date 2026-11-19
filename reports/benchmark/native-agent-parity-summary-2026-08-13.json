@@ -1,0 +1,102 @@
+{
+  "schema_version": "native-agent-parity-public-summary/v1",
+  "suite_id": "enterprise-result-parity-2026-08-12",
+  "executed_at": "2026-08-13",
+  "acceptance_passed": true,
+  "comparison_scope": "one matched real-provider trial for each of 8 enterprise tasks and each of 3 systems",
+  "model": {
+    "id": "qwen3.7-plus",
+    "temperature": 0.0,
+    "max_tokens": 16384
+  },
+  "systems": {
+    "ai_platform": {
+      "passed": 6,
+      "total": 8,
+      "completion_rate": 0.75,
+      "infrastructure_errors": 0,
+      "git_commit": "32457e6e2dc57177de12f5f6b5da3bdadd22275c",
+      "startup_config_fingerprint": "sha256:295335558e1b368049bcfb11b6861fd9db9b6e462ad533b09c1c67901885c518"
+    },
+    "hermes": {
+      "passed": 5,
+      "total": 8,
+      "completion_rate": 0.625,
+      "infrastructure_errors": 0,
+      "git_commit": "7230fcb7f2577823d55e66d51bbe70b42789c677",
+      "version": "Hermes Agent v0.16.0"
+    },
+    "openclaw": {
+      "passed": 5,
+      "total": 8,
+      "completion_rate": 0.625,
+      "infrastructure_errors": 0,
+      "git_commit": "fbf5d56366ba1dcf01e63c18cc3a4231212b9504",
+      "version": "OpenClaw 2026.3.9"
+    }
+  },
+  "task_results": {
+    "engineering.inventory_reservation_patch": {
+      "ai_platform": "pass",
+      "hermes": "pass",
+      "openclaw": "pass"
+    },
+    "finance.salesforce_cash_quality": {
+      "ai_platform": "pass",
+      "hermes": "fail",
+      "openclaw": "fail"
+    },
+    "finance.unknown_effect_recovery": {
+      "ai_platform": "pass",
+      "hermes": "pass",
+      "openclaw": "pass"
+    },
+    "governance.ambiguous_export": {
+      "ai_platform": "pass",
+      "hermes": "fail",
+      "openclaw": "fail"
+    },
+    "legal.title_vii_transfer": {
+      "ai_platform": "pass",
+      "hermes": "pass",
+      "openclaw": "pass"
+    },
+    "operations.staged_rollout": {
+      "ai_platform": "fail",
+      "hermes": "pass",
+      "openclaw": "pass"
+    },
+    "research.cra_source_resolution": {
+      "ai_platform": "fail",
+      "hermes": "fail",
+      "openclaw": "fail"
+    },
+    "security.tenant_access_review": {
+      "ai_platform": "pass",
+      "hermes": "pass",
+      "openclaw": "pass"
+    }
+  },
+  "evidence": {
+    "raw_receipt_count": 24,
+    "raw_receipt_mode": "0600",
+    "raw_receipt_directory": "reports/benchmark/results/native-parity-20260813-final7",
+    "raw_summary_sha256": "59178e2b372cf9939b251e988414f7db624b0a90ed9a29b3b4961df5aee57b62",
+    "manifest_sha256": "5b943126f89319724d6ffc619bc8e0a97ee4e3e370c6e843ddb0f1959f4c1123",
+    "runner_sha256": "eaca9b0732b25d3df7935fd93763b8d75046879bbc51f9155404615dc876e5fa"
+  },
+  "fairness_boundary": {
+    "same_user_turns": true,
+    "same_model_sampling_and_token_limit": true,
+    "ai_ingress": "Gateway to canonical AgentLoop",
+    "hermes_ingress": "official hermes chat CLI",
+    "openclaw_ingress": "official openclaw agent --local CLI",
+    "comparator_tool_surface_modified": false
+  },
+  "evidence_tier": "E4 minimum cohort",
+  "not_claimed": [
+    "current upstream Hermes or OpenClaw parity",
+    "three repetitions per task",
+    "E5 signed release cohort"
+  ]
+}

@@ -1,0 +1,14 @@
+# No resources render until the operator opts in and supplies existing secrets/PVCs.
+enabled: false
+runId: ''
+canaryImage: qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+rollbackImage: qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
+canaryClaim: ''
+rollbackClaim: ''
+apiKeySecret: ''
+tlsSecret: ''
+# Exact existing Knowledge API/Worker and operations pod labels; empty denies ingress.
+clientPodLabels: {}
+resources:
+  requests: {cpu: 100m, memory: 256Mi}
+  limits: {cpu: '1', memory: 1Gi}

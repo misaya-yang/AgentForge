@@ -1,0 +1,9 @@
+{
+  "scope": "Docker BuildKit source compilation; no host Cargo",
+  "result": "passed",
+  "overlay": "a55739b4a6c54e1b2f910f574d955c5b8ffe207b3c3d73d4316dc50544a48ee3",
+  "image": "ai-gateway-agent-runtime:local-279ba894152b-a55739b4a6c5",
+  "image_id": "sha256:78e9d72d85502070bed377fa521f2fc01a19f9114e541a5c761f7ad529b6904a",
+  "initial_build_failure": "inherited host-only 127.0.0.1 proxy; removed env variables in build invocation only",
+  "shared_host_network_changed": false
+}

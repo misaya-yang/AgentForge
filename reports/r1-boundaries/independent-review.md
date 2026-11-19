@@ -1,0 +1,11 @@
+# RP04 independent review
+
+Reviewer: `closure_review` (read-only). Final verdict: **PASS**, no confirmed blocker/high.
+
+Checked current working-tree diff for source authorization and event projection, per-run immutable parameter scope, `restoreLatestRun` metadata preservation, read-only document preview and revocation behavior, zero-byte artifact API/UI, and duplicate execution paths. The reviewer independently ran a focused Python subset: **70 passed**, and `git diff --check` passed. That subset overlaps the primary 93; counts are not added.
+
+Reviewer did not operate Docker, provider, or browser. Primary agent's real and controlled acceptance is separately listed in `reports/product/r1-final-boundaries-2026-09-27.md`. The reviewer flagged stale `loop-state.json` pending items; the primary agent updated the authoritative state to the two remaining boundaries and re-ran JSON validation, harness check, and diff check.
+
+Final report recheck: reviewer confirmed the account setup side effect is disclosed accurately. Five pre-existing `model_tester` accounts had passwords reset by earlier RP04 Playwright invocations without `E2E_EXISTING_ACCOUNT_ONLY=1`; no new account was created, and original passwords cannot be recovered from current evidence. The six-case E2E rerun used the flag and passed. At that review point the unsafe default remained; the follow-up below fixed it. The prior credential changes must remain visible in the user handoff. Code verdict remains PASS, with no confirmed blocker/high.
+
+Follow-up review after the prevention fix: `global.setup.ts` now defaults to existing-account login and refuses missing/rejected/forced-password-change credentials. Only `E2E_PROVISION_ACCOUNTS=1` in a fresh isolated environment enters provisioning, after read-only checks for existing model-tester accounts. Reviewer independently ran fake-fetch Node **4 passed** and diff-check PASS, without live/account actions. The real saved-run background/session-switch browser result and unchanged run/execution ledger are accurately recorded. Final spot-check of report, receipt, loop-state and work-package: **PASS**, no new blocker/high or overclaim. The earlier five password resets remain unreverted.

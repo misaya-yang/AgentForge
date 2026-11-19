@@ -1,0 +1,30 @@
+{
+  "artifact_id": "art_0bacdcbb7d5481e3",
+  "metadata_status": 200,
+  "download_status": 200,
+  "size": 9451,
+  "sha256": "461b7290028c728896001bfb0e353cb6fc6652e207ee811987aff2d02115df28",
+  "mime_type": "application/pdf",
+  "pdf_header": true,
+  "ready": true,
+  "filename": "R1-PDF-927.pdf",
+  "page_count": 1,
+  "content_checks": {
+    "R1 PDF 927": true,
+    "蓝色方块": true,
+    "cobalt": true,
+    "8164": true,
+    "真实PDF产物": true,
+    "刷新后回看": true
+  },
+  "text_check_note": "PDF extraction inserts a space between PDF and 产物; visual rendering and whitespace-normalized text confirm requested content.",
+  "critic_status": "NotRun by renderer, not a claimed quality pass",
+  "content_checks_normalized": {
+    "R1 PDF 927": true,
+    "蓝色方块": true,
+    "cobalt": true,
+    "8164": true,
+    "真实PDF产物": true,
+    "刷新后回看": true
+  }
+}

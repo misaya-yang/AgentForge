@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "verified_at": "2026-10-16T11:03:34.654Z",
+  "route": "http://127.0.0.1:4181/knowledge/native-knowledge-acceptance-20261016?tab=qa",
+  "browser": "Codex In-app Browser",
+  "viewport": "existing desktop viewport",
+  "model": "qwen3.8-flash",
+  "options": {
+    "server_default_model": true,
+    "rerank": true,
+    "strict_mode": true
+  },
+  "question": "Using PDF_NATIVE_RUST_20261016, what are the annual review dates and approval team? Cite the source.",
+  "observed_answer": {
+    "dates": "November 6 through November 12",
+    "approval_team": "Blue Lantern team",
+    "citation": "[1]"
+  },
+  "ui_stats": {
+    "total_ms": 7530,
+    "retrieval_ms": 18,
+    "llm_ms": 7507,
+    "tokens": 517,
+    "retrieval_segments": 3
+  },
+  "source_dialog": {
+    "document": "native-browser-knowledge-20261016.pdf",
+    "version": 1,
+    "source_matches_cited_saved_version": true
+  },
+  "new_console_warnings": 0,
+  "new_console_errors": 0,
+  "prior_console_noise": "Five entries from 04:33 through 06:15 UTC predate this flow.",
+  "screenshots": [
+    "native-qa-stream-browser-passed-20261016.png",
+    "native-qa-stream-cited-source-passed-20261016.png"
+  ],
+  "screenshot_location": "Private external acceptance capture directory; no credentials included.",
+  "previous_failure": {
+    "symptom": "Page ended without answer while direct valid QA stream succeeded.",
+    "session_refresh": "Existing test admin logged in again through the actual UI; target flow then passed.",
+    "cause": "Old browser session no longer admitted; server default request shape and HTTP status classification also fixed and tested."
+  },
+  "limits": [
+    "Mobile was not tested because layout was unchanged.",
+    "No browser performance trace capability was available; reported timing comes from the rendered application.",
+    "No provider-side billing or cancellation confirmation claimed."
+  ]
+}

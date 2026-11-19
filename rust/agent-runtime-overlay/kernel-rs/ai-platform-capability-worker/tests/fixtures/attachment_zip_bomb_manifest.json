@@ -1,0 +1,10 @@
+{
+  "schema_version": "attachment-safety-fixture/v1",
+  "reject": [
+    {"name": "../escape.txt", "reason": "path_traversal"},
+    {"name": "/absolute.txt", "reason": "absolute_path"},
+    {"name": "nested.zip", "reason": "bounded_archive_policy"},
+    {"name": "huge.txt", "reason": "expanded_member_limit"},
+    {"name": "link.txt", "reason": "symlink_member"}
+  ]
+}

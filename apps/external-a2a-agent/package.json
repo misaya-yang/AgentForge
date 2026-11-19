@@ -1,0 +1,23 @@
+{
+  "name": "@agentforge/external-a2a-reference-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Customer-owned OpenAI Agents SDK example behind A2A 1.0; not a platform worker/kernel",
+  "engines": {
+    "node": ">=24.14.0 <25"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check src/server.mjs"
+  },
+  "dependencies": {
+    "@openai/agents-core": "0.20.0",
+    "@openai/agents-openai": "0.20.0",
+    "openai": "7.38.0",
+    "zod": "4.6.7",
+    "@modelcontextprotocol/client": "2.3.1"
+  },
+  "license": "Apache-2.0"
+}

@@ -1,0 +1,231 @@
+{{- $p := default dict .Values.sandbox.strongPool -}}
+{{- if (default false $p.enabled) -}}
+{{- $name := printf "%s-strong-sandbox" (include "ai-gateway.fullname" . | trunc 44 | trimSuffix "-") -}}
+{{- $ns := required "sandbox.strongPool.namespace (dedicated credential-free namespace) is required" $p.namespace -}}
+{{- $node := required "sandbox.strongPool.nodeName is required" $p.nodeName -}}
+{{- $runtimeClass := required "sandbox.strongPool.runtimeClassName is required" $p.runtimeClassName -}}
+{{- $sandboxImage := required "sandbox.strongPool.sandboxImage digest is required" $p.sandboxImage -}}
+{{- $controlImage := required "sandbox.strongPool.controlImage digest is required" $p.controlImage -}}
+{{- $root := required "sandbox.strongPool.sharedHostPath is required" $p.sharedHostPath -}}
+{{- $cidr := required "sandbox.strongPool.apiServerCIDR is required" $p.apiServerCIDR -}}
+{{- if or (eq $ns .Release.Namespace) (not (contains "@sha256:" $sandboxImage)) (not (contains "@sha256:" $controlImage)) -}}
+{{- fail "strong pool needs a separate sandbox namespace and immutable image digests" -}}
+{{- end -}}
+{{- $public := printf "%s-public" $name -}}
+{{- $pool := dict "namespace" $ns "node_name" $node "pool" $name "runtime_class" $runtimeClass "runtime_handler" "runsc" "image" $sandboxImage "shared_root" (printf "%s/slots" $root) "socket" (printf "%s/control/control.sock" $root) "journal_root" (printf "%s/journal" $root) "warm" (default 2 $p.warm) "maximum" (default 8 $p.maximum) "retention_ms" 3600000 "public_key_id" (required "sandbox.strongPool.jobPublicKeyId is required" $p.jobPublicKeyId) "public_key_hex" (required "sandbox.strongPool.jobPublicKeyHex is required" $p.jobPublicKeyHex) "attestation_config_map" $public "seccomp_profile" (required "sandbox.strongPool.seccompProfile is required" $p.seccompProfile) "cgroup_csi" (required "sandbox.strongPool.cgroupCSI is required" $p.cgroupCSI) -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns | quote }}
+  labels:
+    agentforge.io/credential-free-sandbox: "true"
+    agentforge.io/sandbox-pool: {{ $name | quote }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata: {name: strong-sandbox-pods, namespace: {{ $ns | quote }}}
+spec:
+  hard: {pods: {{ default 8 $p.maximum | quote }}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: {{ $public | quote }}, namespace: {{ $ns | quote }}}
+data:
+  keys.json: {{ required "sandbox.strongPool.attestationPublicKeyringJSON is required" $p.attestationPublicKeyringJSON | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: {{ $name | quote }}}
+data:
+  pool.json: {{ $pool | toJson | quote }}
+  attestor.json: {{ dict "pool" $pool "crictl" "/usr/local/bin/crictl" "cri_endpoint" "unix:///run/cri/containerd.sock" "host_proc" "/host/proc" "runtime_sha256" (required "sandbox.strongPool.runscExecutableSHA256 is required" $p.runscExecutableSHA256) "signing_key_file" "/run/attestor/private/keyring.json" | toJson | quote }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: {{ printf "%s-controller" $name | quote }}}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: {{ printf "%s-attestor" $name | quote }}}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: {{ $name | quote }}, namespace: {{ $ns | quote }}}
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get, list, create, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: {{ printf "%s-observer" $name | quote }}, namespace: {{ $ns | quote }}}
+rules:
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: {{ $name | quote }}, namespace: {{ $ns | quote }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ $name | quote }}}
+subjects:
+- {kind: ServiceAccount, name: {{ printf "%s-controller" $name | quote }}, namespace: {{ .Release.Namespace | quote }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: {{ printf "%s-observer" $name | quote }}, namespace: {{ $ns | quote }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: {{ printf "%s-observer" $name | quote }}}
+subjects:
+- {kind: ServiceAccount, name: {{ printf "%s-attestor" $name | quote }}, namespace: {{ .Release.Namespace | quote }}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: {{ $name | quote }}}
+rules:
+- apiGroups: [node.k8s.io]
+  resources: [runtimeclasses]
+  resourceNames: [{{ $runtimeClass | quote }}]
+  verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: {{ $name | quote }}}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: {{ $name | quote }}}
+subjects:
+- {kind: ServiceAccount, name: {{ printf "%s-controller" $name | quote }}, namespace: {{ .Release.Namespace | quote }}}
+- {kind: ServiceAccount, name: {{ printf "%s-attestor" $name | quote }}, namespace: {{ .Release.Namespace | quote }}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: {{ printf "%s-controller" $name | quote }}}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {agentforge.io/strong-controller: {{ $name | quote }}}}
+  template:
+    metadata: {labels: {agentforge.io/strong-controller: {{ $name | quote }}}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: {{ $node | quote }}}
+      serviceAccountName: {{ printf "%s-controller" $name | quote }}
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: controller
+        image: {{ $controlImage | quote }}
+        command: [ai-platform-sandbox-pool]
+        args: [/etc/pool/pool.json]
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: "1", memory: 512Mi}}
+        readinessProbe:
+          exec: {command: [ai-platform-python-sandbox-health, {{ printf "%s/control/control.sock" $root | quote }}]}
+        volumeMounts:
+        - {name: config, mountPath: /etc/pool, readOnly: true}
+        - {name: shared, mountPath: {{ $root | quote }}}
+      volumes:
+      - {name: config, configMap: {name: {{ $name | quote }}}}
+      - {name: shared, hostPath: {path: {{ $root | quote }}, type: Directory}}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: {name: {{ printf "%s-attestor" $name | quote }}}
+spec:
+  selector: {matchLabels: {agentforge.io/strong-attestor: {{ $name | quote }}}}
+  template:
+    metadata: {labels: {agentforge.io/strong-attestor: {{ $name | quote }}}}
+    spec:
+      nodeSelector: {kubernetes.io/hostname: {{ $node | quote }}}
+      serviceAccountName: {{ printf "%s-attestor" $name | quote }}
+      automountServiceAccountToken: true
+      enableServiceLinks: false
+      hostPID: true
+      securityContext: {seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: attestor
+        image: {{ $controlImage | quote }}
+        command: [ai-platform-sandbox-attestor]
+        args: [/etc/pool/attestor.json]
+        securityContext: {runAsUser: 0, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL], add: [SYS_PTRACE, DAC_READ_SEARCH]}}
+        resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {cpu: "1", memory: 512Mi}}
+        volumeMounts:
+        - {name: config, mountPath: /etc/pool, readOnly: true}
+        - {name: slots, mountPath: {{ printf "%s/slots" $root | quote }}}
+        - {name: key, mountPath: /run/attestor/private, readOnly: true}
+        - {name: hostproc, mountPath: /host/proc, readOnly: true}
+        - {name: cri, mountPath: /run/cri/containerd.sock, readOnly: true}
+        - {name: crictl, mountPath: /usr/local/bin/crictl, readOnly: true}
+      volumes:
+      - {name: config, configMap: {name: {{ $name | quote }}}}
+      - {name: slots, hostPath: {path: {{ printf "%s/slots" $root | quote }}, type: Directory}}
+      - {name: key, secret: {secretName: {{ required "sandbox.strongPool.attestationPrivateKeySecret is required" $p.attestationPrivateKeySecret | quote }}, defaultMode: 256}}
+      - {name: hostproc, hostPath: {path: /proc, type: Directory}}
+      - {name: cri, hostPath: {path: {{ required "sandbox.strongPool.containerdSocket is required" $p.containerdSocket | quote }}, type: Socket}}
+      - {name: crictl, hostPath: {path: {{ required "sandbox.strongPool.crictlHostPath is required" $p.crictlHostPath | quote }}, type: File}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: credential-free-deny-all, namespace: {{ $ns | quote }}}
+spec: {podSelector: {}, policyTypes: [Ingress, Egress], ingress: [], egress: []}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: {{ $name | quote }}}
+spec:
+  podSelector:
+    matchExpressions:
+    - {key: agentforge.io/strong-controller, operator: Exists}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+  - to: [{ipBlock: {cidr: {{ $cidr | quote }}}}]
+    ports: [{protocol: TCP, port: 443}]
+  - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: {{ printf "%s-attestor" $name | quote }}}
+spec:
+  podSelector: {matchLabels: {agentforge.io/strong-attestor: {{ $name | quote }}}}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+  - to: [{ipBlock: {cidr: {{ $cidr | quote }}}}]
+    ports: [{protocol: TCP, port: 443}]
+  - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}}]
+    ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata: {name: {{ $name | quote }}}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - {apiGroups: [""], apiVersions: [v1], operations: [CREATE, UPDATE], resources: [pods]}
+  validations:
+  - expression: "object.spec.runtimeClassName == '{{ $runtimeClass }}' && object.spec.nodeName == '{{ $node }}' && object.spec.restartPolicy == 'Never'"
+    message: Dedicated strong runtime, node and single-use lifecycle are required.
+  - expression: "has(object.spec.automountServiceAccountToken) && object.spec.automountServiceAccountToken == false && (!has(object.spec.hostNetwork) || !object.spec.hostNetwork) && (!has(object.spec.hostPID) || !object.spec.hostPID) && (!has(object.spec.hostIPC) || !object.spec.hostIPC)"
+    message: Credentials and host namespaces are forbidden in a sandbox.
+  - expression: "size(object.spec.containers) == 1 && size(object.spec.initContainers) == 1 && (!has(object.spec.ephemeralContainers) || size(object.spec.ephemeralContainers) == 0)"
+    message: Only the approved sandbox and measurement init container are allowed.
+  - expression: "object.spec.containers.all(c, c.image == '{{ $sandboxImage }}' && c.securityContext.allowPrivilegeEscalation == false && c.securityContext.readOnlyRootFilesystem == true && (!has(c.securityContext.privileged) || !c.securityContext.privileged) && (!has(c.envFrom) || size(c.envFrom) == 0) && (!has(c.env) || size(c.env) == 0))"
+    message: The sandbox image and credential-free security context are fixed.
+  - expression: "object.spec.initContainers.all(c, c.image == '{{ $sandboxImage }}' && c.securityContext.allowPrivilegeEscalation == false && c.securityContext.readOnlyRootFilesystem == true && (!has(c.securityContext.privileged) || !c.securityContext.privileged) && (!has(c.envFrom) || size(c.envFrom) == 0) && (!has(c.env) || size(c.env) == 0))"
+    message: The probe image and credential-free security context are fixed.
+  - expression: "object.spec.volumes.all(v, (has(v.hostPath) && v.name == 'slot' && v.hostPath.path == '{{ $root }}/slots/' + object.metadata.name) || (has(v.configMap) && v.name == 'public' && v.configMap.name == '{{ $public }}') || (has(v.emptyDir) && v.name in ['workspace','journal','tmp'] && v.emptyDir.medium == 'Memory') || (has(v.csi) && v.name == 'cgroup' && v.csi.driver == '{{ $p.cgroupCSI.driver }}'))"
+    message: Secret, token, parent-directory and undelegated host mounts are forbidden.
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata: {name: {{ $name | quote }}}
+spec:
+  policyName: {{ $name | quote }}
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {agentforge.io/sandbox-pool: {{ $name | quote }}}
+{{- end }}

@@ -1,0 +1,13 @@
+{
+  "branch": "main",
+  "mode": "fast-forward",
+  "from": "425ce123540feacb3059a4b09c011b8d70ebe209",
+  "merged_head": "2919a587c6257f5dcd83e670b868e2a0edf1953f",
+  "implementation_commit": "60ede5c59eb6ad4327e1d8ecac77dccf26db8d93",
+  "integration_commit": "66202d8bfd9fd0a1cf4cefa53216472fae9ae037",
+  "source_manifest_matches_merged_code": true,
+  "push_performed": false,
+  "branches_deleted": false,
+  "integration_record_commit": "e2d5ef2eb1d19f4f83b759fba95c731469d6dcf9",
+  "documentation_recorded": true
+}

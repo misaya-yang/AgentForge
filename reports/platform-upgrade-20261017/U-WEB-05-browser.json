@@ -1,0 +1,14 @@
+{
+  "schema": "agentforge/web-streaming-v2-browser/v1",
+  "status": "passed",
+  "tests": 2,
+  "elapsed_seconds": 5.7,
+  "cases": [
+    "existing R1 controlled disconnect resumes same turn",
+    "new U-WEB-05 network flap reconnects GET twice, replayed cursor events deduplicate, one POST start and zero interrupts"
+  ],
+  "workers": 1,
+  "browser": "Chromium",
+  "backend": "controlled fixture APIs; not real-provider/backend acceptance",
+  "real_one_hour": "not_run"
+}

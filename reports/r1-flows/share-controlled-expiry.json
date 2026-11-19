@@ -1,0 +1,11 @@
+{
+  "tier": "controlled_expiry_on_real_dedicated_share",
+  "share_code": "1j5qyuji",
+  "share_url": "/share/1j5qyuji",
+  "single_row_cutoff": true,
+  "before_view": 200,
+  "before_download": 200,
+  "after_view": 410,
+  "after_download": 410,
+  "execution_request_count": 0
+}

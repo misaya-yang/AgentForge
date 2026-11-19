@@ -1,0 +1,147 @@
+[
+  {
+    "charset": "utf-16",
+    "bytes": [
+      255,
+      254,
+      65,
+      0
+    ],
+    "expected": "A"
+  },
+  {
+    "charset": "utf-16",
+    "bytes": [
+      65,
+      0
+    ],
+    "error": "UnicodeError"
+  },
+  {
+    "charset": "utf-16le",
+    "bytes": [
+      255,
+      254,
+      65,
+      0
+    ],
+    "expected": "﻿A"
+  },
+  {
+    "charset": "utf-16",
+    "bytes": [
+      255,
+      254,
+      65
+    ],
+    "expected": "�"
+  },
+  {
+    "charset": "utf-16le",
+    "bytes": [
+      0,
+      216,
+      120
+    ],
+    "expected": "�"
+  },
+  {
+    "charset": "utf-32",
+    "bytes": [
+      255,
+      254,
+      0,
+      0,
+      65,
+      0,
+      0,
+      0
+    ],
+    "expected": "A"
+  },
+  {
+    "charset": "utf-32",
+    "bytes": [
+      65,
+      0,
+      0,
+      0
+    ],
+    "error": "UnicodeError"
+  },
+  {
+    "charset": "utf-32be",
+    "bytes": [
+      0,
+      0,
+      254,
+      255,
+      0,
+      0,
+      0,
+      65
+    ],
+    "expected": "﻿A"
+  },
+  {
+    "charset": "utf_16_le",
+    "bytes": [
+      65,
+      0
+    ],
+    "expected": "A"
+  },
+  {
+    "charset": "cp1252",
+    "bytes": [
+      129,
+      128
+    ],
+    "expected": "�€"
+  },
+  {
+    "charset": "ibm437",
+    "bytes": [
+      128,
+      255
+    ],
+    "expected": "Ç "
+  },
+  {
+    "charset": "mac-roman",
+    "bytes": [
+      128,
+      255
+    ],
+    "expected": "Äˇ"
+  },
+  {
+    "charset": "iso_8859_15",
+    "bytes": [
+      164
+    ],
+    "expected": "€"
+  },
+  {
+    "charset": "koi8-r",
+    "bytes": [
+      192
+    ],
+    "expected": "ю"
+  },
+  {
+    "charset": "utf-32",
+    "bytes": [
+      65,
+      66
+    ],
+    "expected": "�"
+  },
+  {
+    "charset": "utf-16",
+    "bytes": [
+      65
+    ],
+    "expected": "�"
+  }
+]

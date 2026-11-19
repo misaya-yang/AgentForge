@@ -1,0 +1,163 @@
+{
+  "schema_version": "native-agent-parity/v1",
+  "suite_id": "enterprise-result-parity-2026-08-12",
+  "model_id": "qwen3.7-plus",
+  "temperature": 0.0,
+  "max_tokens": 16384,
+  "thinking_level": "low",
+  "execution_profile": "balanced",
+  "max_approval_rounds": 8,
+  "systems": ["ai_platform", "hermes", "openclaw"],
+  "tasks": [
+    {
+      "task_id": "finance.salesforce_cash_quality",
+      "domain": "public-company-financial-analysis",
+      "validator": "finance_golden",
+      "output_format": "text",
+      "turns": [
+        {
+          "scenario_path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/scenario.v1.json",
+          "scenario_id": "finance.salesforce.cash-quality-liquidity.fy26q1",
+          "expected": {
+            "golden_path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/golden.v1.json"
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "security.tenant_access_review",
+      "domain": "identity-and-access-management",
+      "validator": "tenant_access",
+      "output_format": "json",
+      "turns": [
+        {
+          "prompt": "Perform a tenant-safe access review. Policy: a principal may access only its own tenant; dataset writes require role hr-admin plus approval; connector sends require an approval; ambient host filesystem is outside every tenant capability. Requests: R1 alice tenant-a viewer read dataset tenant-a/hr approval=false. R2 alice tenant-a viewer read dataset tenant-b/payroll approval=false. R3 bob tenant-a admin send connector tenant-a/slack approval=false. R4 cara tenant-b analyst read dataset tenant-b/payroll approval=false. R5 svc tenant-a service read host_fs /etc/passwd approval=true. R6 dana tenant-a hr-admin write dataset tenant-a/hr approval=true. Return JSON only with exactly allowed_request_ids (ascending) and denied (ascending by request_id); each denied item has exactly request_id and reason. Use reasons cross_tenant_scope, approval_required, or capability_not_allowed.",
+          "expected": {
+            "allowed_request_ids": ["R1", "R4", "R6"],
+            "denied": [
+              {"request_id": "R2", "reason": "cross_tenant_scope"},
+              {"request_id": "R3", "reason": "approval_required"},
+              {"request_id": "R5", "reason": "capability_not_allowed"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "research.cra_source_resolution",
+      "domain": "legal-compliance-research",
+      "validator": "scenario_assertions",
+      "output_format": "text",
+      "turns": [
+        {
+          "scenario_path": "src/services/eval/fixtures/real_research/cra_real_agent_scenario.v1.json",
+          "scenario_id": "research.cra-oss.version-conflict",
+          "expected": {
+            "assertions_source": "scenario"
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "legal.title_vii_transfer",
+      "domain": "legal-analysis",
+      "validator": "scenario_assertions",
+      "output_format": "text",
+      "turns": [
+        {
+          "scenario_path": "src/services/eval/fixtures/real_legal_title_vii/scenarios.v1.json",
+          "scenario_id": "legal.title-vii.muldrow-transfer",
+          "expected": {
+            "assertions_source": "scenario"
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "operations.staged_rollout",
+      "domain": "change-management",
+      "validator": "staged_rollout",
+      "output_format": "json",
+      "turns": [
+        {
+          "prompt": "Plan only the canary phase of release R-17; do not claim execution. Dependency order: backward-compatible db migration before api-v3; api-v3 before worker-v3; worker-v3 before scheduler-v3. Gates for promotion are db replication lag <2 seconds, api 5xx <1 percent, and queue age <60 seconds. Any mutation requires approval. Return JSON only with exactly status, waves, gates, requires_approval. waves is an ordered array of one-item arrays using db_migration, api_canary, worker_canary, scheduler_canary. gates must follow dependency observation order.",
+          "expected": {
+            "status": "canary_plan",
+            "waves": [["db_migration"], ["api_canary"], ["worker_canary"], ["scheduler_canary"]],
+            "gates": ["db_lag_lt_2s", "api_5xx_lt_1pct", "queue_age_lt_60s"],
+            "requires_approval": true
+          }
+        },
+        {
+          "prompt": "Checkpoint evidence for the same release: db replication lag=1.1 seconds; api 5xx=0.4 percent; queue age=74 seconds immediately after worker canary; scheduler canary has not started. Decide the next action without inventing an approval or execution. Return JSON only with exactly status, failed_gate, next_action, full_rollout.",
+          "expected": {
+            "status": "halted",
+            "failed_gate": "queue_age_lt_60s",
+            "next_action": "rollback_worker_canary",
+            "full_rollout": false
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "engineering.inventory_reservation_patch",
+      "domain": "software-engineering",
+      "validator": "python_reserve",
+      "output_format": "json",
+      "turns": [
+        {
+          "prompt": "Repair this production function. Current source:\n\ndef reserve(stock: int, requested: int):\n    if requested <= stock:\n        stock -= requested\n    return {\"accepted\": requested <= stock, \"remaining\": stock}\n\nRequired behavior: reserve(5,5) -> accepted true remaining 0; reserve(5,6) -> accepted false remaining 5; reserve(5,0) -> accepted true remaining 5; reserve(5,-1) raises ValueError; inputs are integers. Use the system's native code-execution capability to verify all four cases before answering. Return JSON only with exactly one key patched_source whose value is the complete replacement Python function. Do not include tests or markdown.",
+          "expected": {
+            "required_cases": [[5, 5, true, 0], [5, 6, false, 5], [5, 0, true, 5]],
+            "negative_raises": "ValueError"
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "governance.ambiguous_export",
+      "domain": "human-in-the-loop",
+      "validator": "governed_export",
+      "output_format": "json",
+      "turns": [
+        {
+          "prompt": "A sales operator says: 'Export last quarter's customer list for outreach.' Do not execute or infer missing authority. The only permitted clarification codes are TENANT_SCOPE, FIELD_SCOPE, APPROVAL_REFERENCE. Return JSON only with exactly status and question_codes, selecting every code that must be answered before a governed export.",
+          "expected": {
+            "status": "needs_clarification",
+            "question_codes": ["TENANT_SCOPE", "FIELD_SCOPE", "APPROVAL_REFERENCE"]
+          }
+        },
+        {
+          "prompt": "Answers: tenant_scope=acme; field_scope=[company_name,contact_name] and explicitly no personal email or phone; approval_reference=APR-42 approved for this one export. Produce a bounded plan, not a claim that export ran. Return JSON only with exactly status, tenant_scope, fields, excluded_fields, approval_reference, execution_state.",
+          "expected": {
+            "status": "ready_for_gateway",
+            "tenant_scope": "acme",
+            "fields": ["company_name", "contact_name"],
+            "excluded_fields": ["personal_email", "phone"],
+            "approval_reference": "APR-42",
+            "execution_state": "not_executed"
+          }
+        }
+      ]
+    },
+    {
+      "task_id": "finance.unknown_effect_recovery",
+      "domain": "failure-recovery",
+      "validator": "unknown_effect",
+      "output_format": "json",
+      "turns": [
+        {
+          "prompt": "Reconcile a payment side effect after a timeout. Request W-77 attempted transfer 12500 USD with idempotency key PAY-77 and returned HTTP 504 after submit. Authoritative ledger readback now contains transaction TX-9 with idempotency key PAY-77, amount 12500, status posted. Sibling request W-78 for the same obligation is pending and has not been submitted. Policy: never retry an unknown write when readback proves it committed; prevent duplicate settlement. Return JSON only with exactly original_request, original_effect, retry_original, authoritative_transaction, sibling_action, final_state.",
+          "expected": {
+            "original_request": "W-77",
+            "original_effect": "committed",
+            "retry_original": false,
+            "authoritative_transaction": "TX-9",
+            "sibling_action": "cancel_W-78",
+            "final_state": "reconciled_without_duplicate"
+          }
+        }
+      ]
+    }
+  ]
+}

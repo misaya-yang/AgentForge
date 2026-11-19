@@ -1,0 +1,45 @@
+{
+  "run_id": "099af753-a4f7-4ed3-bce4-ec84588b3a83",
+  "status": "succeeded",
+  "thread_id": "01a0c9ee-6e6b-7cb1-b9b3-34c37787e351",
+  "session_id": "51fc4288-237c-4476-9951-b81fd0d2ed25",
+  "captured_at": "2026-09-22T16:48:54.457666+00:00",
+  "finished_at": "2026-09-22T16:47:40.067781+00:00",
+  "model_calls": [
+    {
+      "status": "completed",
+      "call_id": "30250a1d-c1e4-4280-929a-a21b4fcc35c9",
+      "error_code": null,
+      "completed_at": "2026-09-22T16:47:40.024427+00:00",
+      "input_tokens": 14591,
+      "cost_microusd": 0,
+      "dispatched_at": "2026-09-22T16:47:34.433595+00:00",
+      "output_tokens": 29
+    }
+  ],
+  "gateway_wire": "responses_v1",
+  "gateway_model": "qwen3.7-plus",
+  "approval_count": 0,
+  "run_created_at": "2026-09-22T16:47:34.204446+00:00",
+  "terminal_events": [
+    {
+      "status": "succeeded",
+      "sequence": 339,
+      "event_type": "compat/v1/run_finished"
+    }
+  ],
+  "gateway_provider": "dashscope",
+  "model_call_count": 1,
+  "active_model_leases": 0,
+  "tool_execution_count": 0,
+  "runtime_metadata_provider": "ai-platform-gateway",
+  "output_matches_exact_marker": true,
+  "comparison": {
+    "previous_failed_run_id": "6360ed29-8f57-4a70-a466-57d8f637b2e3",
+    "previous_status": "failed",
+    "previous_runtime_provider": "openai",
+    "previous_gateway_model_calls": 0,
+    "previous_evidence": "live-ui-final-recovery-provider-fallback-20260922.json"
+  },
+  "scope": "Read-only PG evidence for the existing IAB synthetic session after Gateway routing fix and Runtime restart. No new provider request issued by this investigator."
+}

@@ -1,0 +1,66 @@
+{
+  "acceptance_passed": false,
+  "counts": {
+    "ai_platform": {
+      "completion_rate": 0.0,
+      "infrastructure_errors": 0,
+      "passed": 0,
+      "total": 1
+    }
+  },
+  "evidence": {
+    "manifest_sha256": "5de85f0e5fddb54f07f073cb0c9861fd08ab7b19ba2a627241ffc6a67bfb9811",
+    "referenced_assets": [
+      {
+        "path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/golden.v1.json",
+        "sha256": "08c892baa5c667755d8fbcdc788e39c53e8b9c24d1c7d4e58ecdb757ffd8a74a"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/scenario.v1.json",
+        "sha256": "fe9a2b5c59c4e482eac9e531bc79e359e8120d7907c58471c0d34a21f3c2ca17"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_legal_title_vii/scenarios.v1.json",
+        "sha256": "3c4cca55292f7870f471cf18273b82f25fe8cb373c6e0fb90f1808d60561f636"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_research/cra_real_agent_scenario.v1.json",
+        "sha256": "648f2da1ba272bd5b892f33d1e054afc037b31012fa9bb1f4ecdcee2f5a97d27"
+      }
+    ],
+    "runner_sha256": "609608cfcf3ece51a1bf075b38a3912b42d16966a530163274285aab3aecc644"
+  },
+  "execution_profile": "balanced",
+  "finished_at": "2026-08-17T02:25:23.141122+00:00",
+  "manifest_sha256": "5de85f0e5fddb54f07f073cb0c9861fd08ab7b19ba2a627241ffc6a67bfb9811",
+  "manifest_thinking_level": "low",
+  "max_tokens": 16384,
+  "model_id": "qwen3.7-plus",
+  "schema_version": "native-agent-parity-result/v1",
+  "started_at": "2026-08-17T02:23:53.231360+00:00",
+  "suite_id": "enterprise-result-parity-2026-08-12",
+  "task_results": [
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "research.cra_source_resolution"
+    }
+  ],
+  "temperature": 0.0,
+  "thinking_level": "medium",
+  "thinking_level_override_applied": true,
+  "versions": {
+    "ai_platform": {
+      "git_commit": "a49eac32d26ef5d19ed75aa1a7a7941f0ab281fc",
+      "git_diff_sha256": "f3dc3476da313ac472378ad1a19bf8793667d3bd0420f91fce3fec062a89d09b"
+    },
+    "hermes": {
+      "git_commit": "7230fcb7f2577823d55e66d51bbe70b42789c677",
+      "version": "Hermes Agent v0.16.0 (2026.6.5) · upstream 3c108589"
+    },
+    "openclaw": {
+      "git_commit": "fbf5d56366ba1dcf01e63c18cc3a4231212b9504",
+      "version": "OpenClaw 2026.3.9 (fbf5d56)"
+    }
+  }
+}

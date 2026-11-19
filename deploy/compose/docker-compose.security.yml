@@ -1,0 +1,617 @@
+# Canonical complete security entrypoint: append immediately after the sole root/full-local base.
+# Checked materialization of workload-security.yml + data-security.yml, so all
+# !reset removals execute together. Native source contracts enforce freshness.
+services:
+  gateway:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: gateway-workload:8443
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/agent-runtime,spiffe://agentforge.internal/service/agent-capability-worker,spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_KNOWLEDGE_CLIENT_IDS: spiffe://agentforge.internal/service/knowledge,spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://agent-runtime-workload:8454":"spiffe://agentforge.internal/service/agent-runtime","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      GATEWAY_AUTHENTICATION__JWT__SECRET: !reset null
+      GATEWAY_AUTHENTICATION__JWT__SECRET_FILE: /run/app-secrets/jwt-secret
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      GATEWAY_ENCRYPTION_KEY_FILE: /run/app-secrets/encryption-key
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      AI_PLATFORM_GATEWAY_ED25519_KEYRING_FILE: /run/lease/private.json
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE: /run/knowledge-model/public.json
+      AI_PLATFORM_KNOWLEDGE_MODEL_PRICE_BOOK_REVISION: ${KNOWLEDGE_MODEL_PRICE_BOOK_REVISION:?Select the activated price book}
+      KB_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_AGENT_RUNTIME_URL: https://agent-runtime-workload:8454
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      DATA_GATEWAY_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_GATEWAY_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_GATEWAY_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_GATEWAY_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_GATEWAY_MODE: direct
+      DATA_GATEWAY_EXPECTED_HOST: postgres
+      DATA_GATEWAY_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_GATEWAY_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_GATEWAY_POOL_MAX: '4'
+      DATA_GATEWAY_REPLICAS: '1'
+      DATA_GATEWAY_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_GATEWAY_POOLED_BACKEND_LIMIT: '8'
+      DATA_GATEWAY_STATEMENT_TIMEOUT_MS: '30000'
+      POSTGRES_HOST: !reset null
+      POSTGRES_PORT: !reset null
+      POSTGRES_USER: !reset null
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_DB: !reset null
+      DATABASE_URL: !reset null
+      AI_GATEWAY_DATABASE_GATEWAY_DSN: !reset null
+      GATEWAY_DATABASE__DSN: !reset null
+      DATA_GATEWAY_CONTROL_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_GATEWAY_CONTROL_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_GATEWAY_CONTROL_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_GATEWAY_CONTROL_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_GATEWAY_CONTROL_MODE: direct
+      DATA_GATEWAY_CONTROL_EXPECTED_HOST: postgres
+      DATA_GATEWAY_CONTROL_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_GATEWAY_CONTROL_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_GATEWAY_CONTROL_POOL_MAX: '2'
+      DATA_GATEWAY_CONTROL_REPLICAS: '1'
+      DATA_GATEWAY_CONTROL_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_GATEWAY_CONTROL_POOLED_BACKEND_LIMIT: '8'
+      DATA_GATEWAY_CONTROL_STATEMENT_TIMEOUT_MS: '30000'
+    expose:
+    - '8443'
+    networks:
+      app:
+        aliases:
+        - gateway-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/gateway
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/jwt-secret
+      target: /run/app-secrets/jwt-secret
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/encryption-key
+      target: /run/app-secrets/encryption-key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/gateway/lease-private.json
+      target: /run/lease/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_WORKLOAD_PUBLIC_KEYS_FILE:?Select the public Knowledge model keyring}
+      target: /run/knowledge-model/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select Gateway public verification keys}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Select generated private material}/ai_gateway_gateway
+      target: /run/data/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  agent-runtime:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-runtime-workload:8454
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://agent-capability-worker-workload:8455":"spiffe://agentforge.internal/service/agent-capability-worker","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      AI_PLATFORM_CAPABILITY_PLANE_URL: https://gateway-workload:8443/internal/v2/agent-capabilities
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_RUNTIME_BASE_URL: https://gateway-workload:8443/internal/v1/agent-model-plane
+      AI_PLATFORM_RUNTIME_MODEL_PROXY_BASE_URL: http://127.0.0.1:8094/internal/v1/model-proxy
+      AI_PLATFORM_CAPABILITY_WORKER_URL: https://agent-capability-worker-workload:8455
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      AI_PLATFORM_RUNTIME_MODEL_PROXY_TOKEN: ${RUNTIME_MODEL_PROXY_TOKEN:?Provision a Runtime-local bridge token of at least 32 bytes}
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      DATA_RUNTIME_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_RUNTIME_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_RUNTIME_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_RUNTIME_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_RUNTIME_MODE: direct
+      DATA_RUNTIME_EXPECTED_HOST: postgres
+      DATA_RUNTIME_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_RUNTIME_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_RUNTIME_POOL_MAX: '4'
+      DATA_RUNTIME_REPLICAS: '1'
+      DATA_RUNTIME_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_RUNTIME_POOLED_BACKEND_LIMIT: '8'
+      DATA_RUNTIME_STATEMENT_TIMEOUT_MS: '30000'
+      POSTGRES_HOST: !reset null
+      POSTGRES_PORT: !reset null
+      POSTGRES_USER: !reset null
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_DB: !reset null
+      DATABASE_URL: !reset null
+      AI_GATEWAY_DATABASE_RUNTIME_DSN: !reset null
+    expose:
+    - '8454'
+    networks:
+      app:
+        aliases:
+        - agent-runtime-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/agent-runtime
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Select generated private material}/ai_gateway_runtime
+      target: /run/data/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  agent-capability-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: agent-capability-worker-workload:8455
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-runtime
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_WORKLOAD_PEERS_JSON: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway","https://knowledge-service-workload:8452":"spiffe://agentforge.internal/service/knowledge"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      AI_PLATFORM_GATEWAY_INTERNAL_URL: https://gateway-workload:8443
+      AI_PLATFORM_KNOWLEDGE_SERVICE_URL: https://knowledge-service-workload:8452
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      DATA_CAPABILITY_WORKER_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_CAPABILITY_WORKER_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_CAPABILITY_WORKER_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_CAPABILITY_WORKER_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_CAPABILITY_WORKER_MODE: direct
+      DATA_CAPABILITY_WORKER_EXPECTED_HOST: postgres
+      DATA_CAPABILITY_WORKER_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_CAPABILITY_WORKER_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_CAPABILITY_WORKER_POOL_MAX: '4'
+      DATA_CAPABILITY_WORKER_REPLICAS: '1'
+      DATA_CAPABILITY_WORKER_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_CAPABILITY_WORKER_POOLED_BACKEND_LIMIT: '8'
+      DATA_CAPABILITY_WORKER_STATEMENT_TIMEOUT_MS: '30000'
+      POSTGRES_HOST: !reset null
+      POSTGRES_PORT: !reset null
+      POSTGRES_USER: !reset null
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_DB: !reset null
+      DATABASE_URL: !reset null
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN: !reset null
+    expose:
+    - '8455'
+    networks:
+      app:
+        aliases:
+        - agent-capability-worker-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/agent-capability-worker
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Select generated private material}/ai_gateway_capability_worker
+      target: /run/data/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    deploy:
+      replicas: 1
+  knowledge-service:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-service-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway,spiffe://agentforge.internal/service/agent-capability-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      KNOWLEDGE_GRPC__BIND_ADDRESS: !reset null
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/knowledge-model/private.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/knowledge-model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS_JSON:?Select published model revisions}
+      KNOWLEDGE_STORAGE__SIGNING_KEY: !reset null
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/app-secrets/storage-signing-key
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_KNOWLEDGE_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_KNOWLEDGE_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_KNOWLEDGE_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_KNOWLEDGE_MODE: direct
+      DATA_KNOWLEDGE_EXPECTED_HOST: postgres
+      DATA_KNOWLEDGE_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_KNOWLEDGE_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_KNOWLEDGE_POOL_MAX: '4'
+      DATA_KNOWLEDGE_REPLICAS: '1'
+      DATA_KNOWLEDGE_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_KNOWLEDGE_POOLED_BACKEND_LIMIT: '8'
+      DATA_KNOWLEDGE_STATEMENT_TIMEOUT_MS: '30000'
+      POSTGRES_HOST: !reset null
+      POSTGRES_PORT: !reset null
+      POSTGRES_USER: !reset null
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_DB: !reset null
+      DATABASE_URL: !reset null
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN: !reset null
+      KNOWLEDGE_DATABASE__DSN: !reset null
+    expose:
+    - '8452'
+    networks:
+      app:
+        aliases:
+        - knowledge-service-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/knowledge-service
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-service/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-service/model-private.json
+      target: /run/knowledge-model/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_GATEWAY_PUBLIC_KEYS_FILE:?Select public Gateway model-plane keyring}
+      target: /run/knowledge-model/gateway-public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private per-service runtime files}/knowledge-service/storage-signing-key
+      target: /run/app-secrets/storage-signing-key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Select generated private material}/ai_gateway_knowledge_api
+      target: /run/data/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+  knowledge-worker:
+    environment:
+      AI_PLATFORM_WORKLOAD_MTLS_MODE: required
+      AI_PLATFORM_WORKLOAD_TLS_BIND: knowledge-worker-workload:8452
+      AI_PLATFORM_WORKLOAD_CREDENTIALS_DIR: /run/workload/credentials
+      AI_PLATFORM_WORKLOAD_SPIFFE_ID: spiffe://agentforge.internal/service/knowledge-worker
+      AI_PLATFORM_WORKLOAD_ALLOWED_CLIENT_IDS: spiffe://agentforge.internal/service/gateway
+      AI_PLATFORM_WORKLOAD_ALLOWED_ORIGINS: '{"https://gateway-workload:8443":"spiffe://agentforge.internal/service/gateway"}'
+      AI_PLATFORM_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET: !reset null
+      AI_PLATFORM_CAPABILITY_PROOF_SECRET_FILE: !reset null
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN: !reset null
+      AI_PLATFORM_AGENT_RUNTIME_MODEL_PLANE_INTERNAL_TOKEN_FILE: !reset null
+      AI_PLATFORM_LEASE_TRUST_MODE: verify_only
+      AI_PLATFORM_BROKER_PROOF_MODE: verify_only
+      AI_PLATFORM_LEASE_VERIFY_KEYRING_FILE: /run/lease/public.json
+      GATEWAY_URL: https://gateway-workload:8443
+      KNOWLEDGE_MODEL_PLANE__URL: https://gateway-workload:8443
+      KNOWLEDGE_GATEWAY_HEALTH_ORIGIN: http://gateway:8080
+      KNOWLEDGE_GRPC__BIND_ADDRESS: !reset null
+      GATEWAY_ENCRYPTION_KEY: !reset null
+      INTERNAL_AUTH_KEYS: !reset null
+      INTERNAL_AUTH_KEYS_FILE: /run/app-secrets/internal-auth-keys
+      KNOWLEDGE_MODEL_PLANE__WORKLOAD_KEY_FILE: /run/knowledge-model/private.json
+      KNOWLEDGE_MODEL_PLANE__GATEWAY_PUBLIC_KEYS_FILE: /run/knowledge-model/gateway-public.json
+      KNOWLEDGE_MODEL_PLANE__MODEL_REVISIONS: ${KNOWLEDGE_MODEL_REVISIONS_JSON:?Select published model revisions}
+      KNOWLEDGE_STORAGE__SIGNING_KEY: !reset null
+      KNOWLEDGE_STORAGE__SIGNING_KEY_FILE: /run/app-secrets/storage-signing-key
+      AI_PLATFORM_CAPABILITY_LEASE_SIGNING_SECRET_FILE: !reset null
+      DATA_KNOWLEDGE_DSN_FILE: /run/data/credentials/dsn-control
+      DATA_KNOWLEDGE_TLS_CA_FILE: /run/data/credentials/ca-bundle.pem
+      DATA_KNOWLEDGE_TLS_CERT_FILE: /run/data/credentials/tls.crt
+      DATA_KNOWLEDGE_TLS_KEY_FILE: /run/data/credentials/tls.key
+      DATA_KNOWLEDGE_MODE: direct
+      DATA_KNOWLEDGE_EXPECTED_HOST: postgres
+      DATA_KNOWLEDGE_DATABASE_ALIAS: ${POSTGRES_DB:-gateway}
+      DATA_KNOWLEDGE_PHYSICAL_DATABASE: ${POSTGRES_DB:-gateway}
+      DATA_KNOWLEDGE_POOL_MAX: '4'
+      DATA_KNOWLEDGE_REPLICAS: '1'
+      DATA_KNOWLEDGE_ROLE_CONNECTION_LIMIT: ${DATA_ROLE_CONNECTION_LIMIT:-64}
+      DATA_KNOWLEDGE_POOLED_BACKEND_LIMIT: '8'
+      DATA_KNOWLEDGE_STATEMENT_TIMEOUT_MS: '30000'
+      POSTGRES_HOST: !reset null
+      POSTGRES_PORT: !reset null
+      POSTGRES_USER: !reset null
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_DB: !reset null
+      DATABASE_URL: !reset null
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN: !reset null
+      KNOWLEDGE_DATABASE__DSN: !reset null
+    expose:
+    - '8452'
+    networks:
+      app:
+        aliases:
+        - knowledge-worker-workload
+    volumes:
+    - type: bind
+      source: ${WORKLOAD_PRIVATE_DIRECTORY:?Select per-service workload generations}/knowledge-worker
+      target: /run/workload/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${WORKLOAD_PUBLIC_KEYRING_FILE:?Select the Gateway public verification keyring}
+      target: /run/lease/public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-worker/internal-auth-keys
+      target: /run/app-secrets/internal-auth-keys
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private runtime files}/knowledge-worker/model-private.json
+      target: /run/knowledge-model/private.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${KNOWLEDGE_MODEL_GATEWAY_PUBLIC_KEYS_FILE:?Select public Gateway model-plane keyring}
+      target: /run/knowledge-model/gateway-public.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PLATFORM_SECRET_DIRECTORY:?Select private per-service runtime files}/knowledge-worker/storage-signing-key
+      target: /run/app-secrets/storage-signing-key
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Select generated private material}/ai_gateway_knowledge_worker
+      target: /run/data/credentials
+      read_only: true
+      bind:
+        create_host_path: false
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-bootstrap-password
+    command:
+    - postgres
+    - -c
+    - ssl=on
+    - -c
+    - ssl_min_protocol_version=TLSv1.3
+    - -c
+    - ssl_cert_file=/run/data-tls/postgres.crt
+    - -c
+    - ssl_key_file=/run/data-tls/postgres.key
+    - -c
+    - ssl_ca_file=/run/data-tls/ca-bundle.pem
+    - -c
+    - hba_file=/etc/postgresql/pg_hba.conf
+    - -c
+    - password_encryption=scram-sha-256
+    volumes:
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply the generated external private material directory}/postgres-bootstrap-password
+      target: /run/secrets/postgres-bootstrap-password
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply private material}/postgres
+      target: /run/data-tls
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_PRIVATE_DIRECTORY:?Supply private material}/pg_hba.conf
+      target: /etc/postgresql/pg_hba.conf
+      read_only: true
+      bind:
+        create_host_path: false
+    networks:
+      data-postgres: {}
+      data-pgbouncer-backend:
+        aliases:
+        - postgres-backend
+  database-bootstrap:
+    environment:
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN: !reset null
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN_FILE: /run/data/authority/migrator/dsn
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CA_FILE: /run/data/authority/migrator/ca-bundle.pem
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CERT_FILE: /run/data/authority/migrator/tls.crt
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_KEY_FILE: /run/data/authority/migrator/tls.key
+      AI_GATEWAY_DATABASE_GATEWAY_DSN: !reset null
+      AI_GATEWAY_DATABASE_GATEWAY_DSN_FILE: /run/data/authority/gateway/dsn
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CA_FILE: /run/data/authority/gateway/ca-bundle.pem
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_CERT_FILE: /run/data/authority/gateway/tls.crt
+      AI_GATEWAY_DATABASE_GATEWAY_TLS_KEY_FILE: /run/data/authority/gateway/tls.key
+      AI_GATEWAY_DATABASE_RUNTIME_DSN: !reset null
+      AI_GATEWAY_DATABASE_RUNTIME_DSN_FILE: /run/data/authority/runtime/dsn
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CA_FILE: /run/data/authority/runtime/ca-bundle.pem
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_CERT_FILE: /run/data/authority/runtime/tls.crt
+      AI_GATEWAY_DATABASE_RUNTIME_TLS_KEY_FILE: /run/data/authority/runtime/tls.key
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN: !reset null
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_DSN_FILE: /run/data/authority/capability_worker/dsn
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CA_FILE: /run/data/authority/capability_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_CERT_FILE: /run/data/authority/capability_worker/tls.crt
+      AI_GATEWAY_DATABASE_CAPABILITY_WORKER_TLS_KEY_FILE: /run/data/authority/capability_worker/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN: !reset null
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_DSN_FILE: /run/data/authority/knowledge_api/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CA_FILE: /run/data/authority/knowledge_api/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_CERT_FILE: /run/data/authority/knowledge_api/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_API_TLS_KEY_FILE: /run/data/authority/knowledge_api/tls.key
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN: !reset null
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_DSN_FILE: /run/data/authority/knowledge_worker/dsn
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CA_FILE: /run/data/authority/knowledge_worker/ca-bundle.pem
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_CERT_FILE: /run/data/authority/knowledge_worker/tls.crt
+      AI_GATEWAY_DATABASE_KNOWLEDGE_WORKER_TLS_KEY_FILE: /run/data/authority/knowledge_worker/tls.key
+    volumes:
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/migrator
+      target: /run/data/authority/migrator
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/gateway
+      target: /run/data/authority/gateway
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/runtime
+      target: /run/data/authority/runtime
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/capability_worker
+      target: /run/data/authority/capability_worker
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/knowledge_api
+      target: /run/data/authority/knowledge_api
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/knowledge_worker
+      target: /run/data/authority/knowledge_worker
+      read_only: true
+      bind:
+        create_host_path: false
+    command:
+    - deployment-file-admission
+    - --expected-database
+    - ${POSTGRES_DB:-gateway}
+  migrate:
+    environment:
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN: !reset null
+      AI_GATEWAY_DATABASE_MIGRATOR_DSN_FILE: /run/data/authority/migrator/dsn
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CA_FILE: /run/data/authority/migrator/ca-bundle.pem
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_CERT_FILE: /run/data/authority/migrator/tls.crt
+      AI_GATEWAY_DATABASE_MIGRATOR_TLS_KEY_FILE: /run/data/authority/migrator/tls.key
+    volumes:
+    - type: bind
+      source: ${DATA_AUTHORITY_DIRECTORY:?Select separate private authority material}/migrator
+      target: /run/data/authority/migrator
+      read_only: true
+      bind:
+        create_host_path: false
+networks:
+  data-postgres:
+    internal: true
+    ipam:
+      config:
+      - subnet: ${DATA_CLIENT_CIDR:?Declare and validate the selected existing client-network subnet}
+  data-pgbouncer-backend:
+    internal: true
+    ipam:
+      config:
+      - subnet: ${DATA_BACKEND_CIDR:?Declare a separate validated pooler-backend subnet}

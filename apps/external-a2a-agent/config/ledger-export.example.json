@@ -1,0 +1,8 @@
+{
+  "schema": "agentforge-external-a2a-ledger-export/v1",
+  "dataPrefix": "DATA_GATEWAY_EVIDENCE",
+  "signingKeyFile": "/absolute/private/external-a2a/ledger-auditor-ed25519.pkcs8.pem",
+  "admissionPermitFile": "/absolute/private/external-a2a/operator-activation.jwt",
+  "admissionKeyId": "operator-rehearsal-signer-v1",
+  "admissionPublicKey": "REPLACE_WITH_PINNED_OPERATOR_ED25519_RAW32_BASE64URL"
+}

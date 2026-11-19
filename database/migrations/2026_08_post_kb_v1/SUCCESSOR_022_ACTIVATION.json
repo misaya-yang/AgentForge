@@ -1,0 +1,17 @@
+{
+  "schema": "ai-platform/canonical-next-successor-activation/v1",
+  "status": "activated_source_chain",
+  "source_activation": true,
+  "predecessor_epoch": 21,
+  "epoch": 22,
+  "baseline_id": "2026_08_post_kb_v1",
+  "source_plan_sha256": "da8b8d04f098280e8386620f119702920ef1edb52dc56a1511d3278ae3591ff5",
+  "approved_predecessor_package_lock_sha256": "ca3a847a219d217250c5815896b9e7a4a688d8cc47a9b87b0ea03b12e22f0b23",
+  "baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "predecessor_manifest_sha256": "bbc6927b258011d63b97150f4eafbce18d20907c3c3c3f59d23eaab947e04cdd",
+  "epoch_manifest_sha256": "d723f09097401133748454355cad52e886df50c628d964b2fc55ca256685fc89",
+  "measurement_receipt_sha256": "b202d269b13a43a2789cfb052ee1a9d9af71dba449b5d5841e6d33e000cd4c54",
+  "verification_ref_sha256": "c363e5b3f6cff0b5a8394fa1106a1729048d1254c14fda122eea262221ee2120",
+  "predecessor_measurement_receipt_sha256": "1f20bb8a45bff423332d28601f3a8934e97043ae50c8b37e1522e3848ca08aff",
+  "predecessor_activation_receipt_sha256": "676c46f8d0e8922248538e10390270fd4e25a697580dc7a0c49271f2ad0a6003"
+}

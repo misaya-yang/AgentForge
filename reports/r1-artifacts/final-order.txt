@@ -1,0 +1,10 @@
+✔ tool activity stays above the single streaming reasoning row (0.506291ms)
+✔ reasoning growth preserves tool order and updates one stable row (0.081583ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 61.559333

@@ -1,0 +1,700 @@
+{
+  "prior_run_id": "44218d0a-2748-4e6f-a904-8810142d552d",
+  "artifacts": {
+    "dataset_id": "2ee03c9b-3349-49e4-8b5e-00819165b1c2",
+    "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+    "experiment_id": "cfa28a69-df1b-471e-9402-be6dfeff0829",
+    "run_id": "0ee00e24-edce-4f71-81be-31764f7ec9ef"
+  },
+  "model": {
+    "model_id": "qwen3.7-plus",
+    "provider_id": "dashscope"
+  },
+  "status": "PASS",
+  "polls": [
+    {
+      "status": "queued",
+      "http_status": 200,
+      "error": null
+    },
+    {
+      "status": "running",
+      "http_status": 200,
+      "error": null
+    },
+    {
+      "status": "succeeded",
+      "http_status": 200,
+      "error": null
+    }
+  ],
+  "controlled_configuration": {
+    "temperature": 0.7,
+    "max_tokens": 32768,
+    "purpose": "UI-default positive profile; previous 0/512 quality failure retained"
+  },
+  "prior_trace_readback": {
+    "http_status": 200,
+    "detail": {
+      "trace": {
+        "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+        "trace_family": "assistant",
+        "workflow_kind": "agent_runtime_turn",
+        "tenant_id": "default",
+        "user_id": "eval-candidate",
+        "thread_id": "7120b34a-dbe5-45fe-b324-228e46834e72",
+        "session_id": "7120b34a-dbe5-45fe-b324-228e46834e72",
+        "run_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+        "request_id": "7120b34a-dbe5-45fe-b324-228e46834e72",
+        "agent_id": null,
+        "agent_version_id": null,
+        "agent_draft_revision": null,
+        "publication_id": null,
+        "channel": null,
+        "runtime_fingerprint": null,
+        "agent_spec_hash": null,
+        "model_id": "qwen3.7-plus",
+        "provider": "dashscope",
+        "status": "succeeded",
+        "started_at": "2026-09-08T03:02:36.208195Z",
+        "ended_at": "2026-09-08T03:02:42.307508Z",
+        "first_token_latency_ms": 5508,
+        "total_latency_ms": 6099,
+        "input_tokens": 13517,
+        "output_tokens": 119,
+        "total_tokens": 13636,
+        "total_cost_cents": 0,
+        "input_preview": "Reply with exactly EVAL_HTTP_BF15B93A",
+        "output_preview": "Hello! I'm ready to help. What would you like to work on today?",
+        "redaction_state": {
+          "input": "bounded",
+          "output": "bounded"
+        },
+        "metadata": {
+          "channel": "builtin",
+          "agent_id": null,
+          "error_type": null,
+          "publication_id": null,
+          "schema_version": "ate-03",
+          "source_adapter": "gateway.agent_runtime",
+          "agent_version_id": null,
+          "runtime_trajectory": {
+            "exit_reason": "succeeded",
+            "event_counts": {
+              "text_delta": 5,
+              "run_started": 1,
+              "run_finished": 1,
+              "thinking_delta": 31
+            }
+          },
+          "candidate_fingerprint": {
+            "model_id": "qwen3.7-plus",
+            "provider": "dashscope",
+            "sampling": {
+              "max_tokens": 512,
+              "temperature": 0.0
+            },
+            "model_ref": {
+              "model_id": "qwen3.7-plus",
+              "tenant_id": "default",
+              "provider_id": "dashscope",
+              "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+              "capability_revision": 3
+            },
+            "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+            "model_ref_verified": true
+          }
+        },
+        "metrics": {
+          "input_tokens": 13517,
+          "total_tokens": 13636,
+          "output_tokens": 119,
+          "total_latency_ms": 6099,
+          "first_token_latency_ms": 5508
+        },
+        "privacy": {
+          "payloads": "bounded_redacted_preview"
+        },
+        "source_adapter": "gateway.agent_runtime",
+        "scores_count": 2,
+        "created_at": "2026-09-08T03:02:42.310781Z",
+        "updated_at": "2026-09-08T03:02:42.310781Z"
+      },
+      "spans": [
+        {
+          "span_id": "fa129e97-f27d-57cd-a667-b2a8fe580c02",
+          "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "parent_span_id": null,
+          "span_kind": "agent_runtime",
+          "name": "agent_runtime_turn",
+          "status": "succeeded",
+          "sequence_no": 0,
+          "started_at": "2026-09-08T03:02:36.208195Z",
+          "ended_at": "2026-09-08T03:02:42.307508Z",
+          "duration_ms": 6099,
+          "input_preview": "Reply with exactly EVAL_HTTP_BF15B93A",
+          "output_preview": "Hello! I'm ready to help. What would you like to work on today?",
+          "attributes": {
+            "run_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+            "session_id": "7120b34a-dbe5-45fe-b324-228e46834e72"
+          },
+          "error_type": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:02:42.321586Z"
+        },
+        {
+          "span_id": "aa074729-d6f3-51d5-bf7f-2dc1a8046dcb",
+          "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "parent_span_id": null,
+          "span_kind": "model_invocation",
+          "name": "runtime_model_call",
+          "status": "succeeded",
+          "sequence_no": 1,
+          "started_at": "2026-09-08T03:02:36.495212Z",
+          "ended_at": "2026-09-08T03:02:42.272856Z",
+          "duration_ms": 5777,
+          "input_preview": "",
+          "output_preview": "",
+          "attributes": {
+            "call_id": "04f1e0f8-af20-495c-8380-99336e6fd468",
+            "model_ref": {
+              "model_id": "qwen3.7-plus",
+              "tenant_id": "default",
+              "provider_id": "dashscope",
+              "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+              "capability_revision": 3
+            },
+            "input_tokens": 13517,
+            "cost_microusd": 0,
+            "ledger_status": "completed",
+            "output_tokens": 119
+          },
+          "error_type": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:02:42.325093Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "322ff265-0518-45d5-93ca-0a4344b192d0",
+          "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "span_id": null,
+          "event_type": "agent_runtime_turn_finished",
+          "sequence_no": 1,
+          "occurred_at": "2026-09-08T03:02:42.326863Z",
+          "payload": {
+            "status": "succeeded",
+            "event_counts": {
+              "text_delta": 5,
+              "run_started": 1,
+              "run_finished": 1,
+              "thinking_delta": 31
+            }
+          },
+          "payload_size_bytes": 0,
+          "redacted": true,
+          "created_at": "2026-09-08T03:02:42.326863Z"
+        }
+      ],
+      "scores": [
+        {
+          "score_id": "bd25934d-6e2a-5200-bd01-e1400f5526c1",
+          "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "span_id": null,
+          "score_name": "phase1-http-rule-bf15b93a",
+          "score_type": "numeric",
+          "numeric_value": 0.0,
+          "boolean_value": null,
+          "categorical_value": null,
+          "text_value": null,
+          "label": "fail",
+          "explanation": "output missing 'EVAL_HTTP_BF15B93A'",
+          "scorer_type": "rule",
+          "evaluator_version": "v1",
+          "target_type": "trace",
+          "target_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+          "evaluator_name": "phase1-http-rule-bf15b93a",
+          "score_source": "rule",
+          "confidence": 1.0,
+          "created_by": "eval-worker",
+          "metadata": {
+            "case_id": "assistant.http.smoke.bf15b93a",
+            "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+            "run_case_id": "7120b34a-dbe5-45fe-b324-228e46834e72",
+            "trial_index": 1,
+            "experiment_run_id": "44218d0a-2748-4e6f-a904-8810142d552d",
+            "candidate_trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e"
+          },
+          "created_at": "2026-09-08T03:02:42.335679Z"
+        },
+        {
+          "score_id": "67b70dc1-7ae0-5e51-9ad8-98303e6c9393",
+          "trace_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "span_id": null,
+          "score_name": "behavior_contract",
+          "score_type": "numeric",
+          "numeric_value": 0.0,
+          "boolean_value": null,
+          "categorical_value": null,
+          "text_value": null,
+          "label": "fail",
+          "explanation": "output_contains missing 'EVAL_HTTP_BF15B93A'; missing expected text 'EVAL_HTTP_BF15B93A'",
+          "scorer_type": "rule",
+          "evaluator_version": "v1",
+          "target_type": "trace",
+          "target_id": "4cf665bd-2e2d-4540-9f5f-8cd645a0221e",
+          "evaluator_id": null,
+          "evaluator_name": "behavior_contract",
+          "score_source": "rule",
+          "confidence": 1.0,
+          "created_by": "eval-worker",
+          "metadata": {
+            "case_id": "assistant.http.smoke.bf15b93a",
+            "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+            "run_case_id": "7120b34a-dbe5-45fe-b324-228e46834e72",
+            "trial_index": 1,
+            "experiment_run_id": "44218d0a-2748-4e6f-a904-8810142d552d"
+          },
+          "created_at": "2026-09-08T03:02:42.334292Z"
+        }
+      ]
+    }
+  },
+  "start_http_status": 202,
+  "run_status": "succeeded",
+  "results": {
+    "run": {
+      "run_id": "0ee00e24-edce-4f71-81be-31764f7ec9ef",
+      "experiment_id": "cfa28a69-df1b-471e-9402-be6dfeff0829",
+      "tenant_id": "default",
+      "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+      "dataset_id": "2ee03c9b-3349-49e4-8b5e-00819165b1c2",
+      "status": "succeeded",
+      "run_mode": "live_candidate",
+      "repetitions": 1,
+      "baseline_run_id": null,
+      "dataset_manifest_hash": "3873cbdcc6303ea07630cb7837233a52c40f1c0e044f355d14ad2df7405faa8f",
+      "evaluator_suite_hash": "546c49fea6a3e9c107e0b45e34733065243cbb5de1429dcad499346d5d7d5dc0",
+      "candidate_fingerprint": {
+        "model_ref": {
+          "model_id": "qwen3.7-plus",
+          "tenant_id": "default",
+          "provider_id": "dashscope",
+          "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+          "pricing_snapshot": {
+            "unit": "per_1k_tokens",
+            "version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+            "currency": "USD",
+            "model_id": "qwen3.7-plus",
+            "tenant_id": "default",
+            "provider_id": "dashscope",
+            "pricing_status": "tenant_model",
+            "input_price_per_1k": "0",
+            "output_price_per_1k": "0"
+          },
+          "capability_revision": 3
+        },
+        "verification": "pending",
+        "requested_model_id": "qwen3.7-plus",
+        "prompt_override_hash": null,
+        "requested_temperature": 0.7,
+        "requested_execution_profile": null
+      },
+      "target_snapshot": {
+        "run_mode": "live_candidate",
+        "max_tokens": 32768,
+        "repetitions": 1,
+        "temperature": 0.7,
+        "evaluator_ids": [
+          "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337"
+        ],
+        "baseline_label": null,
+        "candidate_label": "candidate",
+        "evaluator_suite_hash": "546c49fea6a3e9c107e0b45e34733065243cbb5de1429dcad499346d5d7d5dc0",
+        "prompt_override_hash": null,
+        "dataset_manifest_hash": "3873cbdcc6303ea07630cb7837233a52c40f1c0e044f355d14ad2df7405faa8f"
+      },
+      "score_summary": {
+        "pass_rate": 1.0,
+        "score_sum": 1.0,
+        "case_count": 1,
+        "flaky_rate": 0.0,
+        "trial_count": 1,
+        "average_score": 1.0,
+        "overall_score": 1.0,
+        "quality_score": 1.0,
+        "schema_version": "eval-gate-metrics/v2",
+        "failed_case_count": 0,
+        "behavior_pass_rate": 1.0,
+        "critical_pass_rate": null,
+        "stateful_pass_rate": null,
+        "critical_case_count": 0,
+        "stateful_case_count": 0,
+        "trajectory_pass_rate": 1.0,
+        "critical_failed_count": 0,
+        "stateful_failed_count": 0,
+        "trajectory_case_count": 1,
+        "trajectory_failed_count": 0
+      },
+      "metrics": {
+        "gate": {
+          "status": "fail"
+        },
+        "total_trials": 1,
+        "failed_trials": 0,
+        "mixed_runtime": false,
+        "latency_p50_ms": 5307.0,
+        "latency_p95_ms": 5307.0,
+        "scores_written": 2,
+        "attempted_trials": 1,
+        "completed_trials": 1,
+        "actual_fingerprint": {
+          "model_id": "qwen3.7-plus",
+          "provider": "dashscope",
+          "sampling": {
+            "max_tokens": 32768,
+            "temperature": 0.7
+          },
+          "model_ref": {
+            "model_id": "qwen3.7-plus",
+            "tenant_id": "default",
+            "provider_id": "dashscope",
+            "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+            "capability_revision": 3
+          },
+          "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+          "model_ref_verified": true
+        },
+        "critical_pass_rate": null,
+        "cost_per_task_cents": 0.0,
+        "critical_case_count": 0,
+        "execution_error_rate": 0.0,
+        "fingerprint_complete": true,
+        "hard_blocker_results": {
+          "assistant.runtime.policy_bypass": false,
+          "assistant.runtime.repeated_unknown_side_effect": false
+        },
+        "hard_blockers_passed": false,
+        "behavior_failure_rate": 0.0,
+        "critical_failed_count": 0,
+        "input_tokens_per_task": 13517.0,
+        "total_tokens_per_task": 13594.0,
+        "output_tokens_per_task": 77.0,
+        "required_hard_blockers": [
+          "assistant.runtime.policy_bypass",
+          "assistant.runtime.repeated_unknown_side_effect"
+        ]
+      },
+      "progress": {
+        "total_trials": 1,
+        "completed_trials": 1,
+        "failed_trials": 0
+      },
+      "runtime_fingerprint": {
+        "model_id": "qwen3.7-plus",
+        "provider": "dashscope",
+        "sampling": {
+          "max_tokens": 32768,
+          "temperature": 0.7
+        },
+        "model_ref": {
+          "model_id": "qwen3.7-plus",
+          "tenant_id": "default",
+          "provider_id": "dashscope",
+          "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+          "capability_revision": 3
+        },
+        "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+        "model_ref_verified": true
+      },
+      "gate_status": "fail",
+      "attribution_status": null,
+      "error_message": null,
+      "created_by": "assistant_e2e_1787768074604",
+      "started_at": "2026-09-08T03:10:12.260423Z",
+      "finished_at": "2026-09-08T03:10:17.603620Z",
+      "created_at": "2026-09-08T03:10:11.429499Z",
+      "updated_at": "2026-09-08T03:10:17.603620Z"
+    },
+    "cases": [
+      {
+        "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+        "case_id": "assistant.http.smoke.bf15b93a",
+        "candidate_trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+        "status": "passed",
+        "aggregate_score": 1.0,
+        "failure_reason": null,
+        "input": {
+          "message": "Reply with exactly EVAL_HTTP_BF15B93A"
+        },
+        "expected_output": {
+          "contains": [
+            "EVAL_HTTP_BF15B93A"
+          ]
+        },
+        "trial_count": 1,
+        "score_stddev": 0.0,
+        "flaky": false,
+        "observed_metrics": {
+          "latency_ms": 5307.0,
+          "input_tokens": 13517.0,
+          "output_tokens": 77.0,
+          "total_tokens": 13594.0,
+          "cost_cents": 0.0
+        },
+        "trace": {
+          "trace_family": "assistant",
+          "status": "succeeded",
+          "model_id": "qwen3.7-plus",
+          "provider": "dashscope",
+          "total_latency_ms": 5307,
+          "total_tokens": 13594,
+          "output_preview": "EVAL_HTTP_BF15B93A"
+        },
+        "scores": []
+      }
+    ],
+    "total": 1,
+    "limit": 50,
+    "offset": 0
+  },
+  "checks": {
+    "run_terminal_succeeded": true,
+    "one_case": true,
+    "case_passed": true,
+    "expected_marker": true,
+    "frozen_model_ref_verified": true,
+    "controlled_sampling": true,
+    "actual_model_span": true,
+    "measured_tokens": true
+  },
+  "traces": [
+    {
+      "trace": {
+        "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+        "trace_family": "assistant",
+        "workflow_kind": "agent_runtime_turn",
+        "tenant_id": "default",
+        "user_id": "eval-candidate",
+        "thread_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34",
+        "session_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34",
+        "run_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+        "request_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34",
+        "agent_id": null,
+        "agent_version_id": null,
+        "agent_draft_revision": null,
+        "publication_id": null,
+        "channel": null,
+        "runtime_fingerprint": null,
+        "agent_spec_hash": null,
+        "model_id": "qwen3.7-plus",
+        "provider": "dashscope",
+        "status": "succeeded",
+        "started_at": "2026-09-08T03:10:12.277694Z",
+        "ended_at": "2026-09-08T03:10:17.584880Z",
+        "first_token_latency_ms": 4958,
+        "total_latency_ms": 5307,
+        "input_tokens": 13517,
+        "output_tokens": 77,
+        "total_tokens": 13594,
+        "total_cost_cents": 0,
+        "input_preview": "Reply with exactly EVAL_HTTP_BF15B93A",
+        "output_preview": "EVAL_HTTP_BF15B93A",
+        "redaction_state": {
+          "input": "bounded",
+          "output": "bounded"
+        },
+        "metadata": {
+          "channel": "builtin",
+          "agent_id": null,
+          "error_type": null,
+          "publication_id": null,
+          "schema_version": "ate-03",
+          "source_adapter": "gateway.agent_runtime",
+          "agent_version_id": null,
+          "runtime_trajectory": {
+            "exit_reason": "succeeded",
+            "event_counts": {
+              "text_delta": 4,
+              "run_started": 1,
+              "run_finished": 1,
+              "thinking_delta": 22
+            }
+          },
+          "candidate_fingerprint": {
+            "model_id": "qwen3.7-plus",
+            "provider": "dashscope",
+            "sampling": {
+              "max_tokens": 32768,
+              "temperature": 0.7
+            },
+            "model_ref": {
+              "model_id": "qwen3.7-plus",
+              "tenant_id": "default",
+              "provider_id": "dashscope",
+              "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+              "capability_revision": 3
+            },
+            "runtime_revision": "94cbbddafc1776d5e377bca1b05932c697e82238+80992c9505b0",
+            "model_ref_verified": true
+          }
+        },
+        "metrics": {
+          "input_tokens": 13517,
+          "total_tokens": 13594,
+          "output_tokens": 77,
+          "total_latency_ms": 5307,
+          "first_token_latency_ms": 4958
+        },
+        "privacy": {
+          "payloads": "bounded_redacted_preview"
+        },
+        "source_adapter": "gateway.agent_runtime",
+        "scores_count": 2,
+        "created_at": "2026-09-08T03:10:17.587215Z",
+        "updated_at": "2026-09-08T03:10:17.587215Z"
+      },
+      "spans": [
+        {
+          "span_id": "9da3700b-df1d-5f56-9b57-477738420fa0",
+          "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "parent_span_id": null,
+          "span_kind": "agent_runtime",
+          "name": "agent_runtime_turn",
+          "status": "succeeded",
+          "sequence_no": 0,
+          "started_at": "2026-09-08T03:10:12.277694Z",
+          "ended_at": "2026-09-08T03:10:17.584880Z",
+          "duration_ms": 5307,
+          "input_preview": "Reply with exactly EVAL_HTTP_BF15B93A",
+          "output_preview": "EVAL_HTTP_BF15B93A",
+          "attributes": {
+            "run_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+            "session_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34"
+          },
+          "error_type": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:10:17.590421Z"
+        },
+        {
+          "span_id": "3d50ced8-c999-5ebf-afd2-f9afe72812c6",
+          "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "parent_span_id": null,
+          "span_kind": "model_invocation",
+          "name": "runtime_model_call",
+          "status": "succeeded",
+          "sequence_no": 1,
+          "started_at": "2026-09-08T03:10:12.553448Z",
+          "ended_at": "2026-09-08T03:10:17.556010Z",
+          "duration_ms": 5002,
+          "input_preview": "",
+          "output_preview": "",
+          "attributes": {
+            "call_id": "91b70754-70b8-4772-859d-2f58914cde82",
+            "model_ref": {
+              "model_id": "qwen3.7-plus",
+              "tenant_id": "default",
+              "provider_id": "dashscope",
+              "price_version": "57f0ed05057df2098fca86b0d62076f937af1ae6ad2c900de29d567794ae77ea",
+              "capability_revision": 3
+            },
+            "input_tokens": 13517,
+            "cost_microusd": 0,
+            "ledger_status": "completed",
+            "output_tokens": 77
+          },
+          "error_type": null,
+          "error_message": null,
+          "created_at": "2026-09-08T03:10:17.592604Z"
+        }
+      ],
+      "events": [
+        {
+          "event_id": "5cbef9fa-2cf3-4e90-a58a-98795206a4fc",
+          "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "span_id": null,
+          "event_type": "agent_runtime_turn_finished",
+          "sequence_no": 1,
+          "occurred_at": "2026-09-08T03:10:17.593488Z",
+          "payload": {
+            "status": "succeeded",
+            "event_counts": {
+              "text_delta": 4,
+              "run_started": 1,
+              "run_finished": 1,
+              "thinking_delta": 22
+            }
+          },
+          "payload_size_bytes": 0,
+          "redacted": true,
+          "created_at": "2026-09-08T03:10:17.593488Z"
+        }
+      ],
+      "scores": [
+        {
+          "score_id": "cde3892c-1914-578b-b4d9-c94bb826821b",
+          "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "span_id": null,
+          "score_name": "phase1-http-rule-bf15b93a",
+          "score_type": "numeric",
+          "numeric_value": 1.0,
+          "boolean_value": null,
+          "categorical_value": null,
+          "text_value": null,
+          "label": "pass",
+          "explanation": "output contains 'EVAL_HTTP_BF15B93A'",
+          "scorer_type": "rule",
+          "evaluator_version": "v1",
+          "target_type": "trace",
+          "target_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "evaluator_id": "a3c9eca7-3cb4-4d7b-8fbf-4dedfec05337",
+          "evaluator_name": "phase1-http-rule-bf15b93a",
+          "score_source": "rule",
+          "confidence": 1.0,
+          "created_by": "eval-worker",
+          "metadata": {
+            "case_id": "assistant.http.smoke.bf15b93a",
+            "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+            "run_case_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34",
+            "trial_index": 1,
+            "experiment_run_id": "0ee00e24-edce-4f71-81be-31764f7ec9ef",
+            "candidate_trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8"
+          },
+          "created_at": "2026-09-08T03:10:17.602332Z"
+        },
+        {
+          "score_id": "12b7ab94-784f-514e-9e26-37a6e82c8dc6",
+          "trace_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "span_id": null,
+          "score_name": "behavior_contract",
+          "score_type": "numeric",
+          "numeric_value": 1.0,
+          "boolean_value": null,
+          "categorical_value": null,
+          "text_value": null,
+          "label": "pass",
+          "explanation": "behavior contract passed",
+          "scorer_type": "rule",
+          "evaluator_version": "v1",
+          "target_type": "trace",
+          "target_id": "92708c04-e467-421f-8ffd-d6304694cfa8",
+          "evaluator_id": null,
+          "evaluator_name": "behavior_contract",
+          "score_source": "rule",
+          "confidence": 1.0,
+          "created_by": "eval-worker",
+          "metadata": {
+            "case_id": "assistant.http.smoke.bf15b93a",
+            "example_id": "9c554bb4-d5bb-4313-b5c1-cdf35beed3b0",
+            "run_case_id": "a5e07eb2-05a5-43ce-8d7b-94b5488afb34",
+            "trial_index": 1,
+            "experiment_run_id": "0ee00e24-edce-4f71-81be-31764f7ec9ef"
+          },
+          "created_at": "2026-09-08T03:10:17.600180Z"
+        }
+      ]
+    }
+  ],
+  "verification_note": "Aggregated Eval case status uses passed/failed; run terminal status uses succeeded/failed. Corrected script-only status check against already-read evidence; no additional run."
+}

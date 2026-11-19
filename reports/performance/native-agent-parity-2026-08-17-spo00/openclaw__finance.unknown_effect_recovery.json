@@ -1,0 +1,37 @@
+{
+  "domain": "failure-recovery",
+  "passed": true,
+  "system": "openclaw",
+  "task_id": "finance.unknown_effect_recovery",
+  "turns": [
+    {
+      "duration_seconds": 19.3,
+      "metadata": {
+        "model": "qwen3.7-plus",
+        "provider": "dashscope",
+        "session_id_sha256": "1a3295b2bc89dd46cc35c8f0890d6c75997a43149cd2b71bbfc2fc317a8933d3",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "usage": {
+          "cacheRead": 14848,
+          "input": 808,
+          "output": 1402,
+          "total": 17058
+        }
+      },
+      "ordinal": 1,
+      "output": "```json\n{\n  \"original_request\": \"W-77\",\n  \"original_effect\": \"Transfer of 12500 USD under idempotency key PAY-77 committed to ledger as TX-9 despite HTTP 504 response\",\n  \"retry_original\": false,\n  \"authoritative_transaction\": \"TX-9\",\n  \"sibling_action\": \"Cancel W-78 — obligation already settled by TX-9; submitting W-78 would duplicate settlement\",\n  \"final_state\": \"settled\"\n}\n```\n\n**Reconciliation reasoning:**\n\n- **Readback is authoritative.** The ledger confirms TX-9 carries idempotency key PAY-77 for exactly 12500 USD with status `posted`. The 504 was a transport-layer timeout, not a failure to commit.\n- **No retry.** Policy is clear: when readback proves commitment, retrying the original request is forbidden — it would risk a duplicate write even with idempotency, depending on downstream semantics.\n- **Sibling suppression.** W-78 targets the same obligation. Since TX-9 already satisfies it, W-78 must be cancelled before submission to prevent double settlement.\n- **Final state is `settled`.** The obligation is fully discharged; no further action is required.",
+      "output_sha256": "ff1f7baf3ecfa3c6be37c33a1ba5d2412ef834989240e1516098aa0d95145f57",
+      "parsed_output": {
+        "authoritative_transaction": "TX-9",
+        "final_state": "settled",
+        "original_effect": "Transfer of 12500 USD under idempotency key PAY-77 committed to ledger as TX-9 despite HTTP 504 response",
+        "original_request": "W-77",
+        "retry_original": false,
+        "sibling_action": "Cancel W-78 — obligation already settled by TX-9; submitting W-78 would duplicate settlement"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "stop"
+    }
+  ]
+}

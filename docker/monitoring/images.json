@@ -1,0 +1,42 @@
+{
+  "checked_on": "2026-10-17",
+  "source": "Official publisher repositories, metadata only; no image pull or runtime validation",
+  "images": [
+    {
+      "image": "otel/opentelemetry-collector-contrib:0.163.1",
+      "digest": "sha256:1175b03003053962012f5a231f5567f66a3e8fdb960c7835c0e48f7aa1555806",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/otel/opentelemetry-collector-contrib/tags/0.163.1"
+    },
+    {
+      "image": "prom/prometheus:v3.15.0",
+      "digest": "sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/prom/prometheus/tags/v3.15.0"
+    },
+    {
+      "image": "grafana/grafana:13.2.4",
+      "digest": "sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/grafana/grafana/tags/13.2.4"
+    },
+    {
+      "image": "grafana/loki:3.7.8",
+      "digest": "sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/grafana/loki/tags/3.7.8"
+    },
+    {
+      "image": "grafana/pyroscope:2.4.0",
+      "digest": "sha256:b7e62699a27463aa3533efe3f88c320da594da495731fd6eabca6f44f92cdd7b",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/grafana/pyroscope/tags/2.4.0"
+    },
+    {
+      "image": "prom/alertmanager:v0.34.1",
+      "digest": "sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/prom/alertmanager/tags/v0.34.1"
+    },
+    {
+      "image": "grafana/tempo:2.7.2",
+      "digest": "sha256:4b0277a9b572a4b1fa43b01468e58911ec214dd69d033f2cd476596d14de9fe3",
+      "official_tag_metadata": "https://hub.docker.com/v2/repositories/grafana/tempo/tags/2.7.2",
+      "selection": "Existing single-binary local-block architecture; Tempo3 storage migration is not part of this deployment replacement."
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schema": "native-main-assistant-retry-public-diagnostic/v1",
+  "recorded_at_utc": "2026-10-16T08:23:46Z",
+  "status": "run_failure_not_addressable_through_public_run_routes",
+  "scope": "read-only public API inspection after one browser-submitted synthetic turn; no replay",
+  "target": {
+    "gateway_origin": "http://127.0.0.1:8080",
+    "session_id": "32c4bc62-eb24-421e-a465-34245cc2132e",
+    "synthetic_marker": "MAIN_RUST_POST_CLEAN_20261016",
+    "gateway_pid": 34618,
+    "database_epoch": 22
+  },
+  "browser_observation_from_owner": {
+    "turn_submitted_once": true,
+    "ui_result": "Run failed",
+    "elapsed_ms_approx": 199,
+    "request_route": null,
+    "request_id": null,
+    "run_id": null,
+    "error_code": null
+  },
+  "public_api_observations": {
+    "session_detail": {
+      "http_status": 200,
+      "message_count": 0,
+      "updated_at": "2026-10-16T08:20:01.925201+00:00"
+    },
+    "session_history": {
+      "http_status": 200,
+      "total": 0,
+      "messages_count": 0
+    },
+    "session_tools_latest": {
+      "route": "GET /api/v1/assistant/sessions/{session_id}/tools",
+      "http_status": 200,
+      "last_run_pinned": null,
+      "next_turn_estimate_status": "available_now"
+    }
+  },
+  "run_detail": {
+    "route_template": "GET /api/v1/assistant/runs/{run_id}",
+    "run_id_available": false,
+    "status": "not addressable from public session detail/history/tools responses"
+  },
+  "stage_conclusion": "The public APIs expose no runtime snapshot/run join and no run_id for this browser failure. The UI failure text alone does not identify whether the turn reached Runtime or provide an error code. A read-only session history check shows no committed messages. No direct database query or retry was performed.",
+  "database_changes_by_this_check": false,
+  "provider_calls_by_this_check": 0,
+  "raw_transcript_or_credentials_recorded": false
+}

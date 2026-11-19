@@ -1,0 +1,26 @@
+{
+  "source": "https://index.crates.io/se/rd/serde_norway",
+  "package": "serde_norway",
+  "version": "0.9.42",
+  "checksum": "e408f29489b5fd500fab51ff1484fc859bb655f32c671f307dcd733b72e8168c",
+  "repository": "https://github.com/cafkafk/serde-yaml",
+  "package_vcs_commit": "1d37c159fc01c269a17ab72d021b271faf29472a",
+  "underlying_parser": {
+    "package": "unsafe-libyaml-norway",
+    "version": "0.2.15"
+  },
+  "selection": "Original5behavior assertions passed unchanged with final backend. Originalunsafe-libyaml retired including direct plugin parser alias; no ignored advisory.",
+  "rejected_candidates": [
+    {
+      "package": "serde_yaml_ng",
+      "version": "0.10.0",
+      "reason": "Actualcargo-deny flagged its transitive unsafe-libyaml as unmaintained."
+    },
+    {
+      "package": "serde_yaml_bw",
+      "version": "2.5.8",
+      "reason": "Originalnegative test proved typed bool silently accepted on; rejected without weakening assertion."
+    }
+  ],
+  "full_cargo_deny": "still failing unrelated transitive ZIP8.6/fxhash/paste/ttf-parser plus license policy; not clean"
+}

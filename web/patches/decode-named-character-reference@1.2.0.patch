@@ -1,0 +1,29 @@
+diff --git a/index.dom.js b/index.dom.js
+index 01670f76cfffbe80a0ba185725f04743e289a0df..148dee6bbcbb54e5fc4682f5de1d40122dab5691 100644
+--- a/index.dom.js
++++ b/index.dom.js
+@@ -3,6 +3,14 @@
+ /* global document */
+ 
+ const element = document.createElement('i')
++// This parser accepts exactly one named character reference, never HTML markup.
++const validReference = /^&[A-Za-z][A-Za-z0-9]{0,63};$/
++const entityPolicy = globalThis.trustedTypes?.createPolicy('agentforge-entities', {
++  createHTML(value) {
++    if (!validReference.test(value)) throw new TypeError('Invalid named reference')
++    return value
++  }
++})
+ 
+ /**
+  * @param {string} value
+@@ -10,7 +18,8 @@ const element = document.createElement('i')
+  */
+ export function decodeNamedCharacterReference(value) {
+   const characterReference = '&' + value + ';'
+-  element.innerHTML = characterReference
++  if (!validReference.test(characterReference)) return false
++  element.innerHTML = entityPolicy ? entityPolicy.createHTML(characterReference) : characterReference
+   const character = element.textContent
+ 
+   // Some named character references do not require the closing semicolon

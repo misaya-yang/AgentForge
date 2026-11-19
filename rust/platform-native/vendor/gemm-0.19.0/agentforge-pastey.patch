@@ -1,0 +1,12 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -120,7 +120,8 @@
+ default-features = false
+ 
+ [dependencies.paste]
+-version = "1.0"
++package = "pastey"
++version = "=0.2.3"
+ 
+ [dependencies.raw-cpuid]
+ version = "11.2"

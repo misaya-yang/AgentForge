@@ -1,0 +1,101 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "domain_id": "r3-agent-eval",
+  "lifecycle": "completed",
+  "status": "completed_local",
+  "goal": "完成 AG-01～09、EV-01～08 与 J14～J18 的 Agent 草稿、预览、评测、发布、使用、回滚、反馈闭环。",
+  "owner": "primary final J14-J18 acceptance session",
+  "base_sha": "8b3a877a",
+  "branch": "codex/r3-agent-eval-closeout-20260929",
+  "integrated_main_sha": "19361e6c42fb9754cbc81eb1f03124a0a4ae1625",
+  "active_phase": null,
+  "active_feature": null,
+  "active_package": null,
+  "next_action": null,
+  "last_result": "Local J14-J18 functional acceptance complete. Immutable A/B five-case runs, live audience/token/embed/expiry, role revocation/rollback, pending Trace import/review, provider/judge failures, selected idempotent retries and original-turn Gateway restart/cancellation verified. Final delta: 276 tests, Eval gate, four receipt UI tests plus one operations-to-feedback-Trace UI test, 21 Gateway source hashes and frontend identity, healthy stack. Studio aggregate 40/40 ran before the last Trace-attribution delta; that delta was covered separately without repeating the aggregate. User subsequently authorized main integration; code commit 19361e6c was fast-forwarded without additional runtime changes or test expansion.",
+  "updated_at": "2026-09-29",
+  "blockers": [],
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "review",
+    "integrate",
+    "decide"
+  ],
+  "iteration": 4,
+  "max_iterations": 20,
+  "phases": [
+    {
+      "id": "R3-A",
+      "file": "README.md",
+      "depends_on": [],
+      "status": "complete",
+      "evidence": [
+        "reports/product/r3-agent-eval-progress-2026-09-28.md"
+      ],
+      "review": "passed-static"
+    },
+    {
+      "id": "R3-B",
+      "file": "README.md",
+      "depends_on": [],
+      "status": "complete",
+      "evidence": [
+        "reports/product/r3-agent-eval-progress-2026-09-28.md"
+      ],
+      "review": "passed-static"
+    },
+    {
+      "id": "R3-C",
+      "file": "README.md",
+      "depends_on": [],
+      "status": "complete",
+      "evidence": [
+        "reports/product/r3-agent-eval-progress-2026-09-28.md"
+      ],
+      "review": "passed-static"
+    },
+    {
+      "id": "R3-integration",
+      "file": "README.md",
+      "depends_on": [
+        "R3-A",
+        "R3-B",
+        "R3-C"
+      ],
+      "status": "complete",
+      "evidence": [
+        "reports/agent-studio/agent-studio-regression-v1-result.json",
+        "reports/product/r3-agent-eval-progress-2026-09-28.md",
+        "reports/product/r3-typed-agent-live-2026-09-28.md",
+        "reports/product/r3-agent-eval-closeout-2026-09-29.md",
+        "reports/product/r3-agent-eval-closeout-2026-09-29.json"
+      ],
+      "review": "passed-local-functional"
+    }
+  ],
+  "pending_acceptance": [],
+  "execution_authorization": {
+    "scope": "User explicitly selected full J14-J18 R3 acceptance on 2026-09-29; commit and ordinary push after acceptance. No R4/R5 development.",
+    "parallel_agents": "No new delegation requested; primary writer owns code and singleton runtime.",
+    "commit_authorized": true,
+    "local_merge_authorized": true,
+    "push_authorized": true,
+    "commit_push_condition": "Full R3 J14-J18 acceptance passed",
+    "main_integration_authorization": "User explicitly authorized main integration on 2026-09-29 after asking to end test expansion."
+  },
+  "closeout_receipt": {
+    "date": "2026-09-29",
+    "candidate_sha256": "b563e954626c78ed891d654379f3537216f28a53f32c7059dd4ea26a0fdf70d8",
+    "report": "reports/product/r3-agent-eval-closeout-2026-09-29.md",
+    "git_state": "code-integrated-into-main-by-fast-forward",
+    "full_r3_passed": true,
+    "iab_login_blocker_resolved": true
+  },
+  "out_of_scope_carryover": [
+    "R2 cross-tenant/connector live fixtures",
+    "Separate Node 22 run",
+    "General model quality, business SLA and arbitrary Runtime/worker crash recovery"
+  ]
+}

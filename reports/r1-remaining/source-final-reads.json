@@ -1,0 +1,33 @@
+{
+  "session_id": "628848f3-59e0-403d-809b-3ea258aa21b3",
+  "temporary_roles_restored": true,
+  "history_status": 200,
+  "restricted_assistant_messages": 3,
+  "all_source_content_hidden": true,
+  "event_replays": [
+    {
+      "run_id": "d4f75f86-b3fe-4adb-ab47-5177bcda3131",
+      "event_count": 118,
+      "terminal_observed": true,
+      "private_marker_returned": false,
+      "executions": [
+        {
+          "capability_id": "search_knowledge_base",
+          "status": "succeeded"
+        },
+        {
+          "capability_id": "search_knowledge_base",
+          "status": "succeeded"
+        }
+      ]
+    },
+    {
+      "run_id": "0464fa26-d157-473e-b7eb-4dc389b9d1da",
+      "event_count": 131,
+      "terminal_observed": true,
+      "private_marker_returned": false,
+      "executions": []
+    }
+  ],
+  "final_session_run_count": 2
+}

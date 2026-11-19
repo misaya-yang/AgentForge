@@ -1,0 +1,23 @@
+{
+  "schema": "agentforge-data-client-bindings/v1",
+  "activation": "explicit-entrypoint-integration-required",
+  "application_environment_secret_values": false,
+  "clients": [
+    {"service": "gateway", "role": "ai_gateway_gateway", "environment_prefix": "DATA_GATEWAY", "session_alias": "gateway_session", "transaction_alias": "gateway_tx"},
+    {"service": "agent-runtime", "role": "ai_gateway_runtime", "environment_prefix": "DATA_RUNTIME", "session_alias": "runtime_session", "transaction_alias": "runtime_tx"},
+    {"service": "agent-capability-worker", "role": "ai_gateway_capability_worker", "environment_prefix": "DATA_CAPABILITY_WORKER", "session_alias": "capability_worker_session", "transaction_alias": "capability_worker_tx"},
+    {"service": "knowledge-service", "role": "ai_gateway_knowledge_api", "environment_prefix": "DATA_KNOWLEDGE_API", "session_alias": "knowledge_api_session", "transaction_alias": "knowledge_api_tx"},
+    {"service": "knowledge-worker", "role": "ai_gateway_knowledge_worker", "environment_prefix": "DATA_KNOWLEDGE_WORKER", "session_alias": "knowledge_worker_session", "transaction_alias": "knowledge_worker_tx"}
+  ],
+  "role_mount_source": "DATA_PRIVATE_DIRECTORY/<role>",
+  "role_mount_target": "/run/data-identity",
+  "role_mount_read_only": true,
+  "client_tls_ca_file": "/run/data-identity/ca-bundle.pem",
+  "client_tls_cert_file": "/run/data-identity/tls.crt",
+  "client_tls_key_file": "/run/data-identity/tls.key",
+  "control_mode": "direct",
+  "control_dsn_file": "/run/data-identity/dsn-control",
+  "backend_pinned_dsn_file": "/run/data-identity/dsn-session",
+  "tenant_transactions_dsn_file": "/run/data-identity/dsn-tx",
+  "forbidden_mounts": ["issuer", "pgbouncer-users.txt", "postgres-bootstrap-password"]
+}

@@ -1,0 +1,17 @@
+package_id: ARC-06
+state: awaiting_final_live
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [docker-compose.compact.yml, docker-compose.scale.yml, src/core/data/service_topology.json, src/services/health_contract.py, web/src/pages/admin/**]
+commits: [fa46c80d, 6df94316, 525d2e81]
+contracts_compared: [compact/scale resolution, singleton ownership, topology identity, admin architecture status]
+commands:
+  - {command: "make single-instance-guard", exit_code: 0, passed: 4, failed: 0, skipped: 0}
+  - {command: "make status", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PASS
+integration_verdict: PASS
+live_verdict: DEFERRED_TO_ARC08
+deferred_live_scenarios: [compact profile live deployment, scale profile live deployment]
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+remaining_risks: []

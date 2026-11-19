@@ -1,0 +1,82 @@
+{
+  "status": "verified_source_checkpoint_not_enterprise_accepted",
+  "recorded_at": "2026-10-16T12:11:33.756Z",
+  "branch": "codex/native-workflows-20261016",
+  "base_commit": "22d9ce0ff9cba51b130f525e7b1add5cc3853744",
+  "delivery": "Rust platform services and operations, React/TypeScript frontend, optional Python user-code sandbox only",
+  "environment": {
+    "docker_closed_by_owner": true,
+    "docker_restarted": false,
+    "owned_host_processes_stopped": true,
+    "volumes_and_local_node_identity_preserved": true,
+    "pc_startup": "not_verified"
+  },
+  "verification": {
+    "native_all_targets": "passed",
+    "native_selected_libraries": {
+      "passed": 525,
+      "failed": 0
+    },
+    "auth_and_tracing_integration": {
+      "passed": 4,
+      "failed": 0
+    },
+    "deployment_contracts": {
+      "passed": 44,
+      "failed": 0
+    },
+    "migration_authority": {
+      "passed": 74,
+      "failed": 0
+    },
+    "runtime_library": {
+      "passed": 101,
+      "failed": 0,
+      "ignored": 3
+    },
+    "worker_library": {
+      "passed": 86,
+      "failed": 0,
+      "ignored": 1
+    },
+    "frontend": {
+      "passed": 2050,
+      "failed": 0,
+      "type_check": "passed",
+      "i18n": "passed",
+      "production_build": "passed"
+    },
+    "harness": {
+      "errors": 0,
+      "preexisting_warnings": 5
+    }
+  },
+  "real_accepted_workflows": [
+    "Knowledge text/PDF publication and immutable historical source",
+    "Browser text editing and version restore",
+    "Qwen vector/BM25 retrieval, rerank, streamed QA and source citation",
+    "Embedding migration 1024 to 768 backfill, gate, cutover, rollback, cancel and abort",
+    "Schema 024 isolated/main migration and verification"
+  ],
+  "not_accepted": [
+    "Final SDK embeddings returned HTTP 502; prior pass retained as historical evidence",
+    "Durable usage after service ID length fix not reverified",
+    "LocalNode approved action/read/search/revoke/deny workflow",
+    "Final Main browser memory recall",
+    "Asymmetric JWT HTTP rotation; OIDC/SCIM; tenant RLS and audit successor; guardrails; HA; signed supply chain; eval/canary; stronger optional sandbox isolation; final enterprise acceptance"
+  ],
+  "unfinished_source": "Unfinished OIDC/SCIM hooks, inactive schema 025 proposals, P1 sandbox WIP and temporary eval/canary harness removed from delivery tree; private restrictive-permission copies retained outside Git.",
+  "handoff": "docs/handoff/PC_CONTINUATION_20261016.md",
+  "source_lock": {
+    "epoch": 24,
+    "package_lock_sha256": "912572fc1a7abad3587051d7c37ca4d999c79a187b96bd1eba9dac09305b7789",
+    "runtime_overlay_sha256": "037ec2fc11eb46e3475730e78edc0da09e3c8add2bbfb2acf15b74cb82246ce1"
+  },
+  "reports": [
+    "reports/native-current-acceptance-20261016/openai-official-sdk-real.json",
+    "reports/native-current-acceptance-20261016/closing-runtime-real.json",
+    "reports/native-current-acceptance-20261016/native-cli-real.json",
+    "reports/native-current-acceptance-20261016/main-assistant-closing-browser-real.json",
+    "deploy/runbooks/native-enterprise-upgrade/loop-state.json"
+  ]
+}

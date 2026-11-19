@@ -1,0 +1,13 @@
+{
+  "schema": "agentforge/generated-platform-source/v1",
+  "source": "rust/platform-native/crates/platform-service-primitives/src/workload_identity",
+  "files_sha256": {
+    "der.rs": "c2dfe12084521015234627974589cdd5b8f040d2457bb7558f95ed8280322405",
+    "http.rs": "2cd90ba0806618a0dc714ba8da5e1947b7c4a0fc7ab5494671bc9ea1a2914f14",
+    "listener.rs": "4312466e5e5ad5b221cc0a48e29d6142a32416d30420ea831503bbb12617d89c",
+    "mod.rs": "654fca65ffe55209a68b4c5b081d96d8bc451df80a56c8457c3ffd08c2deb656",
+    "secrets.rs": "a03180f2f47d53f55155964eb799f61b99529122c395ecb8179873e7a819464f",
+    "tests.rs": "5cf5a8c6f800a77c30223fd392ad8fac2753b23af451edaf72dcbec3b0ce208d",
+    "tls.rs": "269cb220be2a60aeea79e494e02e2d3c69a9726d03c895ad31c1ce20a47db5eb"
+  }
+}

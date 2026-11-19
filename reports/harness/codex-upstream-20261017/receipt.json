@@ -1,0 +1,333 @@
+{
+  "schema": "agentforge/codex-upstream-adaptation/v1",
+  "recorded_at": "2026-10-17T07:46:03.481Z",
+  "source": {
+    "base": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+    "target": "ce0323f2f2d3b25e82806cd555237da3db4e1897",
+    "target_tree": "4e648d23f0d36f589e1945ddd3daca53ab3dd8bc",
+    "local_reference_clean": true,
+    "old_pinned_checkout_clean": true,
+    "rust_toolchain": "1.95.0",
+    "source_has_root_agents": false,
+    "source_has_repository_harness_contract": false
+  },
+  "result": "source_adapted_static_checks_passed",
+  "release_admission": false,
+  "source_lock_changed_by_this_task": false,
+  "source_reference_modified": false,
+  "shared_cargo_manifest_changed_by_this_task": false,
+  "adaptation": {
+    "replayed_upstream_files": 35,
+    "files_with_textual_conflicts": 9,
+    "textual_conflict_regions": 13,
+    "owned_file_records": [
+      {
+        "path": "ai-platform-agent-runtime/src/readonly_extension.rs",
+        "old_upstream_blob": null,
+        "target_upstream_blob": null,
+        "proposed_sha256": "a7bf706b1ed1e57985ceaba8f7f6b4f38712ac12794d3a8d8623e7040e0ed70f",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server-client/src/lib.rs",
+        "old_upstream_blob": "df5dc3e99f75eb00c2f103257f86c1029cf15615",
+        "target_upstream_blob": "e24ce78add455a35a7d974caf328686f9451847e",
+        "proposed_sha256": "853af34c99292c3049bd7bdd802bbd86cb8fd4326f41f4efc878bc3a35ea3221",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/extensions.rs",
+        "old_upstream_blob": "c2d6d6d0a2358e353adb977fd7d03b495bc439c6",
+        "target_upstream_blob": "aa704bae81ebae7c9f2bed881d40b5208482f42f",
+        "proposed_sha256": "a02e402b47e53d9ab57ace76a3108402d21063d89a6cb7f66519a4d962cecf02",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/in_process.rs",
+        "old_upstream_blob": "9673442d388c5b17b718a8c3f1446e941005ccdd",
+        "target_upstream_blob": "64d37f14df2121ee623cb0fc00ec83ebbc7cfb60",
+        "proposed_sha256": "9676e7aff0d4253b7ba5011cf048df4067eb1bd5698b12d449a8db9292d8f5f0",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/lib.rs",
+        "old_upstream_blob": "896aa6623b690bff7789a830699ae498f1a3b6dc",
+        "target_upstream_blob": "d34ea297bdff9a7aa78e709ad7e82e3e7e32bf7d",
+        "proposed_sha256": "ff628c5a2b42c112d3ff22fdd28b0aa4ce28eee0662d8a6b9d60a6ba879e1ec8",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/mcp_refresh.rs",
+        "old_upstream_blob": "ac965523fb227f4c2beb832828a41bdf480e9be1",
+        "target_upstream_blob": "3611ab3992b5d0db7f00af657c5b46a63e2684ac",
+        "proposed_sha256": "fe34ab724f9f27094177589201792f058d8a7e389837632180cd7e1ae5b9e5f1",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/message_processor.rs",
+        "old_upstream_blob": "6b705c55565ebe3d58c117b38268aea37d05bcd7",
+        "target_upstream_blob": "09d5f1762f268388040f1a1cdeaa5a628d3decd0",
+        "proposed_sha256": "e8a51149eb4401973c00d15216087fdc25fb6be6e7e994b98ad66ffebdc0b6fd",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/message_processor_tracing_tests.rs",
+        "old_upstream_blob": "518df3077ef629a6f76c4ca8f86a55953b8102ff",
+        "target_upstream_blob": "f9b1c8cea6bfad76ba5d17a0c9a74b3d159be7f0",
+        "proposed_sha256": "7562f6d1452883114f18ef2e9191d7fc6437d8b766fab483d9ae9dfa7da732c6",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/request_processors/thread_processor.rs",
+        "old_upstream_blob": "8bdf6bbed3ee667905a9b1428fb4b0ffcac08f02",
+        "target_upstream_blob": "9563a250cc43bf5691537ed009199112265a5548",
+        "proposed_sha256": "12ed6fb328c475a58b09deee3dcbf1b76fb0ac8b920685f4ee3f14d276d226d3",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/request_processors/turn_processor.rs",
+        "old_upstream_blob": "67946c8ebcb0b5f84b9fde7a7f77ad87e2ac38fa",
+        "target_upstream_blob": "de3bdf6f5db9953e274bacde1156d1bdd15b4cc0",
+        "proposed_sha256": "e3e933a60f8376011c9ae364007df53cc3ae05f87a9456765f274639a8647015",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/src/user_verification_test_support.rs",
+        "old_upstream_blob": "d2096bc1f17dce225d4e2edad6c62bbb67eb162b",
+        "target_upstream_blob": "6367af1bd72469bf6fdc6ab97961cac013277c93",
+        "proposed_sha256": "8baf260c977f6bdb9e55d985501ec7b829cd4a3cdd6df46b2d9c69587107b647",
+        "file_mode": "100644"
+      },
+      {
+        "path": "app-server/tests/suite/v2/remote_thread_store.rs",
+        "old_upstream_blob": "ee43a62da926638581560408cf11b9a5e117bec8",
+        "target_upstream_blob": "c7b7545d6eed19769565daf06e3e1a7820887dd9",
+        "proposed_sha256": "249d0f10f8aeb8c861e345d6c460ba14f1115e004d1e8f6ab24cf69b347f331e",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/agent/control/spawn.rs",
+        "old_upstream_blob": "20e28a8bfed7d5862ae3013207040386a1ac9f78",
+        "target_upstream_blob": "04ae8ab6376347a4bb1aadbd8529173e93d4d0f0",
+        "proposed_sha256": "a0db010b41a449541f0ecce93c8dfbe9799f59d7816cb7eafc92caf4ae229641",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/codex_thread.rs",
+        "old_upstream_blob": "8d2cd8351a74a7185369ab8fefcc101070e27c4b",
+        "target_upstream_blob": "0dff26d89ab6ccaf1505278b03d370b1571a9d3e",
+        "proposed_sha256": "debf196917fa625056d1f8baa86e1f9e6d12b6fac3e2f1a0465e6df536b3bcc7",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/compact.rs",
+        "old_upstream_blob": "f4db71b6882fdece78909298fbefa4e3b92f3392",
+        "target_upstream_blob": "0bc35f63ad4bbe6d660dcbdffc61e111368eb488",
+        "proposed_sha256": "4b1cb448eb94209da12403e6542c1bef462f027592c40407c86bad65901d8fb3",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/compact_remote_v2.rs",
+        "old_upstream_blob": "6a061086b1d325a58280e2dd13274fbb904f3c11",
+        "target_upstream_blob": "bacf8c3a5c5453051a20c57df1c3275c57ac27c3",
+        "proposed_sha256": "fc4dd4a88a8247233058f5bc1dd419850944e9782fe82664448e2991fb220267",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/session/handlers.rs",
+        "old_upstream_blob": "c569b04ec95770768385fcafcaeee5f1aa2fc26e",
+        "target_upstream_blob": "91bf8de9bf91ffd98895e976c9dc1b0e2d238968",
+        "proposed_sha256": "29dfe53ad731bae6b2bce74a37ba799ecc0083c42195c87f4c8e90b0c54ff60a",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/session/mod.rs",
+        "old_upstream_blob": "bc086f8661f32ca94cdac8fc161c8ff86f5aaf38",
+        "target_upstream_blob": "aad25b40d87e18b80a9e411afac7d5cb25e2f574",
+        "proposed_sha256": "89166373803a103d3767c7ee455ec359a45eec73c29bf9fb2bfe60986577e869",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/session/turn.rs",
+        "old_upstream_blob": "64e8786a15b48e68a4ad60e95790069c90b7d3a1",
+        "target_upstream_blob": "8925df02baa224bea27785b6e8c2653b4c80f334",
+        "proposed_sha256": "d167ffcc6b04c5d70c33c3697614a236c268cf49e28d6645fc5a6e3f7f5a3052",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/session/turn_input.rs",
+        "old_upstream_blob": "be2d43d6206a149d876cc913b5a193348ef338ad",
+        "target_upstream_blob": "6d60cc3be2302cc8f7e32b0ecd487afdf0cc0192",
+        "proposed_sha256": "6bc79f34f7c900d70ceb4b9de6ecd9be807c774d0c1845ffbc137093416daf98",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/session/turn_suspension.rs",
+        "old_upstream_blob": "64e40d64803f43ac262cd1a6375e912266b25282",
+        "target_upstream_blob": "324099bd9ecde3d6b8fe9d0aee6591edb78751b6",
+        "proposed_sha256": "4830496c8a561ff9824cfe22b9652b62a3a5aa9d0a2150df198c092cc88bcb40",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/thread_manager.rs",
+        "old_upstream_blob": "ea4dee313edd2bdeb17aad8fb763719f7b6861c9",
+        "target_upstream_blob": "4910246f076b98029b112812a3184ab65296d1db",
+        "proposed_sha256": "a685728f6db03b477faa9db9659cd3f56e4486ff100a6af6c09661dc36b5f5dc",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/tools/handlers/dynamic.rs",
+        "old_upstream_blob": "f658d6742b158fbc5abbf6a8e1a78dba890466e1",
+        "target_upstream_blob": "0eac846e05187ab469d9ecc33f295b75e06f7a48",
+        "proposed_sha256": "6a520a0d6336c685e7908954e5b107be1ff208ba7ef0799ee619a5c502f299e4",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/tools/handlers/mcp.rs",
+        "old_upstream_blob": "4cce55018f5a47a9402263fd4db2bce0dd67fb05",
+        "target_upstream_blob": "98d61aff08443f7209f386e643734b5e27f01460",
+        "proposed_sha256": "8c20bb764da96cc1970ef4b4318a88f259a48b957bd742cccad98d0c3c49910a",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/tools/lifecycle.rs",
+        "old_upstream_blob": "e26d83da6b7e23a88e2c0252703f6c5e5342ad00",
+        "target_upstream_blob": "e26d83da6b7e23a88e2c0252703f6c5e5342ad00",
+        "proposed_sha256": "bd047336eb906aa44b7fee4e6fc2a3987dbaf8501bbaf27b36d0b3594fd9357c",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/tools/registry.rs",
+        "old_upstream_blob": "e0acae262e8216748c162264d59e98c831302076",
+        "target_upstream_blob": "ebde5a7bdc449a11dc9c1fc1d8475c8e4432010f",
+        "proposed_sha256": "3a8f53af7c35457d510ab69824348662ab3335cfd744633a674755d690afe8e1",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/src/turn_metadata.rs",
+        "old_upstream_blob": "db22fdcb5be2c7fdd3dbb08ccd88b5c0bcc1a2c7",
+        "target_upstream_blob": "70e76f8713c778c91b43396be4e8870b99b3baf6",
+        "proposed_sha256": "afb0ce2c2e70e32a1a7dd10b869afe959655318bc6daeaa5e5afdc2eb13ee8b7",
+        "file_mode": "100644"
+      },
+      {
+        "path": "core/tests/durable_recovery.rs",
+        "old_upstream_blob": null,
+        "target_upstream_blob": null,
+        "proposed_sha256": "ea3d7f369a3730feceeb49128c736c8014be789a1f8f7f6a732c44e230a7d2f2",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/extension-api/src/contributors.rs",
+        "old_upstream_blob": "61cdbe4da7226222954ea98d4d7bb622e35fafd9",
+        "target_upstream_blob": "44160e2b17e13a4bd19cc748e0e7f39fd05c8f93",
+        "proposed_sha256": "ac42987015251e66d76b49f53a09d733cc6c626aeaa955976e19f86d49188e04",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/extension-api/src/contributors/tool_lifecycle.rs",
+        "old_upstream_blob": "3b31eaaf56dc3cde30f79ac56b5793be90f7e7af",
+        "target_upstream_blob": "3b31eaaf56dc3cde30f79ac56b5793be90f7e7af",
+        "proposed_sha256": "c5ccf894bc4433b6fc86a79490da45b262c0d8c00e2f2114dbb1c1237375393a",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/extension-api/src/lib.rs",
+        "old_upstream_blob": "c8436c8feb86ffbab63d73cf2d81b920b226b6b7",
+        "target_upstream_blob": "3eeaa9c4a5e1f1d163712344ad45864c015716dc",
+        "proposed_sha256": "c90f2665561cb55ebda6d41fc878e90ffa8299385a5c9aa4aa4b3dd80566d955",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/extension-api/src/tool_policy.rs",
+        "old_upstream_blob": "71824bd42c40fd5284b76492363d7fe08ffaf73f",
+        "target_upstream_blob": "71824bd42c40fd5284b76492363d7fe08ffaf73f",
+        "proposed_sha256": "26fab4b0d4eda5669f7c07e1e044be87871f840a87e8e5716838cebd8de33707",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/guardian-v2/src/async_scorer/budget_tests.rs",
+        "old_upstream_blob": "0f92a77c1c62087de4fe517a8c035e50a0e32863",
+        "target_upstream_blob": "3674dbe2e13f7cd7a21ec1d593b43dacb6d11b1f",
+        "proposed_sha256": "e4b5312b0482b42b0b0e424fde0e55680286eeabbea88722d26a58c1af32b706",
+        "file_mode": "100644"
+      },
+      {
+        "path": "ext/guardian-v2/src/async_scorer/extension_tests.rs",
+        "old_upstream_blob": "60f48f554ca1053adad1cfd583924286b5d8268c",
+        "target_upstream_blob": "38319bef7acb1960eca09781cac2bcb0c49c015f",
+        "proposed_sha256": "e9da1298ae746a46e9208e721542e34d9c87b64d46227cbf06711e09e947c7d6",
+        "file_mode": "100644"
+      },
+      {
+        "path": "protocol/src/protocol.rs",
+        "old_upstream_blob": "841c794d4d46bb5f9da771b88c05fe09c13826bb",
+        "target_upstream_blob": "e2457f810461aa109543903f73ad1fcc6fbd9cfb",
+        "proposed_sha256": "eec024c652491978ab941f9573f6412f52476999988baef6dca42f8e42dd2c68",
+        "file_mode": "100644"
+      },
+      {
+        "path": "tools/src/lib.rs",
+        "old_upstream_blob": "b07c7b0cd2edbec2c75a57ce4e28864e63162b89",
+        "target_upstream_blob": "a89697a2e92a41b641a4a5f76d43ea104eba58a9",
+        "proposed_sha256": "243db1bb869c7af2831681efb6eb9d943edac9987af49e524205a494caf3e099",
+        "file_mode": "100644"
+      },
+      {
+        "path": "tools/src/tool_executor.rs",
+        "old_upstream_blob": "5af16c3b7d0124efefadae60214649916104e78a",
+        "target_upstream_blob": "5af16c3b7d0124efefadae60214649916104e78a",
+        "proposed_sha256": "5030ac1a08a24b91c8409e8d664d8664d5c342a4ca9c9853d2744be7e2c1f4d8",
+        "file_mode": "100644"
+      }
+    ],
+    "all_new_upstream_preimages": "upstream-preimages.json"
+  },
+  "verification": [
+    {
+      "command": "rustfmt --check --edition 2024 --config skip_children=true <owned_file_records paths>",
+      "toolchain": "1.95.0",
+      "files": 37,
+      "exit_code": 0,
+      "scope": "Rust syntax and formatting only; no type checking or execution"
+    },
+    {
+      "command": "git diff --check -- <owned source areas> AGENTS.md harness.yml docs/harness",
+      "exit_code": 0,
+      "scope": "Whitespace checks only"
+    },
+    {
+      "command": "ruby --disable-gems -ryaml: YAML.load_file(\"harness.yml\") and required_docs existence/non-empty check",
+      "exit_code": 0,
+      "required_docs": 19
+    },
+    {
+      "command": "Node local relative-link and SHA-256 receipt verification",
+      "exit_code": 0,
+      "relative_links": 37,
+      "source_receipt_hashes": 37,
+      "agents_line_budget": 150
+    }
+  ],
+  "new_regression_tests": [
+    "recover_turn_applies_metadata_patch_without_losing_lease_fields",
+    "readonly_extension::tests::typed_readonly_context_preserves_text_kind_and_provenance",
+    "readonly_extension::tests::absent_readonly_context_does_not_inject_a_fragment"
+  ],
+  "not_run": [
+    "Cargo check/test and compiled-test inventory",
+    "App Server schema export and resolved Cargo metadata",
+    "Source-unit candidate verifier and final source lock refresh",
+    "harness-check native executable",
+    "Docker image builds/probes and image admission",
+    "Provider/database/browser/tenant/rollback product acceptance"
+  ],
+  "integration_actions": [
+    "Integrate three-way root Cargo.toml candidate and resolve Cargo.lock in controlled new source",
+    "Recapture current full overlay and verify every new upstream preimage; other workers are still implementing services",
+    "Export compiled schema/metadata, refresh receipt/SBOM/source identities, invalidate old OCI admission",
+    "Run complete durable_recovery integration target, Runtime library tests and affected upstream package tests",
+    "Update current Runtime COMPATIBILITY source identity, retain history decoder/rollback restrictions",
+    "Record later build and acceptance in sole existing program ledger"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "schema": "agentforge/generated-platform-source/v1",
+  "source": "rust/platform-native/crates/platform-service-primitives/src/data_connection",
+  "files_sha256": {
+    "config.rs": "a21a2cec671a567d8063b24fea58a2112203b25b6c75690fcc44ed4159e79a88"
+  }
+}

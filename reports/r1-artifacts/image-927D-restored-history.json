@@ -1,0 +1,10 @@
+{
+  "session_id": "3979c378-2057-41c8-ac75-a1ec51b8045b",
+  "history_status": 200,
+  "image_message_count": 1,
+  "task_id": "imt_d61ec6f47a444430a770",
+  "outcome_uncertain": true,
+  "status": "failed",
+  "has_rust_run_id": false,
+  "body_has_raw_error": false
+}

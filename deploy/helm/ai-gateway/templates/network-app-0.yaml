@@ -1,0 +1,68 @@
+# Persistent application isolation; migration has a separate earlier hook policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-default-deny
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-dns
+spec:
+  podSelector:
+    matchExpressions:
+    - {key: app.kubernetes.io/component, operator: NotIn, values: [agent-python-sandbox]}
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels: {kubernetes.io/metadata.name: {{ .Values.network.dnsNamespace | quote }}}
+      podSelector:
+        matchLabels:
+{{ toYaml .Values.network.dnsLabels | indent 10 }}
+    ports:
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-frontend-gateway-out
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: frontend
+  policyTypes: [Egress]
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: {{ .Release.Name }}
+          app.kubernetes.io/component: gateway
+    ports: [{protocol: TCP, port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "ai-gateway.fullname" . }}-frontend-gateway-in
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: gateway
+  policyTypes: [Ingress]
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/instance: {{ .Release.Name }}
+          app.kubernetes.io/component: frontend
+    ports: [{protocol: TCP, port: 8080}]

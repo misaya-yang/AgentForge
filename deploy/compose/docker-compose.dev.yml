@@ -1,0 +1,13 @@
+# Native development uses explicit source builds; configuration stays bind-mounted.
+# docker compose -f docker-compose.yml -f deploy/compose/docker-compose.build.yml -f deploy/compose/docker-compose.dev.yml up --build
+services:
+  gateway:
+    command: ["--config-env"]
+    volumes:
+      - ./config:/app/config:ro
+  knowledge-service:
+    entrypoint: ["/usr/local/bin/platform-knowledge-service"]
+    command: []
+  knowledge-worker:
+    entrypoint: ["/usr/local/bin/platform-knowledge-service"]
+    command: []

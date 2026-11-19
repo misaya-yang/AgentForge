@@ -1,0 +1,37 @@
+{
+  "domain": "failure-recovery",
+  "passed": true,
+  "system": "hermes",
+  "task_id": "finance.unknown_effect_recovery",
+  "turns": [
+    {
+      "duration_seconds": 14.356,
+      "metadata": {
+        "cli_diagnostic_count": 1,
+        "session_id_sha256": "0aa409ba6a21bc72f095a7fc1fdfd9f1bc50b407a0bc4a236d92c4648857a514",
+        "stderr_sha256": "7b7c0164a3e1dd82c3e3380142d7738bf220ab0c8ffbc33559e28b6f421f08d3",
+        "stdout_raw_sha256": "e6b8fad4136f0e78d19f9149394d772901a57e41633c5a73bd0a200688c9708a"
+      },
+      "ordinal": 1,
+      "output": "Based on the reconciliation scenario:\n\n- W-77 submitted but got 504 (timeout)\n- Ledger shows TX-9 with PAY-77, 12500, status=posted → the write DID commit\n- W-78 is pending for the same obligation → must not submit (would duplicate)\n\n```json\n{\n  \"original_request\": \"W-77\",\n  \"original_effect\": \"submitted, HTTP 504 timeout\",\n  \"retry_original\": false,\n  \"authoritative_transaction\": {\n    \"id\": \"TX-9\",\n    \"idempotency_key\": \"PAY-77\",\n    \"amount\": 12500,\n    \"currency\": \"USD\",\n    \"status\": \"posted\"\n  },\n  \"sibling_action\": \"cancel\",\n  \"final_state\": \"settled\"\n}\n```\n\nRationale:\n- retry_original=false: readback proves W-77 committed as TX-9; retrying would violate idempotency and risk double-posting.\n- sibling_action=cancel: W-78 targets the same obligation; submitting it would duplicate settlement.\n- final_state=settled: obligation is fully discharged by TX-9.",
+      "output_sha256": "7f70bace10614c8e6b64e8952f36cabf0790e9598bae2d4557e4caa2b21f7d0e",
+      "parsed_output": {
+        "authoritative_transaction": {
+          "amount": 12500,
+          "currency": "USD",
+          "id": "TX-9",
+          "idempotency_key": "PAY-77",
+          "status": "posted"
+        },
+        "final_state": "settled",
+        "original_effect": "submitted, HTTP 504 timeout",
+        "original_request": "W-77",
+        "retry_original": false,
+        "sibling_action": "cancel"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "process_exit_0"
+    }
+  ]
+}

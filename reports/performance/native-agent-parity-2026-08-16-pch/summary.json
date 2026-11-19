@@ -1,0 +1,99 @@
+{
+  "acceptance_passed": false,
+  "counts": {
+    "ai_platform": {
+      "completion_rate": 0.375,
+      "infrastructure_errors": 0,
+      "passed": 3,
+      "total": 8
+    }
+  },
+  "evidence": {
+    "manifest_sha256": "f92b5078dffe3705596ed3bd6a4d9bf69d927962cd46ee51da925a49eea7d44e",
+    "referenced_assets": [
+      {
+        "path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/golden.v1.json",
+        "sha256": "08c892baa5c667755d8fbcdc788e39c53e8b9c24d1c7d4e58ecdb757ffd8a74a"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_finance_salesforce_fy26_q1/scenario.v1.json",
+        "sha256": "fe9a2b5c59c4e482eac9e531bc79e359e8120d7907c58471c0d34a21f3c2ca17"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_legal_title_vii/scenarios.v1.json",
+        "sha256": "3c4cca55292f7870f471cf18273b82f25fe8cb373c6e0fb90f1808d60561f636"
+      },
+      {
+        "path": "src/services/eval/fixtures/real_research/cra_real_agent_scenario.v1.json",
+        "sha256": "648f2da1ba272bd5b892f33d1e054afc037b31012fa9bb1f4ecdcee2f5a97d27"
+      }
+    ],
+    "runner_sha256": "7bd629d0a4585e10aa2301167797bff93fe7a7b79eefd2597005caf42608a423"
+  },
+  "execution_profile": "balanced",
+  "finished_at": "2026-08-16T17:28:41.610926+00:00",
+  "manifest_sha256": "f92b5078dffe3705596ed3bd6a4d9bf69d927962cd46ee51da925a49eea7d44e",
+  "max_tokens": 16384,
+  "model_id": "qwen3.7-plus",
+  "schema_version": "native-agent-parity-result/v1",
+  "started_at": "2026-08-16T17:21:08.745582+00:00",
+  "suite_id": "enterprise-result-parity-2026-08-12",
+  "task_results": [
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "finance.salesforce_cash_quality"
+    },
+    {
+      "passed": true,
+      "system": "ai_platform",
+      "task_id": "security.tenant_access_review"
+    },
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "research.cra_source_resolution"
+    },
+    {
+      "passed": true,
+      "system": "ai_platform",
+      "task_id": "legal.title_vii_transfer"
+    },
+    {
+      "passed": true,
+      "system": "ai_platform",
+      "task_id": "operations.staged_rollout"
+    },
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "engineering.inventory_reservation_patch"
+    },
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "governance.ambiguous_export"
+    },
+    {
+      "passed": false,
+      "system": "ai_platform",
+      "task_id": "finance.unknown_effect_recovery"
+    }
+  ],
+  "temperature": 0.0,
+  "thinking_level": "low",
+  "versions": {
+    "ai_platform": {
+      "git_commit": "a49eac32d26ef5d19ed75aa1a7a7941f0ab281fc",
+      "git_diff_sha256": "6202376e7009672bbb4af8f9bfb76c12957d773c28d473ba6eba3a91248d56e6"
+    },
+    "hermes": {
+      "git_commit": "7230fcb7f2577823d55e66d51bbe70b42789c677",
+      "version": "Hermes Agent v0.16.0 (2026.6.5) · upstream 4ea2a0e5"
+    },
+    "openclaw": {
+      "git_commit": "fbf5d56366ba1dcf01e63c18cc3a4231212b9504",
+      "version": "OpenClaw 2026.3.9 (fbf5d56)"
+    }
+  }
+}

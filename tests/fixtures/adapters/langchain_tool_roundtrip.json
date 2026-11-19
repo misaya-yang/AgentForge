@@ -1,0 +1,270 @@
+{
+  "library": "@langchain/core",
+  "version": "1.1.49",
+  "cases": [
+    {
+      "name": "success",
+      "status": "success",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "success",
+          "content": "tool succeeded",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "ai",
+          "content": "Done",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "error",
+      "status": "error",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "error",
+          "content": "tool execution failed",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "ai",
+          "content": "Unable to finish",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "empty_success",
+      "status": "success",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "success",
+          "content": "",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "ai",
+          "content": "Done",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "tool_only_error",
+      "status": "error",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "error",
+          "content": "tool execution failed",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "tool_only_success",
+      "status": "success",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "success",
+          "content": "tool succeeded",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "tool_only_empty",
+      "status": "success",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "success",
+          "content": "",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "empty_error",
+      "status": "error",
+      "messages": [
+        {
+          "type": "ai",
+          "content": "",
+          "tool_calls": [
+            {
+              "id": "call-1",
+              "name": "lookup",
+              "args": {
+                "query": "fixture"
+              }
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "error",
+          "content": "",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        },
+        {
+          "type": "ai",
+          "content": "Unable to finish",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    },
+    {
+      "name": "result_only_error",
+      "status": "error",
+      "messages": [
+        {
+          "type": "tool",
+          "tool_call_id": "call-1",
+          "name": "lookup",
+          "status": "error",
+          "content": "tool execution failed",
+          "additional_kwargs": {},
+          "response_metadata": {}
+        }
+      ]
+    }
+  ]
+}

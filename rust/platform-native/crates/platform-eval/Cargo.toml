@@ -1,0 +1,23 @@
+[package]
+name = "ai-platform-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+sha2 = "0.10"
+regex = "1"
+chrono = "0.4"
+dotenvy = "0.15"
+shell-words = "1"
+uuid = { version = "1", features = ["v4"] }
+serde_yaml.workspace = true
+tempfile = "3"
+libc = "0.2"
+hmac = "0.12"
+zip.workspace = true
+unicode-casefold = "0.2"
+getrandom = "0.3"

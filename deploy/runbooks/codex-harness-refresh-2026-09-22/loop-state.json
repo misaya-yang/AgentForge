@@ -1,0 +1,161 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "goal": "按固定Codex目标源码完成多代理并行代码更新、兼容优化和review；代码完成后统一Docker更新并以内置浏览器做真实验收，保留完整计划未验证义务。",
+  "domain_id": "agent-runtime-upstream-sync",
+  "lifecycle": "completed",
+  "status": "completed_local",
+  "owner": "root integration session",
+  "base_sha": "305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6",
+  "target_upstream_sha": "279ba894152b2c01c5294cc0723b463b209bdca4",
+  "active_phase": null,
+  "active_feature": null,
+  "active_package": null,
+  "next_action": null,
+  "last_result": "User-scoped local upgrade completed: target Rust pair built/deployed; Qwen text/history, Python approval/deny, run cancellation, KB hybrid/citation and final same-session cold resume passed. Two minimal Gateway live fixes independently reviewed and retested. Supplemental catalog test lacks device input; LOC/full release matrix and Worker cancel cleanup proof remain explicit follow-ups.",
+  "updated_at": "2026-09-22",
+  "blockers": [],
+  "known_preimplementation_gaps": [
+    "Current baseline CI: LOC no-growth failure",
+    "Current baseline CI: Rust build tool trace assertion mismatch; target Rust compilation not run",
+    "Need fresh complete release-unit rollback inventory and baseline performance samples"
+  ],
+  "confirmation": null,
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "iteration": 1,
+  "max_iterations": 8,
+  "phases": [
+    {
+      "id": "U0",
+      "file": "work-packages.yml",
+      "depends_on": [],
+      "status": "in_progress",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U1",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U0"
+      ],
+      "status": "in_progress",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U2",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U1"
+      ],
+      "status": "in_progress",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U3",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U2"
+      ],
+      "status": "in_progress",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U4",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U3"
+      ],
+      "status": "in_progress",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U5",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U4"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_started"
+    },
+    {
+      "id": "U6",
+      "file": "work-packages.yml",
+      "depends_on": [
+        "U5"
+      ],
+      "status": "pending",
+      "evidence": [],
+      "review": "not_started"
+    }
+  ],
+  "features": [],
+  "planning": {
+    "status": "verified",
+    "evidence": "reports/architecture/codex-harness-refresh-2026-09-22/README.md",
+    "verification": "reports/architecture/codex-harness-refresh-2026-09-22/design-verification.json"
+  },
+  "successor": null,
+  "predecessors": [
+    {
+      "program": "agent-runtime-upstream-sync",
+      "disposition": "historical and superseded, do not restart"
+    },
+    {
+      "program": "agent-platform-vnext",
+      "disposition": "completed_local; inherit invariants and unverified external release obligations without rewriting its ledger"
+    }
+  ],
+  "execution_authorization": {
+    "parallel_code_writers": "explicit user request 2026-09-22",
+    "docker_update_and_in_app_browser": "explicit user request after code integration",
+    "scope": "local existing stack; no implicit production publication or shared-data migration",
+    "git": "User explicitly requested final review, merge main and delete the merged upgrade branch on 2026-09-22."
+  },
+  "parallel_ownership": {
+    "upstream_host_update": "overlay app-server/app-server-client/core/ext/tools",
+    "platform_runtime_update": "overlay four ai-platform-* crates",
+    "gateway_compat_update": "Gateway runtime/Eval services and owned API/tests",
+    "client_compat_update": "sdk/cli and named Web API/new E2E specs",
+    "build_gate_update": "rust build-update and changed-crate selector plus tests",
+    "upgrade_security_review": "read-only upgrade review",
+    "root": "workspace Cargo/source lock/manifest/builders, integration docs, Docker/browser/provider and final evidence"
+  },
+  "implementation_status": "completed_local",
+  "live_process": null,
+  "closeout_scope": {
+    "authority": "User 2026-09-22: close quickly; minimal fixes to live failures, independent reviewer retest, then complete upgrade",
+    "result": "completed_local",
+    "full_original_release_matrix_completed": false,
+    "evidence": [
+      "reports/architecture/codex-harness-refresh-2026-09-22/implementation-verification.md",
+      "reports/architecture/codex-harness-refresh-2026-09-22/iab-acceptance.json",
+      "reports/architecture/codex-harness-refresh-2026-09-22/final-review.json"
+    ],
+    "remaining_follow_ups": [
+      "LOC no-growth 27 failures; baseline unchanged",
+      "auxiliary local_node_catalog case requires device_id; no tool call proof",
+      "Worker dispatched cancellation side_effect_unknown; immediate cleanup not proven",
+      "complete restore rehearsal and C01-C20 public release matrix",
+      "hosted Rust/full workspace, multiarch and fresh-machine verification",
+      "permission presets are research only"
+    ]
+  },
+  "git_delivery": {
+    "source_branch": "codex/harness-refresh-plan-2026-09-22",
+    "target_branch": "main",
+    "merge_strategy": "fast_forward",
+    "remote_sync": "ordinary_push_no_force",
+    "branch_deletion": "only after the commit is reachable from main",
+    "premerge_review": "reports/architecture/codex-harness-refresh-2026-09-22/premerge-review.json"
+  }
+}

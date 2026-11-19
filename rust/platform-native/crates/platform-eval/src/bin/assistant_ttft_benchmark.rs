@@ -1,0 +1,1 @@
+#[tokio::main]async fn main(){let result=match ai_platform_eval::cli::Args::parse(std::env::args().skip(1),&[]){Ok(args)=>ai_platform_eval::ttft::run(args).await,Err(e)=>Err(e)};match result{Ok((v,code))=>{println!("{v}");std::process::exit(code)},Err(e)=>{println!("{}",serde_json::json!({"status":"infrastructure_error","reason":e.to_string()}));std::process::exit(2)}}}

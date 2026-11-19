@@ -1,0 +1,9 @@
+# Build the native Rust private HTTP worker and native model execution engine.
+services:
+  sdk-agent-worker:
+    build:
+      context: .
+      dockerfile: deploy/platform-native/Dockerfile
+      target: sdk-worker
+      args:
+        VCS_REF: "${VCS_REF:-unknown}"

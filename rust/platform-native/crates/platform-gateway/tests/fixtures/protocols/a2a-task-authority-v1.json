@@ -1,0 +1,43 @@
+{
+  "protocol": "agentforge-a2a-task/v1",
+  "test_only": true,
+  "seed_hex": "1313131313131313131313131313131313131313131313131313131313131313",
+  "public_key_base64url": "Zs1gi5KLiOUODv6qM_rxxDzv4HKUsLh-n-CrpqPPdjM",
+  "original_message_id": "00000000-0000-4000-8000-000000000001",
+  "raw_body": "{\"configuration\":{\"returnImmediately\":true},\"message\":{\"messageId\":\"f6069e11-8478-5455-9a2f-be1e9bb7f9f2\",\"parts\":[{\"text\":\"测试 task authority\"}],\"role\":\"ROLE_USER\"}}",
+  "header": {
+    "alg": "EdDSA",
+    "typ": "agentforge-a2a-task+jwt",
+    "kid": "wire-test-k1"
+  },
+  "claims": {
+    "v": "agentforge-a2a-task/v1",
+    "iss": "https://gateway.example",
+    "aud": "https://peer.example",
+    "tenant_id": "tenant-fixture",
+    "user_id": "user-fixture",
+    "agent_name": "fixture-peer",
+    "message_id": "f6069e11-8478-5455-9a2f-be1e9bb7f9f2",
+    "body_sha256": "43f11fdb474b1e44dd8ec3c42de7da6070a63bd519ea78e206f381b94357c50f",
+    "method": "POST",
+    "path": "/a2a/message:send",
+    "iat": 1800000000,
+    "exp": 1800000120,
+    "jti": "00000000-0000-4000-8000-000000000002"
+  },
+  "proof": "eyJhbGciOiJFZERTQSIsImtpZCI6IndpcmUtdGVzdC1rMSIsInR5cCI6ImFnZW50Zm9yZ2UtYTJhLXRhc2srand0In0.eyJhZ2VudF9uYW1lIjoiZml4dHVyZS1wZWVyIiwiYXVkIjoiaHR0cHM6Ly9wZWVyLmV4YW1wbGUiLCJib2R5X3NoYTI1NiI6IjQzZjExZmRiNDc0YjFlNDRkZDhlYzNjNDJkZTdkYTYwNzBhNjNiZDUxOWVhNzhlMjA2ZjM4MWI5NDM1N2M1MGYiLCJleHAiOjE4MDAwMDAxMjAsImlhdCI6MTgwMDAwMDAwMCwiaXNzIjoiaHR0cHM6Ly9nYXRld2F5LmV4YW1wbGUiLCJqdGkiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDIiLCJtZXNzYWdlX2lkIjoiZjYwNjllMTEtODQ3OC01NDU1LTlhMmYtYmUxZTliYjdmOWYyIiwibWV0aG9kIjoiUE9TVCIsInBhdGgiOiIvYTJhL21lc3NhZ2U6c2VuZCIsInRlbmFudF9pZCI6InRlbmFudC1maXh0dXJlIiwidXNlcl9pZCI6InVzZXItZml4dHVyZSIsInYiOiJhZ2VudGZvcmdlLWEyYS10YXNrL3YxIn0.kR07QpUFBr8u8oiCbl3YvpgNgQB3UlK8eZz6TkOrg6BOFdCqNv8pP7o17BHgjFvkMOpqVTPGIZQ-OzOdazlRDg",
+  "expected_now": 1800000000,
+  "negative_cases": [
+    "tampered_body",
+    "wrong_origin",
+    "wrong_path",
+    "wrong_method",
+    "wrong_tenant",
+    "wrong_user",
+    "wrong_message",
+    "expired",
+    "future_iat",
+    "wrong_key",
+    "replayed_jti"
+  ]
+}

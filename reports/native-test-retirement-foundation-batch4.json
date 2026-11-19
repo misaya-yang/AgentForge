@@ -1,0 +1,69 @@
+{
+  "schema": "ai-platform/native-test-parity-batch/v1",
+  "entries": [
+    {
+      "legacy_source": "tests/core/auth/test_api_key.py",
+      "source_sha256": "0d017dbc12c702927c70d13ac0f6f4cdf5c1be69536ffa35830d670e804dba12",
+      "source_cases": [
+        "test_valid_key",
+        "test_valid_key_among_many",
+        "test_invalid_key_raises",
+        "test_empty_valid_keys_raises",
+        "test_empty_key_against_valid_raises",
+        "test_single_valid_key"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_identity",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_identity.rs",
+      "native_functions": [
+        "static_key_identity_requires_exact_nonempty_configured_key"
+      ],
+      "retirement_eligibility": "Listed observable assertions ported, root verification pending; residual assertions remain explicit.",
+      "residual": "Production identity layer tests valid/invalid authentication outcome. Obsolete standalone Python AuthError type/message has no native standalone static-key helper; endpoint authorization remains independent.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/middleware/test_streaming_auth_set_cookie.py",
+      "source_sha256": "fdd2677844561d47ba39b5804b91ff6bb1673231b240b1c6b2a7c741f05882ce",
+      "source_cases": [
+        "test_auth_response_headers_preserve_duplicate_set_cookie"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_identity",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_identity.rs",
+      "native_functions": [
+        "identity_layer_preserves_both_set_cookie_values"
+      ],
+      "retirement_eligibility": "Listed observable assertions ported, root verification pending; residual assertions remain explicit.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/core/middleware/test_jwt_verification.py",
+      "source_sha256": "7f01144f0aff7098ee52756a58a44fdbdc6415ba7d28f3fcad1e01d2a272020e",
+      "source_cases": [
+        "test_valid_jwt_is_accepted",
+        "test_forged_jwt_is_rejected",
+        "test_expired_jwt_is_rejected",
+        "test_malformed_jwt_is_rejected",
+        "test_jwt_disabled_falls_through",
+        "test_empty_jwt_secret_falls_through",
+        "test_session_uuid_must_be_canonical_v4",
+        "test_guest_session_allows_uppercase_hex_suffix_only",
+        "test_invalid_signature_is_logged",
+        "test_expired_token_is_logged"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_identity",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_identity.rs",
+      "native_functions": [
+        "jwt_identity_accepts_valid_claims_and_denies_forged_expired_malformed_or_disabled",
+        "guest_session_ids_require_canonical_v4_or_bounded_hex_suffix",
+        "invalid_signature_and_expiry_emit_sanitized_warning_events"
+      ],
+      "retirement_eligibility": "Listed observable assertions ported, root verification pending; residual assertions remain explicit.",
+      "residual": "Anonymous sanitizer private-helper newline input not yet covered at a transport-valid boundary. Root-authorized minimal production fix emits only static signature/expiry/invalid warning event classes, no tokens/claims/key/error text; capture test checks non-disclosure.",
+      "execution": "Unrun; root serializes Cargo."
+    }
+  ]
+}

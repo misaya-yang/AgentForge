@@ -1,0 +1,26 @@
+# Optional tenant package grants, merged into the existing sandbox service.
+# The policy must match the admitted image catalog; no installs occur at runtime.
+services:
+  agent-python-sandbox:
+    command:
+      - --public-key-id
+      - "${AGENT_SANDBOX_PUBLIC_KEY_ID:?Select the sandbox-job verifier key id}"
+      - --public-key-hex
+      - "${AGENT_SANDBOX_PUBLIC_KEY_HEX:?Select the purpose-specific Ed25519 public verifier}"
+      - --socket
+      - /run/agentforge-sandbox/control.sock
+      - --workspace-root
+      - /workspace
+      - --journal-root
+      - /var/lib/agentforge-sandbox/jobs
+      - --cgroup-root
+      - /sys/fs/cgroup/agentforge-sandbox
+      - --package-policy
+      - /etc/agentforge/python-package-policy.json
+    volumes:
+      - type: bind
+        source: "${AGENT_SANDBOX_TENANT_PACKAGE_POLICY:?Select the matching public catalog/tenant grant policy}"
+        target: /etc/agentforge/python-package-policy.json
+        read_only: true
+        bind:
+          create_host_path: false

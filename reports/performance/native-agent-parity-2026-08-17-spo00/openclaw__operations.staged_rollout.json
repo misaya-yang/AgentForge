@@ -1,0 +1,91 @@
+{
+  "domain": "change-management",
+  "passed": true,
+  "system": "openclaw",
+  "task_id": "operations.staged_rollout",
+  "turns": [
+    {
+      "duration_seconds": 14.408,
+      "metadata": {
+        "model": "qwen3.7-plus",
+        "provider": "dashscope",
+        "session_id_sha256": "1b632e4b670e0403a0e004dd049e8eb29fd391e0e025612ac8b79e2cc702f1fd",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "usage": {
+          "cacheRead": 14848,
+          "input": 794,
+          "output": 982,
+          "total": 16624
+        }
+      },
+      "ordinal": 1,
+      "output": "```json\n{\n  \"status\": \"planned\",\n  \"waves\": [\n    [\"db_migration\"],\n    [\"api_canary\"],\n    [\"worker_canary\"],\n    [\"scheduler_canary\"]\n  ],\n  \"gates\": [\n    {\n      \"name\": \"db_replication_lag\",\n      \"threshold\": \"<2s\",\n      \"observed_after\": \"db_migration\"\n    },\n    {\n      \"name\": \"api_5xx_rate\",\n      \"threshold\": \"<1%\",\n      \"observed_after\": \"api_canary\"\n    },\n    {\n      \"name\": \"queue_age\",\n      \"threshold\": \"<60s\",\n      \"observed_after\": \"worker_canary\"\n    }\n  ],\n  \"requires_approval\": true\n}\n```",
+      "output_sha256": "20913327ec5bfe056759f90862ff14597efeec75319f8463cf7c04b581bdf499",
+      "parsed_output": {
+        "gates": [
+          {
+            "name": "db_replication_lag",
+            "observed_after": "db_migration",
+            "threshold": "<2s"
+          },
+          {
+            "name": "api_5xx_rate",
+            "observed_after": "api_canary",
+            "threshold": "<1%"
+          },
+          {
+            "name": "queue_age",
+            "observed_after": "worker_canary",
+            "threshold": "<60s"
+          }
+        ],
+        "requires_approval": true,
+        "status": "planned",
+        "waves": [
+          [
+            "db_migration"
+          ],
+          [
+            "api_canary"
+          ],
+          [
+            "worker_canary"
+          ],
+          [
+            "scheduler_canary"
+          ]
+        ]
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "stop"
+    },
+    {
+      "duration_seconds": 12.625,
+      "metadata": {
+        "model": "qwen3.7-plus",
+        "provider": "dashscope",
+        "session_id_sha256": "1b632e4b670e0403a0e004dd049e8eb29fd391e0e025612ac8b79e2cc702f1fd",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "usage": {
+          "cacheRead": 14848,
+          "input": 1061,
+          "output": 996,
+          "total": 16905
+        }
+      },
+      "ordinal": 2,
+      "output": "```json\n{\n  \"status\": \"blocked\",\n  \"failed_gate\": \"queue_age\",\n  \"next_action\": \"halt\",\n  \"full_rollout\": false\n}\n```",
+      "output_sha256": "9e996494e6171a16de8dde4cc81da024482adb7b4baa4429bfa4383b699169ad",
+      "parsed_output": {
+        "failed_gate": "queue_age",
+        "full_rollout": false,
+        "next_action": "halt",
+        "status": "blocked"
+      },
+      "passed": true,
+      "reason": "passed",
+      "terminal_status": "stop"
+    }
+  ]
+}

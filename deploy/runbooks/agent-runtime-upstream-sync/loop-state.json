@@ -1,0 +1,161 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "goal": "Synchronize the platform Agent Runtime and Capability Worker to the fixed Codex Harness upstream snapshot while preserving platform contracts, Agent configuration and Eval behavior, and proving the compiled system through real API, UI, provider, CLI, and rollback journeys.",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 7,
+  "max_iterations": 8,
+  "last_result": "candidate_complete: internal-browser Qwen chat/history/tool reject+approve, Agent Studio preview, and Eval Trace passed; public Responses 2/2 and live platform convergence 3/3 passed after repairing terminal-ledger closure before V2 terminal delivery. Offline release, web, CLI, source, Eval, LOC, image smoke, and package gates pass. User authorized merge and push despite the separately reported unavailable frozen bundle.",
+  "next_action": null,
+  "blockers": [
+    "ARU-F005 full frozen-bundle rehearsal cannot run because the immutable bundle's exact Runtime image is absent and four other frozen service artifacts are absent or digest-mismatched. Candidate Runtime/Worker rollback to the previous locally available pair and back passed, but is not a substitute for the full release-unit rehearsal."
+  ],
+  "confirmation": {
+    "state": "answered",
+    "asked_at": "2026-08-30",
+    "answered_at": "2026-08-30",
+    "answers": {
+      "in_app_browser_credentials": "authorized",
+      "merge_main": "authorized after comprehensive testing",
+      "push_main": "authorized"
+    }
+  },
+  "phases": [
+    {
+      "id": "ARU-00",
+      "file": "phase-00-the-fixed-upstream-snapshot-is-materialized-as-the-composed-runtime-and-worker-source-with-platform-overlays-preserved.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "selected upstream 94cbbddafc1776d5e377bca1b05932c697e82238; composed overlay 46158add036ca5cdd80b856c86e0f3cb1224deb4287073e4016f30b0da69a153",
+        "make agent-runtime-source-contract -> 10 passed and source identity ok",
+        "Docker cargo metadata --locked resolved the composed workspace; no host Rust build output was created"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "ARU-01",
+      "file": "phase-01-runtime-app-server-capability-worker-gateway-and-web-compatibility-adaptations-form-one-source-green-integration.md",
+      "depends_on": [
+        "ARU-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "Docker Runtime suite -> 64 passed, 1 intentionally ignored PostgreSQL case; Docker Capability Worker suite -> 79 passed, 1 intentionally ignored PostgreSQL case",
+        "Agent configuration and Eval regression matrix -> 148 passed; Agent Runtime Eval contract -> 16 passed",
+        "Gateway model/Responses regression -> 54 passed; web unit suite -> 121 passed",
+        "public API, SSE, approval, PostgreSQL ThreadStore, Capability Worker, and Gateway ownership remained on the platform compatibility seams"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "ARU-02",
+      "file": "phase-02-docker-built-candidate-runtime-and-worker-images-start-in-compose-and-the-gateway-reaches-the-new-runtime.md",
+      "depends_on": [
+        "ARU-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "Runtime image ai-gateway-agent-runtime:local-94cbbddafc17-46158add036c -> sha256:d5a3037f95d0",
+        "Worker image ai-gateway-agent-capability-worker:local-94cbbddafc17-46158add036c -> sha256:0efd548a73a7",
+        "make validate and make status -> 9 services healthy; explicit candidate image make agent-runtime-smoke -> ok"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "ARU-03",
+      "file": "phase-03-real-api-sse-chat-tool-approval-cancellation-resume-history-ui-knowledge-and-qwen-journeys-pass.md",
+      "depends_on": [
+        "ARU-02"
+      ],
+      "status": "done",
+      "evidence": [
+        "live qwen3.7-plus public Responses non-stream and SSE -> 2 passed after candidate restoration; agent-runtime-text-gate -> simple, long, remember, and resume passed",
+        "live platform convergence -> cancellation/refresh, pending approval reject/approve recovery, and architecture status all passed",
+        "live Agent Studio draft preview produced a succeeded durable run; Agent publish/Eval/version rollback lifecycle passed; Agent configuration/Eval static matrix passed",
+        "Assistant desktop/mobile history -> 2 passed; real code executor and durable artifact passed; Playwright UI convergence passed",
+        "independent CLI -> 46 tests plus native Docker build/package, Direct/Chat Qwen, tool approval, bypass execution, resume, and SIGINT recovery passed",
+        "authenticated in-app-browser -> Qwen chat, cross-page history restore, tool reject, tool approve/execute, Agent Studio draft preview, and linked Eval Trace all passed",
+        "post-fix live platform convergence -> cancellation/refresh, restored approval reject/fresh approve, and architecture status passed 3/3"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "ARU-04",
+      "file": "phase-04-candidate-to-frozen-to-candidate-rollback-preserves-sessions-and-side-effect-safety-and-the-branch-is-merge-ready.md",
+      "depends_on": [
+        "ARU-03"
+      ],
+      "status": "blocked",
+      "evidence": [
+        "candidate-only Runtime/Worker switch current -> previous local pair -> current succeeded; previous pair answered a real 2+2 Qwen turn and current candidate was restored healthy",
+        "official make agent-runtime-rollback-rehearsal stopped before mutation because exact immutable frozen artifacts are unavailable locally",
+        "final candidate gates: agent-runtime-release-gate, harness/source/Eval contracts, CLI 46, LOC no-growth, web quality/build, Runtime smoke, live Responses 2/2, and live platform convergence 3/3 passed",
+        "user authorized merging and pushing the tested candidate while this unavailable-artifact rehearsal remains explicitly unverified"
+      ],
+      "review": "required_after_frozen_artifacts_are_restored"
+    }
+  ],
+  "features": [
+    {
+      "id": "ARU-F001",
+      "phase_id": "ARU-00",
+      "description": "The Docker composed-source context expands upstream 94cbbddafc in full and overlays only the platform compatibility seam, with all source identities aligned.",
+      "steps": [
+        "Materialize the composed source from upstream 94cbbddafc plus rust/agent-runtime-overlay.",
+        "Observe matching upstream SHA, overlay digest, Cargo lock, receipt, and source-lock identities with no conflict markers."
+      ],
+      "passes": true
+    },
+    {
+      "id": "ARU-F002",
+      "phase_id": "ARU-01",
+      "description": "Runtime core, app-server, Capability Worker, Gateway, web, Agent configuration, and Agent Eval compatibility seams preserve the platform contracts on the new source base.",
+      "steps": [
+        "Run source, changed-path, Agent configuration, and Eval contract gates without host Rust compilation.",
+        "Observe no public HTTP/SSE projection drift and no unresolved cross-module API mismatch."
+      ],
+      "passes": true
+    },
+    {
+      "id": "ARU-F003",
+      "phase_id": "ARU-02",
+      "description": "Docker multi-stage builders produce identifiable Runtime and Worker images that boot under this checkout's Compose project and serve the Gateway.",
+      "steps": [
+        "Build Runtime and Worker serially through scripts/rust/build-update.sh and start the candidate stack after verifying Compose ownership.",
+        "Observe source/image labels, service health, and a real Gateway-to-Runtime request from the candidate containers."
+      ],
+      "passes": true
+    },
+    {
+      "id": "ARU-F004",
+      "phase_id": "ARU-03",
+      "description": "The compiled candidate completes the PRD's real API, SSE, chat, tool approval, cancellation, resume, history, UI, Agent configuration/Eval, Knowledge, negative, CLI, and Qwen journeys.",
+      "steps": [
+        "Exercise the required backend and browser journeys against the running candidate using the existing local identity and configured DashScope/Qwen provider.",
+        "Observe correct streamed output, durable history/recovery, approval enforcement, Agent preview/Eval/version behavior, tenant rejection, Knowledge behavior, and healthy browser console/network state."
+      ],
+      "passes": true
+    },
+    {
+      "id": "ARU-F005",
+      "phase_id": "ARU-04",
+      "description": "A candidate-to-frozen-to-candidate switch keeps existing sessions readable and avoids duplicate tool side effects, after which repository gates support merge readiness.",
+      "steps": [
+        "Run the existing rollback rehearsal from candidate to frozen images and back, then send one final candidate chat.",
+        "Observe the original session history, unchanged execution ledger, successful final chat, and passing touched-path/harness gates."
+      ],
+      "passes": false
+    }
+  ],
+  "lifecycle": "superseded",
+  "status": "superseded",
+  "superseded_by": "agent-platform-vnext",
+  "superseded_at": "2026-09-07"
+}

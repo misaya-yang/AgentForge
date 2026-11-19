@@ -1,0 +1,60 @@
+# Integration examples only. Root merges these with owning Helm/network policy.
+# The native inner TLS channel remains end-to-end; mesh headers are not identity.
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: agentforge-workload-strict
+  namespace: agentforge
+spec:
+  selector:
+    matchLabels:
+      agentforge.io/workload-listener: "true"
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: gateway-workload-peers
+  namespace: agentforge
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: gateway
+      agentforge.io/workload-listener: "true"
+  rules:
+    - from:
+        - source:
+            principals:
+              - agentforge.local/ns/agentforge/sa/runtime
+              - agentforge.local/ns/agentforge/sa/knowledge
+              - agentforge.local/ns/agentforge/sa/capability-worker
+      to:
+        - operation:
+            ports: ["8443"]
+# Applying a mesh allow policy also affects other Gateway ports. Root must merge
+# existing public-console ingress rules before admission; this is not a ready
+# replacement for the chart's complete Gateway authorization policy.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-workload-contract
+  namespace: agentforge
+data:
+  workload.json: |
+    {
+      "mode": "required",
+      "identity": "spiffe://agentforge.local/ns/agentforge/sa/gateway",
+      "credential_root": "/run/agentforge/workload",
+      "client_identities": [
+        "spiffe://agentforge.local/ns/agentforge/sa/runtime",
+        "spiffe://agentforge.local/ns/agentforge/sa/knowledge",
+        "spiffe://agentforge.local/ns/agentforge/sa/capability-worker"
+      ],
+      "source_files": ["cert.pem", "key.pem", "ca.pem"],
+      "source_key_mode": "0600",
+      "application_mount": "read-only",
+      "identity_headers": "rejected",
+      "legacy_transport_bearer": "absent after measured required rollout"
+    }

@@ -1,0 +1,23 @@
+{
+  "run": {
+    "run_id": "0464fa26-d157-473e-b7eb-4dc389b9d1da",
+    "session_id": "628848f3-59e0-403d-809b-3ea258aa21b3",
+    "status": "running",
+    "thread_id": "01a0e3ca-4e5a-7521-8b7c-33028e34e377"
+  },
+  "approval": {
+    "approval_id": "01a0e3e0-82af-7980-bef2-e26c680e8b56",
+    "status": "pending"
+  },
+  "revoke_status": 200,
+  "preview_status": 200,
+  "preview_contains_private_marker": false,
+  "can_approve": false,
+  "approve_status": 409,
+  "restricted_run_ids": [
+    "d4f75f86-b3fe-4adb-ab47-5177bcda3131",
+    "0464fa26-d157-473e-b7eb-4dc389b9d1da"
+  ],
+  "execution_count": 0,
+  "session_run_count": 2
+}

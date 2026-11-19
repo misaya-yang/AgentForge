@@ -1,0 +1,85 @@
+{
+  "schema": "ai-platform/native-test-parity-batch/v1",
+  "entries": [
+    {
+      "legacy_source": "tests/packages/ai_gateway_core/test_agent_outcome_contract.py",
+      "source_sha256": "e4071e4fc39d2f76aad3ea3cef208d2a7aee107543c2342d93dd561c74e8dc5f",
+      "source_cases": [
+        "test_outcome_contract_is_closed_redacted_and_rendered_stably",
+        "test_outcome_contract_rejects_unknown_or_empty_list_items",
+        "test_copy_preserves_present_outcome_without_inventing_one_for_legacy_specs"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_agent_contracts",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_agent_contracts.rs",
+      "native_functions": [
+        "outcome_is_closed_redacted_rendered_and_preserved_only_when_present"
+      ],
+      "retirement_eligibility": "Listed assertions represented, conditional on root verification; partial suites retain residual obligations.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/packages/ai_gateway_core/test_model_capabilities.py",
+      "source_sha256": "62342ae54187f98c8e67c3ff81f19db431767fafc2ef7452b04f470d060e4514",
+      "source_cases": [
+        "test_invalid_adapter_setting_is_rejected",
+        "test_native_web_search_wire_requires_enabled_profile_capability",
+        "test_qwen_responses_catalog_declares_provider_native_web_search",
+        "test_adapter_catalog_is_typed_and_has_unique_ids",
+        "test_unhashable_profile_values_raise_model_capability_error_not_type_error",
+        "test_alias_shadowing_an_option_id_is_rejected_in_either_order",
+        "test_reserved_auto_token_is_rejected_as_option_id_and_alias",
+        "test_builtin_catalog_profiles_validate_and_have_unique_option_keys",
+        "test_builtin_catalog_has_no_ambiguous_provider_model_match"
+      ],
+      "native_package": "ai-platform-gateway-foundation",
+      "native_target": "foundation_migration_parity_model_profiles",
+      "native_path": "rust/platform-native/crates/platform-gateway-foundation/tests/foundation_migration_parity_model_profiles.rs",
+      "native_functions": [
+        "capability_validation_rejects_malformed_values_and_native_search_without_permission",
+        "reasoning_option_ids_cannot_shadow_aliases_or_reserved_auto",
+        "bundled_catalog_and_adapter_keys_are_unique_valid_and_search_is_explicit"
+      ],
+      "retirement_eligibility": "Listed assertions represented, conditional on root verification; partial suites retain residual obligations.",
+      "residual": "Actual validation function rejects typed InvalidProfile; source exact diagnostic wording differs. Reasoning-option resolution and override receipt assertions not yet mapped.",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/tracing/test_internal_http_propagation.py",
+      "source_sha256": "c371c1a27d797385b9eb911dcdc6d2badd2dc7741c869a93c5a500ab1ca1acbe",
+      "source_cases": [
+        "test_internal_headers_propagate_trace_and_bounded_correlation",
+        "test_internal_headers_reject_log_injection_in_correlation_ids",
+        "test_request_context_bridge_preserves_id_for_internal_hop_and_resets",
+        "test_internal_headers_mint_safe_request_id_outside_request_context"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_tracing",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_tracing.rs",
+      "native_functions": [
+        "internal_headers_preserve_safe_correlation_and_reset_after_request_scope"
+      ],
+      "retirement_eligibility": "Listed assertions represented, conditional on root verification; partial suites retain residual obligations.",
+      "residual": "",
+      "execution": "Unrun; root serializes Cargo."
+    },
+    {
+      "legacy_source": "tests/tracing/test_gateway_trace_propagation.py",
+      "source_sha256": "4f17369ed261d3dc95a1cdfcbf510051f387f3f6c45951bc43d1725f615b4a38",
+      "source_cases": [
+        "test_trace_middleware_reuses_safe_traceparent_trace_id",
+        "test_trace_middleware_rejects_unsafe_trace_id_header"
+      ],
+      "native_package": "ai-platform-gateway",
+      "native_target": "foundation_migration_parity_tracing",
+      "native_path": "rust/platform-native/crates/platform-gateway/tests/foundation_migration_parity_tracing.rs",
+      "native_functions": [
+        "tracing_middleware_reuses_valid_parent_and_replaces_unsafe_trace_id"
+      ],
+      "retirement_eligibility": "Listed assertions represented, conditional on root verification; partial suites retain residual obligations.",
+      "residual": "ContextInjector outbound proxy header assertion still unmapped.",
+      "execution": "Unrun; root serializes Cargo."
+    }
+  ]
+}

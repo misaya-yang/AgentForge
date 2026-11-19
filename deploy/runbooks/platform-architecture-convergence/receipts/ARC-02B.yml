@@ -1,0 +1,21 @@
+package_id: ARC-02B
+state: blocked
+base_sha: 336851c107c659342ec79aa3aa298de77b1edc68
+head_sha: 9aaa9cabcd9284b001b13f1a0b5b2a90f6de0768
+changed_paths: [rust/agent-runtime-overlay/kernel-rs/ai-platform-agent-runtime/**, rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/**]
+commits: [023b06a2, 38d86939, 9e58a7f9]
+contracts_compared: [Runtime/Worker HTTP fixtures, lease/proof, cancel/recovery, source identity]
+commands:
+  - {command: "make agent-runtime-source-contract", exit_code: 0, passed: 10, failed: 0, skipped: 0}
+  - {command: "make status", exit_code: 0, passed: null, failed: 0, skipped: 0}
+direct_verdict: PARTIAL
+integration_verdict: PASS
+live_verdict: PASS
+deferred_live_scenarios: []
+review_findings: {blocker: 0, high: 0, medium: 0}
+rollback_class: old-binary-compatible
+runtime_images:
+  agent_runtime: sha256:9d736eb9666166d54215e675525442540384af7c21b1ef81cc63dc613dde7ad6
+  capability_worker: sha256:ac33b36d39462cc2d9db13d8c8f2af0eea15ff6c50054ca31945c8b0d265c3c9
+blocked_by: ["Hosted Rust fmt/check/changed-crate tests were not run."]
+remaining_risks: []

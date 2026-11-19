@@ -1,0 +1,69 @@
+{
+  "schema": "agentforge/python-sandbox-image-admission/v1",
+  "recorded_at": "2026-10-17T08:14:19.917Z",
+  "result": "implemented_static_checks_passed",
+  "source_files": [
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source.rs",
+      "sha256": "8d3fa5e2b0ec4529ce510afb1d806c9cb1c4d196286fad97441d0c5af9dc01d5"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_refresh.rs",
+      "sha256": "1f0dac9e96067835f016099f5626ba6c6f660c2bbf21c4d503a231d15978ae64"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_images.rs",
+      "sha256": "8ceeab76b5cfc0e65464fdd67cee74c48558bd39c1f1fb6b416f1a20b4afd3c1"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_images_tests.rs",
+      "sha256": "b084126fc52baa64c5dad0e75822173c6538236d6575a62c47208f559906d6b0"
+    },
+    {
+      "path": "rust/platform-native/crates/platform-tools/src/source_refresh_inventory_tests.rs",
+      "sha256": "c3fdbf3f39ccd136c946ab0f0a2e9dc5521c3692f10e103b53d7d624adb98cf7"
+    }
+  ],
+  "current_artifact_inventory": [
+    "app_server",
+    "agent_runtime",
+    "capability_worker",
+    "python_sandbox"
+  ],
+  "required_service_image_release": [
+    "agent_runtime",
+    "capability_worker",
+    "python_sandbox"
+  ],
+  "sandbox": {
+    "artifact": "python_sandbox",
+    "binary": "ai-platform-python-sandbox",
+    "protocol": "sandbox-job/v1",
+    "label_namespace": "com.misaya.ai-platform.capability-worker",
+    "image_option": "--sandbox-image",
+    "default_image_prefix": "ai-gateway-agent-python-sandbox"
+  },
+  "history_policy": "Only exact old092d three-artifact locks may be inspected without require flags; audit-only, never current image release or image recording.",
+  "partial_build_policy": "Current inventory always has four artifacts; single-artifact recording/validation is permitted but does not prove a complete service-image release.",
+  "verification": [
+    {
+      "command": "rustfmt --check --edition 2024 --config skip_children=true <five source files>",
+      "toolchain": "1.99.0",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check -- <owned source and documentation paths>",
+      "exit_code": 0
+    },
+    {
+      "command": "Node relative documentation-link verification",
+      "links": 10,
+      "exit_code": 0
+    }
+  ],
+  "not_run": [
+    "native Cargo unit tests for this image extension; primary writer owns serialized builds",
+    "Docker image builds, inspect/record and live source-lock admission"
+  ],
+  "locks_manifests_or_running_images_changed": false
+}

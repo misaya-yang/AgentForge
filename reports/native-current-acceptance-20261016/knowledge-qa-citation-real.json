@@ -1,0 +1,54 @@
+{
+  "schema": "native-public-knowledge-qa-citation/v1",
+  "dataset": "native-knowledge-acceptance-20261016",
+  "document_id": "e7e4f006-b614-4022-832c-55d3d639f45a",
+  "query_label": "annual_review_owner_original_pdf",
+  "qa_http_status": 200,
+  "model": "qwen3.8-flash",
+  "answer": {
+    "sha256": "06cc6ba94995bd1c67dd9f2f4ac4517b2bb8334143ab25dfbbfc0a17dc942d81",
+    "characters": 120,
+    "nonempty": true,
+    "cites_reference": true,
+    "matches_source_team": true,
+    "matches_source_start_date": true,
+    "matches_source_end_date": true
+  },
+  "active_source": {
+    "current_version": 1,
+    "sha256": "25153861937caff97b3a3a05044e5187498ab5fa8a7831a00c88c9581494b9b5",
+    "source_version_record_matches": true
+  },
+  "retrieval": {
+    "mode": "hybrid",
+    "native_hybrid": true,
+    "rerank_requested": true,
+    "rerank_applied_provider": "dashscope",
+    "rerank_applied_model": "qwen3-rerank",
+    "rerank_degraded": null,
+    "rerank_degraded_field_present": false,
+    "rerank_error_present": false,
+    "rerank_score_present": true
+  },
+  "citations": [
+    {
+      "document_id": "e7e4f006-b614-4022-832c-55d3d639f45a",
+      "source_version": 1,
+      "source_hash": "25153861937caff97b3a3a05044e5187498ab5fa8a7831a00c88c9581494b9b5",
+      "citation_text_present": false,
+      "rerank_score_present": true,
+      "exact_public_source": {
+        "http_status": 200,
+        "source_hash_matches": true,
+        "content_matches_hash": true,
+        "content_matches_active": true
+      }
+    }
+  ],
+  "all_citations_bind_to_exact_public_source": true,
+  "trace_id_present": true,
+  "query_fingerprint_present": true,
+  "auth_refreshes": 2,
+  "finished_at": "2026-10-16T10:14:49.449Z",
+  "overall": "passed"
+}

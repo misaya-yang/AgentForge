@@ -1,0 +1,1 @@
+{"host": "dashscope-463f.oss-accelerate.aliyuncs.com", "address_classes": [{"public": false, "private": true, "benchmark_range": true}], "ssrf_guard_preserved": true, "actual_addresses_not_logged": true}

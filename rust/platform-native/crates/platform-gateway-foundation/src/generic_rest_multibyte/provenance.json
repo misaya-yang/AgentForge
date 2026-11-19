@@ -1,0 +1,22 @@
+{
+  "format": "python-codec-incremental-transducer/v1",
+  "source_runtime": "3.12.14",
+  "error_policy": "replace",
+  "transition_record": "little-endian u64(next_state16,first_scalar21,second_scalar21,length2),u32(third_scalar)",
+  "files": {
+    "big5.bin": "ff9c914b5e3d3fb3bb554e1a4afced68eff1a7516bccb070691c4abc003ec6ed",
+    "big5hkscs.bin": "b8b10913e6f37b51261b38c567c3d549027cdf3a3043628f0e501a9883379cf3",
+    "cp932.bin": "ec629e5472a079fa84aeb32a1713f9b7481e8b80d360d74e78caad9d061b8446",
+    "cp949.bin": "6e324eeb7226e3a94c0ccfa5742a8c387c53698869c62dee0ed3c03184ad939a",
+    "cp950.bin": "4820ab285c97ad14dfa84dfe5a456e58c0ef94175920b6b22b976e66a4b150e5",
+    "euc_jis_2004.bin": "4921df6db825db7e4ea337372a288b2af9f6b7416320bdc71a1723ac44e97792",
+    "euc_jisx0213.bin": "c129a176497b69c3ee6a9f7cac12bcf89f379bdee265414cecd1213404550ed5",
+    "euc_jp.bin": "2000d4089da956f3b1fe855c7c597b80bfedacda9bc76926ba7a6ff561c3cf78",
+    "gb2312.bin": "d7382bdae6efa6a10258e1a758950a201a1bf7352ad2076cc83a07e5c919287b",
+    "gbk.bin": "b3ba1daa8efb2cb45cad63ebea266823d223e703d61d454bb930cd140d035905",
+    "johab.bin": "f9c08d7dc3b605d457518b8c00ff21c3d7a0582aa137aeb8a273f44120181a48",
+    "shift_jis.bin": "4518d3f9dd72542eb55583ac526a6f1be04e8d57632f141ab81b201d2a42a57a",
+    "shift_jis_2004.bin": "a965ada1815a4a618dd4f42fe5cc98592ad126ca0304349c4bffa6af203fcd14",
+    "shift_jisx0213.bin": "77eae02c045399f06a604099a032b6d78cfdb25d34bdd2b2d56578fa9325c63c"
+  }
+}

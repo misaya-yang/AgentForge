@@ -1,0 +1,7 @@
+# Optional sandbox-specific limits. Merge with the same existing local project;
+# base/runtime already require the explicitly prepared sandbox-only delegation.
+# Never mount a cgroup subtree or Python interpreter into the control Worker.
+services:
+  agent-python-sandbox:
+    mem_limit: "${AGENT_PYTHON_SANDBOX_MEMORY_LIMIT:-1536m}"
+    cpus: "${AGENT_PYTHON_SANDBOX_CPUS:-2.0}"

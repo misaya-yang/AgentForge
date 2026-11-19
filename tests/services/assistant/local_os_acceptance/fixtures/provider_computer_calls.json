@@ -1,0 +1,36 @@
+{
+  "valid_with_safety_checks": {
+    "type": "computer_call",
+    "id": "call_computer_001",
+    "call_id": "call_computer_001",
+    "status": "completed",
+    "actions": [
+      {"type": "click", "x": 180, "y": 220, "button": "left"},
+      {"type": "type", "text": "offline acceptance text"}
+    ],
+    "pending_safety_checks": [
+      {
+        "id": "safety_001",
+        "code": "confirm_external_side_effect",
+        "message": "Confirm before submitting data"
+      }
+    ]
+  },
+  "unknown_action": {
+    "type": "computer_call",
+    "id": "call_computer_unknown",
+    "call_id": "call_computer_unknown",
+    "status": "completed",
+    "actions": [
+      {"type": "disable_security_controls"}
+    ],
+    "pending_safety_checks": []
+  },
+  "legacy_preview": {
+    "type": "computer_use_preview",
+    "id": "call_legacy_preview",
+    "actions": [{"type": "click", "x": 1, "y": 1}],
+    "pending_safety_checks": []
+  }
+}
+

@@ -1,0 +1,16 @@
+[Unit]
+Description=AgentForge publication recovery checkpoint (explicit opt-in)
+ConditionPathExists=/etc/agentforge-recovery/backup-enabled
+After=network-online.target
+[Service]
+Type=oneshot
+User=postgres
+UMask=0077
+ExecStart=/usr/local/bin/recovery-backup checkpoint /etc/agentforge-recovery/recovery.json --execute --allow-local-target local-recovery
+TimeoutStartSec=1900
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/agentforge-recovery /var/lib/postgresql/data

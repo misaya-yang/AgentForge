@@ -1,0 +1,20 @@
+{
+  "schema": "agentforge-external-a2a-acceptance/v1",
+  "gatewayOrigin": "https://gateway.example",
+  "address": "127.0.0.1",
+  "caFile": "/absolute/private/external-a2a/gateway-ca.pem",
+  "peer": "external-reference",
+  "tenantId": "operator-tenant",
+  "userId": "operator-user",
+  "actorTokenFile": "/absolute/private/external-a2a/acceptance-actor.jwt",
+  "sameTenantOtherUserTokenFile": "/absolute/private/external-a2a/other-user.jwt",
+  "otherTenantTokenFile": "/absolute/private/external-a2a/other-tenant.jwt",
+  "exhaustedQuotaTokenFile": "/absolute/private/external-a2a/exhausted-quota.jwt",
+  "guardrailPromptFile": "/absolute/private/external-a2a/blocked-guardrail.txt",
+  "outputDirectory": "/absolute/private/external-a2a/acceptance-evidence",
+  "repository": "/absolute/path/to/AgentForge",
+  "evidenceKeyId": "operator-ledger-auditor-v1",
+  "evidencePublicKey": "REPLACE_WITH_PINNED_ED25519_RAW32_BASE64URL",
+  "quotaUserId": "operator-exhausted-quota-user",
+  "quotaModel": "operator-approved-model"
+}

@@ -1,0 +1,37 @@
+# U-GW-21 Stage-D transport integration
+
+Source implemented; controlled compilation, test execution and product acceptance remain pending.
+
+The dependency-free wire/attenuation authority lives once in `ai-platform-capability-contract/src/private_transport.rs`, exported by its existing library, with eight adjacent contract tests. It contains no I/O, environment reads, runtime tasks or new dependencies. Gateway depends only on this pure contract crate, not Runtime or Worker implementation. The previous unmounted Gateway copies were removed.
+
+## Gateway edge now mounted
+
+`migration_host/context.rs` uses the shared strict W3C parser on the installed ActiveTraceCarrier (or foundation tracing adapter extension). Raw request headers never become active trace. Invalid/duplicate parents and orphan state disappear; baggage is stripped. Existing independently-built auth, sensitive headers and admitted scope stay in their owning builders. `OutboundContext` retains its existing public shape.
+
+An optional Budget extension can be installed by a trusted in-process admission adapter. It is carried in a separate task-local and retained during response-body polling. `capture_budget` plus `scoped_with_budget` explicitly carries it across same-request detached work. Neither middleware nor command code reads raw HTTP budget headers. Without that private extension, each command uses the existing local 300-second route cap. This is explicitly a route timeout, not verified model/SDK lease expiry.
+
+The real RuntimeControlPlane thread-create and turn-start POST paths now call `control_transport::send_json`. The helper clamps an installed budget, existing shorter RequestBuilder timeout and route cap, consumes a hop, replaces duplicate budget hints with its admitted triplet and executes exactly once. The timeout covers send, complete response body and JSON decode; the body is bounded at 4 MiB and the deadline is rechecked after decode. It preserves method, body, identity headers, existing error mappings and underlying no-retry/no-redirect client. A timeout never causes POST replay or fabricates a terminal outcome; existing fenced reconciliation/cleanup remains authoritative.
+
+The SSE path is unchanged: existing EventTransport still uses 10-second connect, 30-second header and 45-second read-idle policy, not a command whole-response timer. Shared RuntimeEvents policy rejects using `total_timeout` for streaming. Heartbeats cannot renew execution authority.
+
+## Tests supplied, not executed by this writer
+
+Shared contract tests cover canonical W3C limits, absent active adapter, a single attenuating four-service fixture, preserved independent auth/scope headers, forbidden baggage, ignored public budgets, private min-clamping, malformed/duplicate/expired numeric fields, wall-clock rollback, hop exhaustion, no mutation retry, late-result classification and SSE phase policy.
+
+Mounted adjacent Gateway loopback tests use the actual command helper and real reqwest builders. They check active trace/auth preservation, duplicate hint replacement, private-budget clamping, bounded body timeout without POST replay, existing shorter builder timeout, and expiration before dispatch. Context tests check explicit detached capture, cross-request isolation and no promotion of pre-existing/raw trace headers. Parse-only validation does not establish that these tests pass.
+
+## Remaining service edges
+
+Runtime has mounted this budget contract; Worker and Knowledge receive-side integration is being finalized. At each private receive, authenticate existing token/signature and exact scope/owner/fence first; independently derive local route and verified lease ceilings, then call `constrain_authenticated`. Never use caller HTTP fields as `absolute_ceiling_ms`. The complete canonical positive triplet is `x-ai-deadline-unix-ms`, `x-ai-budget-ms`, `x-ai-hop-limit`; absent headers preserve the local legacy ceiling, malformed/partial/duplicate values fail private admission. Child requests must use the same admitted Budget and envelope their entire send/body/decode.
+
+Runtime→Worker keeps the existing 30-second cap. Worker→Knowledge uses 5-second connect and 30-second total, retaining Knowledge auth/signatures unchanged. The current Knowledge read adapter automatically retries POST timeout/5xx; it still needs an explicitly reviewed no-replay integration. Shared `retry_allowed` defaults to no POST/PUT/PATCH/DELETE retry. Late writes stay unknown or require durable receipt reconciliation, never speculative success/cancellation.
+
+Actual route gates remain open: malformed/replayed auth, tenant/run/argument substitutions against real proofs, Gateway→Runtime command execution, four live service hops, stream disconnect/reconnect, cancellation and provider/Worker late receipts. Transport fixtures do not substitute for identity/signature checks or durable owner/fence validation. The primary writer owns manifest/lock/source export and controlled builds.
+
+## Runtime → Worker source integration
+
+Runtime now mounts the budget contract on managed and SDK capability execution. Managed start retains all existing service/scope/model-lease predicates, obtains the matched database lease/snapshot expiry, asserts execution ownership, then interprets the inbound budget as attenuation. The SDK path first calls its native SDK authority assertion and obtains its real SDK hard expiry; no Codex thread is fabricated. The readonly cache carries the transport witness only; every dispatch still revalidates durable active lease/snapshot and owner/fence. A cache witness can only shorten freshly checked authority. Recovery with no process-local witness uses a new locally bounded route budget within the checked durable expiry; it does not invent prior request context.
+
+The capability Worker client receives this budget independently of its signed request/proof. Before each finite HTTP command/page it applies the 30-second local cap and consumes a hop. The same deadline covers send, original 1-MiB bounded body and decode, and is rechecked afterward. Sensitive auth, admitted tenant scope, owner/fence and exact signed JSON remain unchanged. The owned internal client explicitly sets `retry::never()` and disables redirects, retaining HTTP/2 support. The pinned [reqwest 0.12.28 API](https://docs.rs/reqwest/0.12.28/reqwest/struct.ClientBuilder.html#method.retry) provides this policy. There is no application POST retry. Status and event-page GETs for an existing validated execution UUID use an independently bounded 30-second observation budget under the same scope and fence; this cannot renew a POST budget or grant execution authority. Existing side-effect-unknown classification and receipt-only recovery remain unchanged. This is not a timeout on the Runtime SSE stream.
+
+New Runtime loopback tests call the production client request method, also covering expired-write-budget observation without POST renewal, and proving one POST, exact signed JSON preservation, auth/fence and budget propagation, whole-body stall timeout and rejection before dispatch when the parent budget expired. Admission tests cover malformed/duplicate hints and inability to exceed a genuine verified expiry. These are test sources pending primary execution. Worker and Knowledge receive-side budget enforcement still needs its own integration; sending headers does not establish those consumers enforce them.

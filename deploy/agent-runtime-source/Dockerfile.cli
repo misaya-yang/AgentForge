@@ -1,0 +1,73 @@
+# syntax=docker/dockerfile:1.7
+
+FROM rust:1.95.0-bookworm AS builder
+
+ARG CARGO_BUILD_JOBS=1
+ARG DEBIAN_MIRROR=https://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.aliyun.com/debian-security
+
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends lld \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /source/codex-rs
+COPY codex-rs/ ./
+
+RUN --mount=type=cache,id=ai-platform-cli-cargo-registry-rust-1-95,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=ai-platform-cli-cargo-git-rust-1-95,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=ai-platform-cli-target-rust-1-95,target=/source/codex-rs/target,sharing=locked \
+    CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" CARGO_INCREMENTAL=0 \
+    RUSTFLAGS="-C link-arg=-fuse-ld=lld" \
+    cargo build --locked --profile dev-small -p codex-cli --bin codex \
+    && install -m 0755 target/dev-small/codex /tmp/codex
+
+FROM scratch AS export
+COPY --from=builder /tmp/codex /codex
+
+FROM debian:bookworm-slim AS runtime
+
+ARG AI_PLATFORM_AGENT_RUNTIME_UPSTREAM_SHA
+ARG AI_PLATFORM_AGENT_RUNTIME_OVERLAY_SHA256
+ARG DEBIAN_MIRROR=http://mirrors.aliyun.com/debian
+ARG DEBIAN_SECURITY_MIRROR=http://mirrors.aliyun.com/debian-security
+
+LABEL org.opencontainers.image.title="AI Gateway Independent Agent CLI" \
+      org.opencontainers.image.source="https://github.com/openai/codex" \
+      org.opencontainers.image.revision="${AI_PLATFORM_AGENT_RUNTIME_UPSTREAM_SHA}" \
+      com.misaya.ai-platform.agent-cli.overlay-sha256="${AI_PLATFORM_AGENT_RUNTIME_OVERLAY_SHA256}" \
+      com.misaya.ai-platform.agent-runtime.artifact="independent_cli" \
+      com.misaya.ai-platform.agent-runtime.binary="codex"
+
+RUN for source_file in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        if [ -f "${source_file}" ]; then \
+            sed -i \
+                -e "s|http://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian-security|${DEBIAN_SECURITY_MIRROR}|g" \
+                -e "s|http://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                -e "s|https://deb.debian.org/debian|${DEBIAN_MIRROR}|g" \
+                "${source_file}"; \
+        fi; \
+    done \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 update \
+    && apt-get -o Acquire::Retries=5 -o Acquire::https::Timeout=30 \
+        install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 agent-cli
+
+COPY LICENSE NOTICE /opt/ai-gateway-agent-cli/
+COPY --from=builder /tmp/codex /usr/local/bin/codex
+
+USER 10001:10001
+WORKDIR /workspace
+ENTRYPOINT ["codex"]

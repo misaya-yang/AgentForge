@@ -1,0 +1,175 @@
+name: Publish SDKs
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'  # Trigger on tags like sdk-v1.0.2
+
+permissions:
+  contents: read
+
+jobs:
+  verify-sse-contract:
+    name: Verify shared SDK SSE contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.11.1'
+          package-manager-cache: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Maven
+        run: sudo apt-get update && sudo apt-get install --yes maven
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: stable
+      - name: Install CLI dependencies
+        run: npm --prefix sdk/cli ci
+      - name: Run shared SSE contract
+        env:
+          SDK_SSE_CONTRACT_REQUIRE_ALL: '1'
+        run: make sdk-sse-contract
+
+  package-rust-sdk:
+    name: Package Rust SDK source
+    needs: verify-sse-contract
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+      - name: Verify and package Rust client
+        run: |
+          cargo test --locked --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client
+          cargo package --locked --manifest-path rust/platform-native/crates/platform-client/Cargo.toml --no-verify
+      - name: Upload Rust SDK candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rust-client-source
+          path: ${{ runner.temp }}/platform-native-target/package/*.crate
+          if-no-files-found: error
+      # Publishing to a new registry requires an explicitly configured release workflow.
+
+  publish-cli:
+    name: Publish ai-gateway-cli Linux x64 package to npm
+    permissions:
+      contents: read
+      id-token: write
+    needs: verify-sse-contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-native
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '26.11.1'
+          package-manager-cache: false
+          registry-url: 'https://registry.npmjs.org'
+      - name: Validate npm OIDC client and package repository prerequisites
+        run: node .github/scripts/check-npm-trusted-publisher.mjs
+      - name: Install & Build
+        run: |
+          cd sdk/cli
+          npm ci
+          npm run build
+      - name: Prepare pinned Codex source
+        shell: bash
+        run: |
+          source_url="$(platform-tools json-get deploy/agent-runtime-source/source-receipt.json source.upstream_url)"
+          source_sha="$(platform-tools json-get deploy/agent-runtime-source/source-receipt.json source.upstream_sha)"
+          source_dir="$RUNNER_TEMP/codex-harness"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin "$source_url"
+          git -C "$source_dir" fetch --depth=1 origin "$source_sha"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+          echo "AI_PLATFORM_AGENT_RUNTIME_SOURCE=$source_dir" >> "$GITHUB_ENV"
+      - name: Build and verify composed native CLI
+        env:
+          AI_GATEWAY_CLI_PACKAGE_TARGETS: linux-x64
+        run: |
+          node sdk/cli/scripts/prepare-native-vendor.mjs linux-x64
+          scripts/harness/build_agent_runtime_cli_package.sh
+          npm --prefix sdk/cli run verify:native
+          cd sdk/cli
+          npm pack --dry-run
+      - name: Publish
+        env:
+          AI_GATEWAY_CLI_PACKAGE_TARGETS: linux-x64
+        run: |
+          cd sdk/cli
+          npm publish --access public --provenance
+
+
+  platformctl-matrix:
+    name: Resolve native platformctl package targets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-client-packaging
+      - id: targets
+        name: Read the canonical platformctl target manifest
+        run: echo "matrix=$(platform-client-packaging package-platformctl --matrix)" >> "$GITHUB_OUTPUT"
+
+  build-platformctl:
+    name: Package platformctl (${{ matrix.name }})
+    needs: [verify-sse-contract, platformctl-matrix]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platformctl-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_BUILD_JOBS: '1'
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_RELEASE_DEBUG: '0'
+      PACKAGE_TARGET: ${{ matrix.name }}
+      RUST_TARGET: ${{ matrix.rust_target }}
+      PACKAGE_BINARY: ${{ matrix.binary }}
+    steps:
+      - name: Select external platformctl target directory
+        shell: bash
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/platformctl-target" >> "$GITHUB_ENV"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-client-packaging
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master; explicit toolchain below
+        with:
+          toolchain: 1.99.0
+          targets: ${{ matrix.rust_target }}
+      - name: Build only the shared management client binary
+        shell: bash
+        run: cargo build --locked --release --manifest-path rust/platform-native/Cargo.toml -p ai-platform-client --bin platformctl --target "$RUST_TARGET"
+      - name: Verify native binary and create checksummed candidate archive
+        shell: bash
+        run: >-
+          platform-client-packaging package-platformctl
+          --target "$PACKAGE_TARGET"
+          --binary "$CARGO_TARGET_DIR/$RUST_TARGET/release/$PACKAGE_BINARY"
+          --output "$RUNNER_TEMP/platformctl-package"
+      - name: Upload candidate package, checksum and source receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: platformctl-${{ matrix.name }}
+          path: ${{ runner.temp }}/platformctl-package/*
+          if-no-files-found: error
+          retention-days: 30

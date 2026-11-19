@@ -1,0 +1,15 @@
+# No resources, deployment or publication by default.
+enabled: false
+verifierImage: ''
+imagePullSecrets: []
+images: {}
+canary:
+  enabled: false
+  # Set only after the existing stable frontend Rollout bootstrap is accepted.
+  bootstrapAccepted: false
+  frontendDeployment: ''
+  releaseName: ''
+  prometheusAddress: ''
+  prometheusBearerSecret: ''
+  # Must be the main chart's service instance label; it selects the real Service.
+  replicas: 4

@@ -1,0 +1,46 @@
+{
+  "schema_version": "ai-platform/canonical-next-successor-source-plan/v1",
+  "status": "inactive_source_candidate",
+  "baseline_id": "2026_08_post_kb_v1",
+  "predecessor_epoch": 22,
+  "predecessor_manifest_sha256": "d723f09097401133748454355cad52e886df50c628d964b2fc55ca256685fc89",
+  "approved_predecessor_manifest_archive": "docs/design/canonical-schema-successor-023-approved22-manifest.yml",
+  "approved_predecessor_manifest_archive_sha256": "d723f09097401133748454355cad52e886df50c628d964b2fc55ca256685fc89",
+  "approved_predecessor_package_lock": "docs/design/canonical-schema-successor-023-approved22-package-lock.json",
+  "approved_predecessor_package_lock_sha256": "df91c12df09ecd9f6361eceaf476ac3230cff43e1548217cfcd214286ee37855",
+  "approved_predecessor_baseline_manifest_sha256": "74ffe24788479e72840681d9522838a617d874cd3f170f70c647f9c0072eb2b2",
+  "approved_predecessor_measurement_receipt_sha256": "b202d269b13a43a2789cfb052ee1a9d9af71dba449b5d5841e6d33e000cd4c54",
+  "approved_predecessor_activation_receipt_sha256": "5ac38c281890ebbfea6539f37077d888ae04b54cb1da3fd89aef784250afd6fa",
+  "approved_predecessor_sql_sha256": "e74e55bc51d10c434e1334de7fa8f522a966dc2c8fac11807d942b6ef84d0a7c",
+  "approved_predecessor_verification_sha256": "c363e5b3f6cff0b5a8394fa1106a1729048d1254c14fda122eea262221ee2120",
+  "candidate_epoch": 23,
+  "sequence_allocation": "single_forward_extension_requires_root_review",
+  "database_actions_authorized": false,
+  "fingerprint_status": "not_measured",
+  "successor": {
+    "proposal": "docs/design/local-node-device-credentials-023.sql.proposal",
+    "change": {
+      "sequence": 23,
+      "name": "local_node_device_credentials_and_durable_cancel",
+      "file": "023_local_node_device_credentials.sql",
+      "sha256": "5a5f7e37cd5c6af0c4261f3e43c5221e474608637bcf4969ad6ff1f9b8103118",
+      "owner": "owner",
+      "transaction_mode": "transactional",
+      "rollback_class": "forward-fix-only",
+      "preconditions": [
+        "SELECT to_regclass('gateway.local_node_devices') IS NOT NULL AND to_regclass('gateway.local_node_channels') IS NOT NULL AND to_regclass('gateway.local_node_executions') IS NOT NULL AND to_regclass('gateway.local_node_pairing_challenges') IS NOT NULL AND to_regclass('gateway.local_node_grants') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials') IS NULL AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at')",
+        "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_channels' AND column_name='fingerprint') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_executions','UPDATE')"
+      ],
+      "postconditions": [
+        "SELECT to_regclass('gateway.local_node_device_credentials') IS NOT NULL AND (SELECT count(*)=11 AND bool_and(column_name=ANY(ARRAY['credential_id','credential_sha256','tenant_id','user_id','device_id','channel_id','expires_at','accepted_through_sequence','last_seen_at','revoked_at','created_at'])) FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials') AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_device_credentials' AND column_name IN ('credential','token','secret','plaintext'))",
+        "SELECT to_regclass('gateway.local_node_device_credentials_active_channel') IS NOT NULL AND to_regclass('gateway.local_node_device_credentials_owner_device') IS NOT NULL AND (SELECT count(*)=6 FROM pg_constraint WHERE conrelid='gateway.local_node_device_credentials'::regclass AND conname=ANY(ARRAY['local_node_device_credentials_pkey','local_node_device_credentials_credential_sha256_key','local_node_device_credentials_credential_sha256_check','local_node_device_credentials_sequence_check','local_node_device_credentials_device_scope_fkey','local_node_device_credentials_channel_id_fkey'])) AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='gateway' AND table_name='local_node_executions' AND column_name='cancel_requested_at' AND data_type='timestamp with time zone' AND is_nullable='YES')",
+        "SELECT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','SELECT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','INSERT') AND has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','UPDATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','DELETE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRUNCATE') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','REFERENCES') AND NOT has_table_privilege(left(current_user,length(current_user)-5)||'gateway','gateway.local_node_device_credentials','TRIGGER') AND (SELECT count(*)=3 AND bool_and(pg_get_userbyid(a.grantor)=current_user AND NOT a.is_grantable AND a.privilege_type=ANY(ARRAY['SELECT','INSERT','UPDATE'])) FROM pg_class c CROSS JOIN LATERAL aclexplode(c.relacl) a WHERE c.oid='gateway.local_node_device_credentials'::regclass AND pg_get_userbyid(a.grantee)=left(current_user,length(current_user)-5)||'gateway')"
+      ],
+      "timeout_seconds": 30,
+      "lock_budget_seconds": 5,
+      "resume_handler": null,
+      "repair_handler": null,
+      "notes": "Candidate 023 persists only an opaque credential SHA-256, owner/device/channel scope, expiry, receipt acknowledgement cursor and revocation timestamps; it adds durable cancel_requested_at. Gateway alone receives SELECT, INSERT and UPDATE on the new table. The existing channel fingerprint and frozen 001-022 sources remain unchanged; root review and isolated own-role acceptance are required before activation."
+    }
+  }
+}

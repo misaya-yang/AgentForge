@@ -1,0 +1,16 @@
+{
+  "schema": "agentforge/turn-issuance-catalog-gap/v1",
+  "epoch_verified_earlier": 24,
+  "catalog": {
+    "principal": "ai_gateway_gateway",
+    "run_insert": false,
+    "search_path": null,
+    "lease_insert": false,
+    "function_owner": "ai_gateway_owner",
+    "execute_allowed": true,
+    "snapshot_insert": false,
+    "security_definer": false
+  },
+  "database_mutations": false,
+  "interpretation": "Existing invoker function is executable by Gateway but its required INSERT privileges are absent; canonical authority successor required. Full failing invocation diagnosis remains separate."
+}

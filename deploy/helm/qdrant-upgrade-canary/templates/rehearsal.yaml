@@ -1,0 +1,94 @@
+{{- if .Values.enabled }}
+{{- $old := "qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c" }}
+{{- $new := "qdrant/qdrant@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad" }}
+{{- if not (has .Values.canaryImage (list $old $new)) }}{{ fail "canary requires the reviewed immutable old/new Qdrant digest" }}{{ end }}
+{{- if ne .Values.rollbackImage $old }}{{ fail "rollback must use old image on a fresh separate PVC" }}{{ end }}
+{{- $run := required "runId required" .Values.runId }}
+{{- $canary := required "canaryClaim required" .Values.canaryClaim }}
+{{- $rollback := required "rollbackClaim required" .Values.rollbackClaim }}
+{{- if eq $canary $rollback }}{{ fail "canary and rollback PVCs must differ" }}{{ end }}
+{{- $api := required "apiKeySecret required" .Values.apiKeySecret }}
+{{- $tls := required "tlsSecret required" .Values.tlsSecret }}
+{{- range $role := list "canary" "rollback" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-{{ $role }}
+  labels: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-run: {{ $run | quote }}}
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-role: {{ $role | quote }}}
+  ports: [{name: https, port: 6333, targetPort: https}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Release.Name }}-{{ $role }}
+  labels: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-run: {{ $run | quote }}}
+spec:
+  serviceName: {{ $.Release.Name }}-{{ $role }}
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-role: {{ $role | quote }}}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-run: {{ $run | quote }}, agentforge.io/qdrant-upgrade-role: {{ $role | quote }}}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: qdrant
+        image: {{ ternary $.Values.canaryImage $.Values.rollbackImage (eq $role "canary") | quote }}
+        # Execution owner preloads or mirror-admits images; no implicit pulls.
+        imagePullPolicy: Never
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+        ports: [{name: https, containerPort: 6333}]
+        resources: {{ $.Values.resources | toJson }}
+        env:
+        - name: QDRANT__SERVICE__API_KEY
+          valueFrom: {secretKeyRef: {name: {{ $api | quote }}, key: QDRANT_API_KEY}}
+        - name: QDRANT__SERVICE__READ_ONLY_API_KEY
+          valueFrom: {secretKeyRef: {name: {{ $api | quote }}, key: QDRANT_READ_ONLY_API_KEY}}
+        - {name: QDRANT__SERVICE__ENABLE_TLS, value: 'true'}
+        - {name: QDRANT__TLS__CERT, value: /run/qdrant/tls.crt}
+        - {name: QDRANT__TLS__KEY, value: /run/qdrant/tls.key}
+        - {name: QDRANT__STORAGE__SNAPSHOTS_PATH, value: /qdrant/storage/snapshots}
+        - {name: QDRANT__STORAGE__TEMP_PATH, value: /qdrant/storage/snapshots_temp}
+        - {name: QDRANT__TELEMETRY_DISABLED, value: 'true'}
+        - {name: QDRANT_INIT_FILE_PATH, value: /qdrant/storage/.qdrant-initialized}
+        readinessProbe:
+          exec:
+            command: [bash, -o, pipefail, -ec, "printf 'GET /readyz HTTP/1.1\r\nHost: qdrant\r\nConnection: close\r\n\r\n' | openssl s_client -quiet -ignore_unexpected_eof -connect 127.0.0.1:6333 -servername qdrant -verify_hostname qdrant -verify_return_error -CAfile /run/qdrant/ca.crt 2>/dev/null | grep -q 'readyz check passed'"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - {name: storage, mountPath: /qdrant/storage}
+        - {name: tls, mountPath: /run/qdrant, readOnly: true}
+        - {name: tmp, mountPath: /tmp}
+      volumes:
+      - name: storage
+        persistentVolumeClaim: {claimName: {{ ternary $canary $rollback (eq $role "canary") | quote }}}
+      - name: tls
+        secret: {secretName: {{ $tls | quote }}, defaultMode: 0440}
+      - name: tmp
+        emptyDir: {medium: Memory, sizeLimit: 64Mi}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $.Release.Name }}-{{ $role }}
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/instance: {{ $.Release.Name | quote }}, agentforge.io/qdrant-upgrade-role: {{ $role | quote }}}
+  policyTypes: [Ingress, Egress]
+  egress: []
+  {{- if $.Values.clientPodLabels }}
+  ingress:
+  - from: [{podSelector: {matchLabels: {{ $.Values.clientPodLabels | toJson }}}}]
+    ports: [{protocol: TCP, port: 6333}]
+  {{- else }}
+  ingress: []
+  {{- end }}
+{{- end }}
+{{- end }}

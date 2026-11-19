@@ -1,0 +1,1175 @@
+{
+  "version": 1,
+  "native_only": [
+    {
+      "path": "/api/v1/admin/tenant-policies/config-audit-log",
+      "operations": {
+        "get": "query_config_audit_log"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/tenant_policies_api.rs",
+      "source_evidence": [
+        ".route(crate::native_contract::CONFIG_AUDIT, any(dispatch))",
+        "(\"GET\", \"/admin/tenant-policies/config-audit-log\", \"query_config_audit_log\")"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const CONFIG_AUDIT: &str = \"/api/v1/admin/tenant-policies/config-audit-log\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/tenant_policies_api.rs": [
+          "responses::audit::value(items, has_more, limit, offset, crate::native_contract::AUDIT_OFFSET_MAX)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks",
+      "operations": {
+        "get": "list_scheduled_tasks",
+        "post": "create_scheduled_task"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(TASK_BASE, any(handle))",
+        "(\"GET\", [])",
+        "(\"POST\", [])"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}/executions",
+      "operations": {
+        "get": "list_scheduled_task_executions"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(TASK_BASE, any(handle))",
+        "(\"GET\", [id, \"executions\"])",
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}/pause",
+      "operations": {
+        "post": "pause_scheduled_task"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(TASK_BASE, any(handle))",
+        "(\"POST\", [id, action]) if matches!(*action, \"pause\" | \"resume\" | \"cancel\")",
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}/resume",
+      "operations": {
+        "post": "resume_scheduled_task"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(TASK_BASE, any(handle))",
+        "(\"POST\", [id, action]) if matches!(*action, \"pause\" | \"resume\" | \"cancel\")",
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}/cancel",
+      "operations": {
+        "post": "cancel_scheduled_task"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(TASK_BASE, any(handle))",
+        "(\"POST\", [id, action]) if matches!(*action, \"pause\" | \"resume\" | \"cancel\")",
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/assistant/plugins",
+      "operations": {
+        "get": "list_assistant_plugins"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/assistant_catalog.rs",
+      "source_evidence": [
+        ".route(PLUGINS, get(plugins::list_plugins))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const PLUGINS: &str = \"/api/v1/assistant/plugins\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_catalog.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => token,"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_plugins.rs": [
+          "pub use crate::native_contract::responses::{PluginRegistry, Plugin, PluginVersion, PluginCapability};",
+          "Json(registry).into_response()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/assistant/plugins/{plugin_id}/lifecycle",
+      "operations": {
+        "put": "update_assistant_plugin_lifecycle"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/assistant_catalog.rs",
+      "source_evidence": [
+        ".route(PLUGIN_LIFECYCLE, put(plugin_mutations::update_plugin))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const PLUGIN_LIFECYCLE: &str = \"/api/v1/assistant/plugins/{plugin_id}/lifecycle\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_catalog.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => token,"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/assistant_plugin_mutations.rs": [
+          "responses::plugin_update::value(plugin_id, tenant, lifecycle)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications",
+      "operations": {
+        "get": "list_scheduled_task_notifications"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"GET\", [])"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications/summary",
+      "operations": {
+        "get": "summarize_scheduled_task_notifications"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"GET\", [\"summary\"])",
+        ".route(\"/api/v1/scheduled-task-notifications/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications/{notification_id}",
+      "operations": {
+        "get": "get_scheduled_task_notification"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"GET\", [id])",
+        ".route(\"/api/v1/scheduled-task-notifications/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications/{notification_id}/read",
+      "operations": {
+        "post": "mark_scheduled_task_notification_read"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"POST\", [id, action]) if matches!(*action, \"read\" | \"unread\")",
+        ".route(\"/api/v1/scheduled-task-notifications/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications/{notification_id}/unread",
+      "operations": {
+        "post": "mark_scheduled_task_notification_unread"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"POST\", [id, action]) if matches!(*action, \"read\" | \"unread\")",
+        ".route(\"/api/v1/scheduled-task-notifications/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-task-notifications/read",
+      "operations": {
+        "post": "mark_scheduled_task_notifications_read"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/mod.rs",
+      "source_evidence": [
+        "NOTIFICATION_BASE as BASE",
+        ".route(BASE, any(handle))",
+        "(\"POST\", [\"read\"])",
+        ".route(\"/api/v1/scheduled-task-notifications/{*rest}\", any(handle))"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const NOTIFICATION_BASE: &str = \"/api/v1/scheduled-task-notifications\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled_notifications/store.rs": [
+          "responses::list_sql()",
+          "responses::summary_sql()",
+          "responses::notification_projection::sql()",
+          "responses::acknowledgements::value(rows)"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}",
+      "operations": {
+        "get": "get_scheduled_task"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))",
+        "(\"GET\", [id])"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/scheduled-tasks/{task_id}/executions/{execution_id}",
+      "operations": {
+        "get": "get_scheduled_task_execution"
+      },
+      "source": "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs",
+      "source_evidence": [
+        ".route(\"/api/v1/scheduled-tasks/{*rest}\", any(handle))",
+        "(\"GET\", [id, \"executions\", execution_id])"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const TASK_BASE: &str = \"/api/v1/scheduled-tasks\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn success_schema(",
+          "pub fn responses("
+        ],
+        "rust/platform-native/crates/platform-auth/src/api_keys.rs": [
+          "return Ok(SelectedCredential::Jwt(token));",
+          "Ok(SelectedCredential::ApiKey(key))"
+        ],
+        "rust/platform-native/crates/platform-auth/src/service.rs": [
+          "pub async fn authenticate(&self, token: &str)",
+          ".verify(token, now)",
+          "account.tenant_id != claims.tenant_id || account.status != \"active\""
+        ],
+        "rust/platform-native/crates/platform-auth/src/admission.rs": [
+          "Ok(SelectedCredential::Jwt(token)) => {",
+          "Ok(SelectedCredential::ApiKey(key)) => match self.backend.key(key).await {"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_agent/scheduled.rs": [
+          "responses::schedule_page(rows, limit, \"tasks\", \"task_id\")",
+          "responses::task::value(row)",
+          "responses::schedule_page(rows, limit, \"executions\", \"execution_id\")",
+          "responses::task_action::value(id, status, *action==\"cancel\")"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/settings.rs": [
+          "header_name: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ],
+        "rust/platform-native/crates/platform-gateway/src/migration_host/identity.rs": [
+          "api_key_header: ai_platform_gateway_foundation::native_contract::API_KEY_HEADER_DEFAULT.into()"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/providers/{provider_id}/models/sync/preview",
+      "operations": {
+        "post": "preview_provider_model_catalog"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api/catalog_review_routes.rs",
+      "source_evidence": [
+        "crate::native_contract::CATALOG_PREVIEW",
+        "Capability::GatewayProviderConfigWrite"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const CATALOG_PREVIEW: &str",
+          "request!(CatalogApply {"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn catalog_review_schema(",
+          "\"preview_provider_model_catalog\" =>"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_catalog_review.rs": [
+          "pub use crate::native_contract::CatalogApply as ApplySelection;",
+          "r.state = \"outcome_unknown\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api.rs": [
+          ".merge(catalog_review_routes::routes())"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/providers/{provider_id}/models/sync/apply",
+      "operations": {
+        "post": "apply_provider_model_catalog"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api/catalog_review_routes.rs",
+      "source_evidence": [
+        "crate::native_contract::CATALOG_APPLY",
+        "Capability::GatewayProviderConfigWrite"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const CATALOG_APPLY: &str",
+          "request!(CatalogApply {"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn catalog_review_schema(",
+          "\"apply_provider_model_catalog\" =>"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_catalog_review.rs": [
+          "pub use crate::native_contract::CatalogApply as ApplySelection;",
+          "r.state = \"outcome_unknown\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api.rs": [
+          ".merge(catalog_review_routes::routes())"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/providers/{provider_id}/models/sync/reviews/{review_id}",
+      "operations": {
+        "get": "read_provider_model_catalog_review"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api/catalog_review_routes.rs",
+      "source_evidence": [
+        "crate::native_contract::CATALOG_READ",
+        "Capability::GatewayProviderConfigWrite"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const CATALOG_READ: &str",
+          "request!(CatalogApply {"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "pub fn catalog_review_schema(",
+          "\"read_provider_model_catalog_review\" =>"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/model_catalog_review.rs": [
+          "pub use crate::native_contract::CatalogApply as ApplySelection;",
+          "r.state = \"outcome_unknown\";"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/provider_admin_api.rs": [
+          ".merge(catalog_review_routes::routes())"
+        ]
+      }
+    },
+    {
+      "path": "/api/v1/service-registrations",
+      "operations": {
+        "post": "create_service_registration"
+      },
+      "source": "rust/platform-native/crates/platform-gateway-foundation/src/services_api.rs",
+      "source_evidence": [
+        ".route(crate::native_contract::SERVICE_REGISTRATIONS, any(dispatch))",
+        "(\"POST\", \"/service-registrations\", \"create_service_registration\")"
+      ],
+      "shared_source_evidence": {
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_contract.rs": [
+          "pub const SERVICE_REGISTRATIONS: &str = \"/api/v1/service-registrations\";",
+          "pub fn service_registration_schema() -> Value"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/native_responses.rs": [
+          "\"create_service_registration\" =>"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/registry_storage.rs": [
+          "ON CONFLICT (service_id) DO NOTHING"
+        ],
+        "rust/platform-native/crates/platform-gateway-foundation/src/service_registry.rs": [
+          "self.storage.insert_if_absent(service.clone()).await?"
+        ]
+      }
+    }
+  ],
+  "native_security_schemes": [
+    "NativeBearerAuth",
+    "NativeBoundApiKey"
+  ],
+  "python_paths": [
+    "/api/v1/admin/architecture-status",
+    "/api/v1/admin/tenant-policies/audit-log",
+    "/api/v1/admin/tenant-policies/mcp-configs",
+    "/api/v1/admin/tenant-policies/mcp-configs/{tenant_id}",
+    "/api/v1/admin/tenant-policies/tool-policies",
+    "/api/v1/admin/tenant-policies/tool-policies/{tenant_id}",
+    "/api/v1/agent-runtime/{publication_id}/attachments",
+    "/api/v1/agent-runtime/{publication_id}/chat/stream",
+    "/api/v1/agent-runtime/{publication_id}/feedback",
+    "/api/v1/agent-runtime/{publication_id}/sessions",
+    "/api/v1/agents",
+    "/api/v1/agents/{agent_id}",
+    "/api/v1/agents/{agent_id}/analytics",
+    "/api/v1/agents/{agent_id}/archive",
+    "/api/v1/agents/{agent_id}/audit-events",
+    "/api/v1/agents/{agent_id}/copy",
+    "/api/v1/agents/{agent_id}/draft",
+    "/api/v1/agents/{agent_id}/evals",
+    "/api/v1/agents/{agent_id}/evals/{evaluation_id}",
+    "/api/v1/agents/{agent_id}/evals/{evaluation_id}/cancel",
+    "/api/v1/agents/{agent_id}/evals/{evaluation_id}/diff",
+    "/api/v1/agents/{agent_id}/evals/{evaluation_id}/execute",
+    "/api/v1/agents/{agent_id}/governance",
+    "/api/v1/agents/{agent_id}/governance/cache:invalidate",
+    "/api/v1/agents/{agent_id}/governance/credentials:revoke",
+    "/api/v1/agents/{agent_id}/governance/data-deletions",
+    "/api/v1/agents/{agent_id}/members",
+    "/api/v1/agents/{agent_id}/members/{principal_type}/{principal_id}",
+    "/api/v1/agents/{agent_id}/preview/chat/stream",
+    "/api/v1/agents/{agent_id}/preview/sessions",
+    "/api/v1/agents/{agent_id}/publications",
+    "/api/v1/agents/{agent_id}/publish",
+    "/api/v1/agents/{agent_id}/publish-events",
+    "/api/v1/agents/{agent_id}/validate",
+    "/api/v1/agents/{agent_id}/versions",
+    "/api/v1/agents/{agent_id}/versions/{agent_version_id}/preview/chat/stream",
+    "/api/v1/agents/{agent_id}/versions/{agent_version_id}/preview/sessions",
+    "/api/v1/api-keys",
+    "/api/v1/api-keys/{key_id}",
+    "/api/v1/api-keys/{key_id}/revoke",
+    "/api/v1/artifact-shares",
+    "/api/v1/artifact-shares/{share_id}",
+    "/api/v1/assistant/approvals/{approval_id}",
+    "/api/v1/assistant/artifacts",
+    "/api/v1/assistant/artifacts/{artifact_id}",
+    "/api/v1/assistant/artifacts/{artifact_id}/download",
+    "/api/v1/assistant/artifacts/{artifact_id}/download-url",
+    "/api/v1/assistant/chat",
+    "/api/v1/assistant/chat/stream",
+    "/api/v1/assistant/config",
+    "/api/v1/assistant/datasets",
+    "/api/v1/assistant/generate-image",
+    "/api/v1/assistant/generate-image-async",
+    "/api/v1/assistant/image-blobs/complete",
+    "/api/v1/assistant/image-blobs/fetch-url",
+    "/api/v1/assistant/image-blobs/upload-url",
+    "/api/v1/assistant/image-sessions/{session_id}",
+    "/api/v1/assistant/image-task/{task_id}",
+    "/api/v1/assistant/local-nodes",
+    "/api/v1/assistant/local-nodes/pairing/challenges",
+    "/api/v1/assistant/local-nodes/pairing/challenges/{challenge_id}/complete",
+    "/api/v1/assistant/local-nodes/{device_id}/capabilities",
+    "/api/v1/assistant/local-nodes/{device_id}/doctor",
+    "/api/v1/assistant/local-nodes/{device_id}/events",
+    "/api/v1/assistant/local-nodes/{device_id}/grants",
+    "/api/v1/assistant/local-nodes/{device_id}/grants/{grant_id}",
+    "/api/v1/assistant/local-nodes/{device_id}/status",
+    "/api/v1/assistant/mcp/servers",
+    "/api/v1/assistant/mcp/servers/{server_name}/refresh",
+    "/api/v1/assistant/mcp/tools",
+    "/api/v1/assistant/memory",
+    "/api/v1/assistant/memory/items",
+    "/api/v1/assistant/metrics/tenant",
+    "/api/v1/assistant/models",
+    "/api/v1/assistant/policies",
+    "/api/v1/assistant/quiz/{quiz_id}",
+    "/api/v1/assistant/quiz/{quiz_id}/attempts",
+    "/api/v1/assistant/quiz/{quiz_id}/attempts/{attempt_id}",
+    "/api/v1/assistant/quiz/{quiz_id}/submit",
+    "/api/v1/assistant/runs/{run_id}",
+    "/api/v1/assistant/runs/{run_id}/resume",
+    "/api/v1/assistant/sessions",
+    "/api/v1/assistant/sessions/{session_id}",
+    "/api/v1/assistant/sessions/{session_id}/artifacts",
+    "/api/v1/assistant/sessions/{session_id}/history",
+    "/api/v1/assistant/sessions/{session_id}/metrics",
+    "/api/v1/assistant/sessions/{session_id}/share",
+    "/api/v1/assistant/sessions/{session_id}/share-preview",
+    "/api/v1/assistant/sessions/{session_id}/tools",
+    "/api/v1/assistant/shares",
+    "/api/v1/assistant/shares/{share_code}",
+    "/api/v1/assistant/shares/{share_code}/artifact/{artifact_id}",
+    "/api/v1/assistant/shares/{share_code}/quiz/{quiz_id}/submit",
+    "/api/v1/assistant/tasks/{task_id}/cancel",
+    "/api/v1/assistant/tools",
+    "/api/v1/auth/change-password",
+    "/api/v1/auth/login",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/me",
+    "/api/v1/auth/validate-token",
+    "/api/v1/config/api-keys",
+    "/api/v1/config/auth",
+    "/api/v1/config/load-balancer",
+    "/api/v1/config/rate-limits",
+    "/api/v1/config/rate-limits/{scope}/{scope_id}",
+    "/api/v1/config/services/langgraph",
+    "/api/v1/config/services/{service_id}",
+    "/api/v1/config/services/{service_id}/config",
+    "/api/v1/config/status",
+    "/api/v1/connectors/admin/configs",
+    "/api/v1/connectors/admin/configs/{provider}",
+    "/api/v1/connectors/admin/configs/{provider}/enabled",
+    "/api/v1/connectors/auth/{provider}",
+    "/api/v1/connectors/available",
+    "/api/v1/connectors/callback/{provider}",
+    "/api/v1/connectors/mine",
+    "/api/v1/connectors/{provider}",
+    "/api/v1/connectors/{provider}/activate",
+    "/api/v1/connectors/{provider}/mcp-status",
+    "/api/v1/connectors/{provider}/principals",
+    "/api/v1/connectors/{provider}/principals/{grant_id}",
+    "/api/v1/connectors/{provider}/search",
+    "/api/v1/conversations",
+    "/api/v1/conversations/guest/session",
+    "/api/v1/conversations/{conversation_id}",
+    "/api/v1/conversations/{conversation_id}/messages",
+    "/api/v1/conversations/{conversation_id}/stream",
+    "/api/v1/dashboard/alerts",
+    "/api/v1/dashboard/breakdown",
+    "/api/v1/dashboard/realtime",
+    "/api/v1/dashboard/summary",
+    "/api/v1/dashboard/timeseries/{metric}",
+    "/api/v1/dashboard/user/{user_id}",
+    "/api/v1/debug/tools",
+    "/api/v1/eval/dashboard",
+    "/api/v1/eval/datasets",
+    "/api/v1/eval/datasets/{dataset_id}",
+    "/api/v1/eval/datasets/{dataset_id}/examples",
+    "/api/v1/eval/datasets/{dataset_id}/examples/{example_id}",
+    "/api/v1/eval/datasets/{dataset_id}/examples:export",
+    "/api/v1/eval/datasets/{dataset_id}/examples:from-trace",
+    "/api/v1/eval/datasets/{dataset_id}/examples:import",
+    "/api/v1/eval/evaluators",
+    "/api/v1/eval/evaluators/{evaluator_id}",
+    "/api/v1/eval/evaluators/{evaluator_id}:run-async",
+    "/api/v1/eval/experiment-runs/{run_id}",
+    "/api/v1/eval/experiment-runs/{run_id}/results",
+    "/api/v1/eval/experiment-runs/{run_id}:cancel",
+    "/api/v1/eval/experiment-runs:compare",
+    "/api/v1/eval/experiments",
+    "/api/v1/eval/experiments/{experiment_id}",
+    "/api/v1/eval/experiments/{experiment_id}:promote-baseline",
+    "/api/v1/eval/experiments/{experiment_id}:run",
+    "/api/v1/eval/gates:dry-run",
+    "/api/v1/eval/ingest/traces",
+    "/api/v1/eval/knowledge/score-retrieval",
+    "/api/v1/eval/knowledge/summary",
+    "/api/v1/eval/knowledge/{dataset_id}/batch-score",
+    "/api/v1/eval/summary",
+    "/api/v1/eval/threads/{thread_id}",
+    "/api/v1/eval/trace-feedback:preview",
+    "/api/v1/eval/traces",
+    "/api/v1/eval/traces/{trace_id}",
+    "/api/v1/eval/traces/{trace_id}/export",
+    "/api/v1/eval/traces/{trace_id}/scores",
+    "/api/v1/files",
+    "/api/v1/files/admin/cleanup",
+    "/api/v1/files/admin/stats",
+    "/api/v1/files/admin/user/{target_user_id}",
+    "/api/v1/files/upload",
+    "/api/v1/files/upload/multiple",
+    "/api/v1/files/{file_id}",
+    "/api/v1/health",
+    "/api/v1/health/providers",
+    "/api/v1/health/services",
+    "/api/v1/health/services/{service_id}",
+    "/api/v1/invoke",
+    "/api/v1/kb-tools/{path}",
+    "/api/v1/knowledge/{path}",
+    "/api/v1/langgraph/assistants",
+    "/api/v1/langgraph/assistants/{assistant_id}",
+    "/api/v1/langgraph/runs/stream",
+    "/api/v1/langgraph/runs/wait",
+    "/api/v1/langgraph/store/items",
+    "/api/v1/langgraph/store/namespaces",
+    "/api/v1/langgraph/threads",
+    "/api/v1/langgraph/threads/search",
+    "/api/v1/langgraph/threads/{thread_id}",
+    "/api/v1/langgraph/threads/{thread_id}/history",
+    "/api/v1/langgraph/threads/{thread_id}/runs",
+    "/api/v1/langgraph/threads/{thread_id}/runs/stream",
+    "/api/v1/langgraph/threads/{thread_id}/runs/wait",
+    "/api/v1/langgraph/threads/{thread_id}/runs/{run_id}",
+    "/api/v1/langgraph/threads/{thread_id}/runs/{run_id}/cancel",
+    "/api/v1/langgraph/threads/{thread_id}/state",
+    "/api/v1/langgraph/{full_path}",
+    "/api/v1/local-nodes",
+    "/api/v1/local-nodes/pairing/challenges",
+    "/api/v1/local-nodes/pairing/challenges/{challenge_id}/complete",
+    "/api/v1/local-nodes/{device_id}/capabilities",
+    "/api/v1/local-nodes/{device_id}/doctor",
+    "/api/v1/local-nodes/{device_id}/events",
+    "/api/v1/local-nodes/{device_id}/grants",
+    "/api/v1/local-nodes/{device_id}/grants/{grant_id}",
+    "/api/v1/local-nodes/{device_id}/status",
+    "/api/v1/mcp/connections/{connection_id}",
+    "/api/v1/mcp/connections/{connection_id}/channel-grants",
+    "/api/v1/mcp/servers",
+    "/api/v1/mcp/servers/{server_id}",
+    "/api/v1/mcp/servers/{server_id}/connections",
+    "/api/v1/mcp/servers/{server_id}/discover",
+    "/api/v1/mcp/servers/{server_id}/tools",
+    "/api/v1/metrics/breakdown",
+    "/api/v1/metrics/security/breakdown",
+    "/api/v1/metrics/security/timeseries",
+    "/api/v1/metrics/summary",
+    "/api/v1/metrics/timeseries",
+    "/api/v1/metrics/tokens",
+    "/api/v1/model-capability-adapters",
+    "/api/v1/model-capability-adapters/{adapter_id}/schema",
+    "/api/v1/models",
+    "/api/v1/models/{model_id}",
+    "/api/v1/models/{model_id}/capabilities/reset",
+    "/api/v1/models/{model_id}/toggle",
+    "/api/v1/presign/confirm",
+    "/api/v1/presign/status/{task_id}",
+    "/api/v1/presign/upload",
+    "/api/v1/provider-templates",
+    "/api/v1/providers",
+    "/api/v1/providers/from-template",
+    "/api/v1/providers/{provider_id}",
+    "/api/v1/providers/{provider_id}/models/sync",
+    "/api/v1/providers/{provider_id}/test",
+    "/api/v1/proxy",
+    "/api/v1/proxy/{service_name}",
+    "/api/v1/proxy/{service_name}/_health",
+    "/api/v1/proxy/{service_name}/_selftest",
+    "/api/v1/proxy/{service_name}/{path}",
+    "/api/v1/public/agents/{public_id}",
+    "/api/v1/public/agents/{public_id}/attachments",
+    "/api/v1/public/agents/{public_id}/chat/stream",
+    "/api/v1/public/agents/{public_id}/feedback",
+    "/api/v1/public/agents/{public_id}/sessions",
+    "/api/v1/publications/{publication_id}/rollback",
+    "/api/v1/publications/{publication_id}/tokens",
+    "/api/v1/publications/{publication_id}/tokens/{token_id}",
+    "/api/v1/publications/{publication_id}/tokens/{token_id}/rotate",
+    "/api/v1/quiz/public/{share_code}/attempts/result",
+    "/api/v1/quiz/public/{share_code}/attempts/start",
+    "/api/v1/quiz/shared/{share_code}",
+    "/api/v1/quiz/shared/{share_code}/submit",
+    "/api/v1/quota/alerts/list",
+    "/api/v1/quota/alerts/{alert_id}/acknowledge",
+    "/api/v1/quota/summary",
+    "/api/v1/quota/users-overview",
+    "/api/v1/quota/{user_id}",
+    "/api/v1/quota/{user_id}/block",
+    "/api/v1/quota/{user_id}/check",
+    "/api/v1/quota/{user_id}/forecast",
+    "/api/v1/quota/{user_id}/reset",
+    "/api/v1/quota/{user_id}/unblock",
+    "/api/v1/roles",
+    "/api/v1/roles/permissions",
+    "/api/v1/roles/{role_name}",
+    "/api/v1/roles/{role_name}/users",
+    "/api/v1/services",
+    "/api/v1/services/{service_id}",
+    "/api/v1/services/{service_id}/schema",
+    "/api/v1/sessions",
+    "/api/v1/sessions/{session_id}",
+    "/api/v1/sessions/{session_id}/history",
+    "/api/v1/sessions/{session_id}/messages",
+    "/api/v1/setup/state",
+    "/api/v1/skills",
+    "/api/v1/skills/upload",
+    "/api/v1/skills/{name}",
+    "/api/v1/skills/{name}/disable",
+    "/api/v1/skills/{name}/enable",
+    "/api/v1/skills/{name}/test",
+    "/api/v1/stream",
+    "/api/v1/submit",
+    "/api/v1/tasks",
+    "/api/v1/tasks/{task_id}",
+    "/api/v1/tasks/{task_id}/result",
+    "/api/v1/usage/breakdown",
+    "/api/v1/usage/export",
+    "/api/v1/usage/failure-breakdown",
+    "/api/v1/usage/models",
+    "/api/v1/usage/performance-breakdown",
+    "/api/v1/usage/summary",
+    "/api/v1/usage/timeseries",
+    "/api/v1/usage/traces",
+    "/api/v1/usage/traces/{request_id}",
+    "/api/v1/usage/user/{user_id}",
+    "/api/v1/users",
+    "/api/v1/users/{user_id}",
+    "/api/v1/users/{user_id}/disable",
+    "/api/v1/users/{user_id}/enable",
+    "/api/v1/users/{user_id}/profile",
+    "/api/v1/users/{user_id}/reset-password",
+    "/api/v2/agent/threads",
+    "/api/v2/agent/threads/{thread_id}",
+    "/api/v2/agent/threads/{thread_id}/approvals/{approval_id}",
+    "/api/v2/agent/threads/{thread_id}/approvals/{approval_id}/decision",
+    "/api/v2/agent/threads/{thread_id}/events",
+    "/api/v2/agent/threads/{thread_id}/turns",
+    "/api/v2/agent/threads/{thread_id}/turns/{turn_id}:interrupt",
+    "/api/v2/agent/threads/{thread_id}/turns/{turn_id}:recover",
+    "/embed/agents/{public_id}",
+    "/health",
+    "/health/live",
+    "/health/ready",
+    "/internal/v2/agent-capabilities/artifacts/{artifact_id}/read",
+    "/internal/v2/agent-capabilities/attachments/read",
+    "/internal/v2/agent-capabilities/catalog",
+    "/internal/v2/agent-capabilities/confluence/read",
+    "/internal/v2/agent-capabilities/confluence/write",
+    "/internal/v2/agent-capabilities/image/generate",
+    "/internal/v2/agent-capabilities/local-node/action",
+    "/internal/v2/agent-capabilities/local-node/receipts",
+    "/internal/v2/agent-capabilities/mcp/read",
+    "/internal/v2/agent-capabilities/office/artifacts",
+    "/internal/v2/agent-capabilities/python/artifacts",
+    "/internal/v2/agent-capabilities/python/execute",
+    "/internal/v2/agent-capabilities/web-search",
+    "/metrics",
+    "/v1/knowledge/{path}",
+    "/v1/responses",
+    "/version"
+  ]
+}

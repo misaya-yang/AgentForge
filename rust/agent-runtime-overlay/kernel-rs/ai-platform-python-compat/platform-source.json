@@ -1,0 +1,15 @@
+{
+  "schema": "agentforge/composed-plugin-source/v1",
+  "source": "rust/platform-native/crates/platform-python-compat",
+  "source_files_sha256": {
+    "Cargo.toml": "10aa8a127bde2a1b7838b79aef84a5b16143ff4125f91ec116654b8195fc772a",
+    "src/lib.rs": "75b758495a106b43a6a314d0a1d6b062b780662c56f78bf49ceb77a300691880",
+    "src/unicode.rs": "9ddad8d9c9db84c54e0fa2a7e7eb9005a1a4b6c7af8694abbc59f7042e2d4367"
+  },
+  "composed_files_sha256": {
+    "Cargo.toml": "10aa8a127bde2a1b7838b79aef84a5b16143ff4125f91ec116654b8195fc772a",
+    "src/lib.rs": "75b758495a106b43a6a314d0a1d6b062b780662c56f78bf49ceb77a300691880",
+    "src/unicode.rs": "9ddad8d9c9db84c54e0fa2a7e7eb9005a1a4b6c7af8694abbc59f7042e2d4367"
+  },
+  "manifest_binding": "sibling platform dependencies; executor uses composed workspace SQLx"
+}

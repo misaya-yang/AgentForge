@@ -1,0 +1,23 @@
+{
+  "status": "partial_real_loopback_capture",
+  "verified_at": "2026-10-16T11:52:19.651Z",
+  "protocol": "OTLP/gRPC h2c on loopback",
+  "received": {
+    "trace_exports": 93,
+    "metric_exports": 2569
+  },
+  "service_span_counts": {
+    "gateway": 478,
+    "knowledge-service": 17
+  },
+  "actual_metric_names": [
+    "http.server.request.duration",
+    "ai_platform.gen_ai.time_to_first_visible_seconds",
+    "gen_ai.client.token.usage"
+  ],
+  "privacy": "Capture retains allowlisted attributes and request-ID digests; no body, credentials, raw baggage or full URL.",
+  "limits": [
+    "Full production cross-service parent graph and cost metrics have not been accepted.",
+    "Temporary local collector is an acceptance harness, not a production monitoring deployment."
+  ]
+}

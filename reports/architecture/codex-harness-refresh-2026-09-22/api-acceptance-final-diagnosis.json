@@ -1,0 +1,69 @@
+{
+  "schema_version": "codex-refresh-acceptance-diagnosis/v1",
+  "source_receipt": "reports/architecture/codex-harness-refresh-2026-09-22/api-acceptance-final.json",
+  "source_receipt_preserved": true,
+  "session_id": "96d40db9-6df2-4fa5-83e4-7f74d20c135d",
+  "thread_id": "01a0c9fb-7d43-7772-add6-28c3210e34e9",
+  "scope": "existing synthetic session read-only GET after one E2E login; no new provider calls",
+  "generic": {
+    "http_status": 200,
+    "shape": "array",
+    "message_count": 0,
+    "assistant_message_count": 0,
+    "first_marker_exact": false,
+    "second_marker_exact": false
+  },
+  "assistant": {
+    "http_status": 200,
+    "shape": "object.messages",
+    "message_count": 8,
+    "assistant_message_count": 4,
+    "first_marker_exact": true,
+    "second_marker_exact": true
+  },
+  "tool_history_candidates": [
+    {
+      "turn_id": "db3f78b9-619f-4217-87a7-5547544f5453",
+      "text_length": 130,
+      "contains_tool_marker": false,
+      "exact_tool_marker": false,
+      "marker_count": 0,
+      "prefix_format": "",
+      "suffix_format": "",
+      "last_nonempty_line_exact": false,
+      "redacted_synthetic_reply": "I need a `device_id` to call `local_node_catalog`, but I don't have one. Could you provide the device ID you'd like me to look up?",
+      "tool_result_count": 0,
+      "local_node_catalog_result_observed": false,
+      "local_node_catalog_error_present": false
+    }
+  ],
+  "tool_stream_replay": {
+    "terminal": "run_finished",
+    "events": [],
+    "visible_text_shape": {
+      "text_length": 130,
+      "contains_tool_marker": false,
+      "exact_tool_marker": false,
+      "marker_count": 0,
+      "prefix_format": "",
+      "suffix_format": "",
+      "last_nonempty_line_exact": false
+    }
+  },
+  "history_diagnosis": "CURRENT_ASSISTANT_HISTORY_VERIFIED",
+  "strict_original_tool_result": {
+    "status": "FAIL",
+    "code": "SYNTHETIC_MARKER_MISMATCH"
+  },
+  "actual_tool_execution": {
+    "status": "NOT_PROVEN",
+    "tool": "local_node_catalog",
+    "successful_tool_result_observed": false,
+    "strict_marker_failure_preserved": true,
+    "required_input_fields": [
+      "device_id"
+    ],
+    "diagnosis": "The model requested a device_id; no tool call/result occurred. This is an unmet test input prerequisite, not a successful tool invocation with extra wording.",
+    "schema_source": "rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/platform_catalog_v1.json"
+  }
+}

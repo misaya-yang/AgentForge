@@ -1,0 +1,67 @@
+('grant-matrix', NOT EXISTS (
+        WITH expected(kind, schema_name, object_name, identity_arguments, role_name, privilege) AS (
+            VALUES
+                {expected}
+        ), actual AS (
+            SELECT CASE
+                       WHEN class.relkind = 'S' THEN 'sequence'
+                       WHEN class.relkind IN ('v', 'm') THEN 'view'
+                       ELSE 'table'
+                   END,
+                   namespace.nspname, class.relname, ''::text, role.rolname,
+                   acl.privilege_type || CASE WHEN acl.is_grantable THEN ':GRANT' ELSE '' END
+            FROM pg_class AS class
+            JOIN pg_namespace AS namespace ON namespace.oid = class.relnamespace
+            CROSS JOIN LATERAL aclexplode(
+                COALESCE(
+                    class.relacl,
+                    acldefault(
+                        CASE WHEN class.relkind = 'S' THEN 'S'::"char" ELSE 'r'::"char" END,
+                        class.relowner
+                    )
+                )
+            ) AS acl
+            JOIN pg_roles AS role ON role.oid = acl.grantee
+            WHERE namespace.nspname IN ({schemas})
+              AND class.relkind IN ('r', 'p', 'f', 'v', 'm', 'S')
+              AND role.rolname IN ({roles})
+            UNION ALL
+            SELECT 'function', namespace.nspname, procedure.proname,
+                   oidvectortypes(procedure.proargtypes), role.rolname,
+                   acl.privilege_type || CASE WHEN acl.is_grantable THEN ':GRANT' ELSE '' END
+            FROM pg_proc AS procedure
+            JOIN pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+            CROSS JOIN LATERAL aclexplode(
+                COALESCE(procedure.proacl, acldefault('f', procedure.proowner))
+            ) AS acl
+            JOIN pg_roles AS role ON role.oid = acl.grantee
+            WHERE namespace.nspname IN ({schemas})
+              AND role.rolname IN ({roles})
+            UNION ALL
+            SELECT 'type', namespace.nspname, type_object.typname, ''::text, role.rolname,
+                   acl.privilege_type || CASE WHEN acl.is_grantable THEN ':GRANT' ELSE '' END
+            FROM pg_type AS type_object
+            JOIN pg_namespace AS namespace ON namespace.oid = type_object.typnamespace
+            CROSS JOIN LATERAL aclexplode(
+                COALESCE(type_object.typacl, acldefault('T', type_object.typowner))
+            ) AS acl
+            JOIN pg_roles AS role ON role.oid = acl.grantee
+            WHERE namespace.nspname IN ({schemas})
+              AND role.rolname IN ({roles})
+            UNION ALL
+            SELECT 'schema', namespace.nspname, namespace.nspname, ''::text, role.rolname,
+                   acl.privilege_type || CASE WHEN acl.is_grantable THEN ':GRANT' ELSE '' END
+            FROM pg_namespace AS namespace
+            CROSS JOIN LATERAL aclexplode(
+                COALESCE(namespace.nspacl, acldefault('n', namespace.nspowner))
+            ) AS acl
+            JOIN pg_roles AS role ON role.oid = acl.grantee
+            WHERE namespace.nspname IN ({schemas})
+              AND role.rolname IN ({roles})
+        )
+        SELECT 1 FROM (
+            (SELECT * FROM expected EXCEPT SELECT * FROM actual)
+            UNION ALL
+            (SELECT * FROM actual EXCEPT SELECT * FROM expected)
+        ) AS acl_drift
+    ))

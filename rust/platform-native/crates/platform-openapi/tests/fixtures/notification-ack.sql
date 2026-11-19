@@ -1,0 +1,1 @@
+jsonb_build_object('notification_id',execution_id,'read_at',notification_read_at)

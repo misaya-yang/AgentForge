@@ -1,0 +1,1 @@
+{"provider": "dashscope", "model": "wan2.6-t2i", "endpoint_host": "dashscope-intl.aliyuncs.com", "key_configured": true, "timeout_seconds": 120.0, "reference_images": false}

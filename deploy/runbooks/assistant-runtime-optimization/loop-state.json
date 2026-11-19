@@ -1,0 +1,13 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v1",
+  "lifecycle": "superseded",
+  "active_phase": null,
+  "active_feature": null,
+  "iteration": 5,
+  "status": "superseded",
+  "last_decision": "ARO-05 passed after whole-demand regression evidence, open-source config validation, operating model publication, actor report, critic artifact, and final harness completion gates.",
+  "next_action": "None \u2014 program superseded by the Rust kernel migration (agent-runtime-full-rust-cutover); see the note in superseded_by. Do not resume this loop without a new PRD.",
+  "blockers": [],
+  "updated_at": "2026-06-29T00:00:00+08:00",
+  "superseded_by": "agent-runtime-full-rust-cutover (Rust single kernel owns the assistant loop); ARO-05 is terminal; runtime optimization continues on the Rust kernel."
+}

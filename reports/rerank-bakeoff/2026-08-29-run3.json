@@ -1,0 +1,79 @@
+{
+  "schema": "rerank-bakeoff-v1",
+  "generated_at": "2026-08-29T10:20:05Z",
+  "params": {
+    "k": 10,
+    "total_cases": 12
+  },
+  "gate": {
+    "promotable": true,
+    "winner": "dashscope:qwen3-rerank",
+    "reason": "",
+    "zh_net_win": true,
+    "en_no_regression": true
+  },
+  "adapters": [
+    {
+      "adapter": "identity",
+      "eligible": true,
+      "errors": [],
+      "slices": {
+        "overall": {
+          "cases": 12,
+          "ndcg_at_k": 0.592814,
+          "recall_at_k": 1.0,
+          "mrr": 0.5
+        },
+        "language:en": {
+          "cases": 6,
+          "ndcg_at_k": 0.592814,
+          "recall_at_k": 1.0,
+          "mrr": 0.5
+        },
+        "language:zh": {
+          "cases": 6,
+          "ndcg_at_k": 0.592814,
+          "recall_at_k": 1.0,
+          "mrr": 0.5
+        },
+        "cross_lingual": {
+          "cases": 6,
+          "ndcg_at_k": 0.592814,
+          "recall_at_k": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "adapter": "dashscope:qwen3-rerank",
+      "eligible": true,
+      "errors": [],
+      "slices": {
+        "overall": {
+          "cases": 12,
+          "ndcg_at_k": 0.967911,
+          "recall_at_k": 1.0,
+          "mrr": 1.0
+        },
+        "language:en": {
+          "cases": 6,
+          "ndcg_at_k": 0.992767,
+          "recall_at_k": 1.0,
+          "mrr": 1.0
+        },
+        "language:zh": {
+          "cases": 6,
+          "ndcg_at_k": 0.943056,
+          "recall_at_k": 1.0,
+          "mrr": 1.0
+        },
+        "cross_lingual": {
+          "cases": 6,
+          "ndcg_at_k": 0.943056,
+          "recall_at_k": 1.0,
+          "mrr": 1.0
+        }
+      }
+    }
+  ]
+}

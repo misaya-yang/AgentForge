@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "community-doublecheck",
+  "version": "1.0.0",
+  "description": "Run a bounded, read-only verification pass over factual claims using a community-derived specialist agent.",
+  "author": {
+    "name": "Awesome Copilot Community"
+  },
+  "homepage": "https://github.com/github/awesome-copilot",
+  "repository": "https://github.com/github/awesome-copilot",
+  "license": "MIT",
+  "keywords": [
+    "verification",
+    "fact-checking",
+    "read-only",
+    "subagent"
+  ],
+  "extensions": {
+    "com.misaya.ai-gateway": {
+      "agents": [
+        "./agents/doublecheck.md"
+      ]
+    }
+  }
+}

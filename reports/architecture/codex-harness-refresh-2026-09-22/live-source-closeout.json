@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-22T16:47:56.161035+00:00",
+  "status": "PASS",
+  "file_count": 332,
+  "matching_files": 332,
+  "model_plane_sha256": "be5e2f16250c95d361b0430b5c043d557583f127a9e5ef6a0a41815a2ee21a3d",
+  "thread_lifecycle_sha256": "94eeaccf8af523404e814e188d2bc183ec5a9c6d2bce28064a4cd6216283ba3c",
+  "control_plane_sha256": "bfdee68d44c09ee7df5f1415188f9def3abf9dcd5f37238947d3987a71221063",
+  "scope": "final hot-copied Gateway source matches workspace"
+}

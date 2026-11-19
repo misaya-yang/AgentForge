@@ -1,0 +1,102 @@
+{
+  "schema_version": "codex-refresh-acceptance-diagnosis/v1",
+  "source_receipt": "reports/architecture/codex-harness-refresh-2026-09-22/api-acceptance.json",
+  "source_receipt_preserved": true,
+  "session_id": "9f9f1b20-214f-4dc3-95ad-9cf9afc14818",
+  "thread_id": "01a0c9f4-1ef1-7743-acb4-c307d88b0276",
+  "scope": "existing synthetic session read-only GET after one E2E login; no new provider calls",
+  "generic": {
+    "http_status": 200,
+    "shape": "array",
+    "message_count": 0,
+    "assistant_message_count": 0,
+    "first_marker_exact": false,
+    "second_marker_exact": false
+  },
+  "assistant": {
+    "http_status": 200,
+    "shape": "object.messages",
+    "message_count": 8,
+    "assistant_message_count": 4,
+    "first_marker_exact": true,
+    "second_marker_exact": true
+  },
+  "tool_history_candidates": [
+    {
+      "turn_id": "4e3168ab-f984-4fd5-a26a-21f40a2c7be2",
+      "text_length": 200,
+      "contains_tool_marker": false,
+      "exact_tool_marker": false,
+      "marker_count": 0,
+      "prefix_format": "",
+      "suffix_format": "",
+      "last_nonempty_line_exact": false,
+      "redacted_synthetic_reply": "I don't have a `todo_read` tool available in my current toolset. There's no such tool among the ones I can access. Would you like me to do something else, or is there a different tool you had in mind?",
+      "tool_result_count": 0,
+      "todo_read_result_observed": false,
+      "todo_read_error_present": false
+    }
+  ],
+  "tool_stream_replay": {
+    "terminal": "run_finished",
+    "events": [],
+    "visible_text_shape": {
+      "text_length": 200,
+      "contains_tool_marker": false,
+      "exact_tool_marker": false,
+      "marker_count": 0,
+      "prefix_format": "",
+      "suffix_format": "",
+      "last_nonempty_line_exact": false
+    }
+  },
+  "history_diagnosis": "SCRIPT_USED_GENERIC_SESSION_STORE_ENDPOINT",
+  "preserved_failed_receipt": "reports/architecture/codex-harness-refresh-2026-09-22/api-acceptance-initial-failed.json",
+  "preserved_failed_receipt_sha256": "b4f7c34f484dd7e935e32ff70b6a99c51acae5a6f1a5e5d61d00cfddb82b1e5a",
+  "history_script_fix": {
+    "file": "tmp/codex-refresh-integration/acceptance_api.py",
+    "old_endpoint": "/api/v1/sessions/{id}/history",
+    "correct_endpoint": "/api/v1/assistant/sessions/{id}/history",
+    "correct_shape": "object.messages",
+    "product_persistence_failure_found": false,
+    "live_readback": "Both synthetic assistant markers match exactly in Runtime PG-backed history projection."
+  },
+  "tool_snapshot_evidence": {
+    "run_id": "4e3168ab-f984-4fd5-a26a-21f40a2c7be2",
+    "read_only_transaction": true,
+    "todo_in_readonly_tools": false,
+    "todo_in_deferred": false,
+    "todo_in_turn_tool_policy": false,
+    "todo_in_startup_ceiling": false,
+    "readonly_tool_names": [
+      "confluence_read",
+      "local_node_catalog",
+      "local_node_describe",
+      "mcp_docgen__preview_document",
+      "read_attachment",
+      "read_tool_artifact",
+      "search_knowledge_base",
+      "web_fetch"
+    ],
+    "deferred_tool_names": [
+      "confluence_write",
+      "execute_python_code",
+      "generate_image",
+      "generate_quiz",
+      "local_node_action",
+      "mcp_docgen__generate_document",
+      "mcp_docgen__modify_document",
+      "update_user_memory"
+    ],
+    "responses_tool_choice": "auto",
+    "memory_mode": "off"
+  },
+  "tool_diagnosis": {
+    "status": "FAIL_UNAVAILABLE_TEST_TOOL",
+    "cause": "The generic Runtime catalog explicitly hides todo_read/todo_write before ToolPolicy projection. The public /assistant/tools catalog is a separate projection and is insufficient to choose an executable smoke tool.",
+    "source": "src/services/agent_runtime/capability_catalog.py _DEFAULT_HIDDEN_CAPABILITIES",
+    "tool_result_requirement_preserved": true,
+    "new_provider_requests_run": false,
+    "follow_up_owner": "root/platform_runtime_update"
+  }
+}

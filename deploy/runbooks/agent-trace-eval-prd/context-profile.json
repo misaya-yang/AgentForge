@@ -1,0 +1,82 @@
+{
+  "schema_version": "prd-phase-harness/context-profile/v1",
+  "strategy": "progressive disclosure: load the hot path first, then open deferred artifacts only when their trigger is met.",
+  "caps": {
+    "cold_start_max_files": 3,
+    "read_first_max_files": 4,
+    "primary_context_max_items": 4
+  },
+  "cold_start": {
+    "required_files": [
+      "deploy/runbooks/agent-trace-eval-prd/context-profile.json",
+      "deploy/runbooks/agent-trace-eval-prd/loop-state.json",
+      "target phase file named by loop-state.active_phase or assignment"
+    ],
+    "fallback_files": [
+      "deploy/runbooks/agent-trace-eval-prd/phase-manifest.md only when the target phase file is unknown",
+      "deploy/runbooks/agent-trace-eval-prd/README.md only when product intent is unclear"
+    ],
+    "rule": "Do not load the full docs folder or every runtime artifact during cold start."
+  },
+  "roles": {
+    "actor": {
+      "required_files": [
+        "deploy/runbooks/agent-trace-eval-prd/context-profile.json",
+        "deploy/runbooks/agent-trace-eval-prd/loop-state.json",
+        "target phase file"
+      ],
+      "primary_context": [
+        "repo paths named by the target phase contract",
+        "selected source slice named by context triggers"
+      ],
+      "defer": [
+        "deploy/runbooks/agent-trace-eval-prd/source-packet.md",
+        "deploy/runbooks/agent-trace-eval-prd/continuity-ledger.md",
+        "deploy/runbooks/agent-trace-eval-prd/feature-oracle.json",
+        "deploy/runbooks/agent-trace-eval-prd/progress-log.md",
+        "deploy/runbooks/agent-trace-eval-prd/agent-handoff.md"
+      ]
+    },
+    "critic": {
+      "required_files": [
+        "actor report",
+        "critic-verdict template",
+        "target phase file"
+      ],
+      "primary_context": [
+        "changed files or diff",
+        "validation evidence cited by actor report"
+      ],
+      "defer": [
+        "deploy/runbooks/agent-trace-eval-prd/README.md",
+        "deploy/runbooks/agent-trace-eval-prd/source-packet.md",
+        "deploy/runbooks/agent-trace-eval-prd/continuity-ledger.md"
+      ]
+    },
+    "builder": {
+      "required_files": [
+        "deploy/runbooks/agent-trace-eval-prd/README.md",
+        "deploy/runbooks/agent-trace-eval-prd/phase-manifest.md",
+        "deploy/runbooks/agent-trace-eval-prd/source-packet.md"
+      ],
+      "rule": "Builder and repair mode may load broad context; actor and critic modes may not."
+    }
+  },
+  "deferred": {
+    "README.md": "do not load by default; open only when the phase intent or global rule is unclear",
+    "phase-manifest.md": "do not load by default; open only when the target phase file or dependency order is unknown",
+    "source-packet.md": "do not load by default; open only named sections for code fact lookup or writeback",
+    "loop-contract.json": "do not load by default; open only if the loop cycle is unclear",
+    "feature-oracle.json": "do not load whole file by default; inspect only the selected feature item",
+    "progress-log.md": "do not load whole file by default; inspect only recent entries when blockers or status are unclear",
+    "agent-handoff.md": "do not load by default; open only when next action or role handoff is unclear",
+    "continuity-ledger.md": "do not load whole file by default; open only dependency boundary rows needed for the target phase or writeback",
+    "next-window-prompt.md": "do not load by default; open only when preparing a new window"
+  },
+  "forbidden": [
+    "do not load the full docs folder",
+    "do not load all phase reports",
+    "do not load full source-packet.md when a named section or slice is enough",
+    "do not load unrelated repo modules not named by the phase contract"
+  ]
+}

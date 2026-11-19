@@ -1,0 +1,69 @@
+[package]
+name = "ai-platform-capability-worker"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "ai_platform_capability_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ai-platform-capability-worker"
+path = "src/main.rs"
+
+[[bin]]
+name = "ai-platform-capability-worker-health"
+path = "src/bin/health_probe.rs"
+
+[[bin]]
+name = "ai-platform-python-supervisor"
+path = "src/bin/python_supervisor.rs"
+
+[[bin]]
+name = "ai-platform-plugin-packs"
+path = "src/bin/plugin_packs.rs"
+
+[[bin]]
+name = "ai-platform-python-sandbox"
+path = "src/bin/ai-platform-python-sandbox.rs"
+
+[[bin]]
+name = "ai-platform-python-sandbox-health"
+path = "src/bin/ai-platform-python-sandbox-health.rs"
+
+[dependencies]
+ai-platform-plugin-quiz = { version = "1.1.0", path = "../ai-platform-plugin-quiz", features = ["executor"] }
+ed25519-dalek = { workspace = true }
+tokio-rustls = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+ai-platform-capability-contract = { path = "../ai-platform-capability-contract" }
+ai-platform-office = { path = "../ai-platform-office" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true, default-features = false, features = ["http1", "json", "query", "tokio"] }
+base64 = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+clap = { workspace = true, features = ["derive", "env"] }
+constant_time_eq = { workspace = true }
+hex = { workspace = true }
+globset = { workspace = true }
+hmac = { workspace = true }
+libc = { workspace = true }
+reqwest = { version = "=0.13.5", default-features = false, features = ["blocking", "json", "stream", "rustls", "http2"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true, features = ["postgres"] }
+sqlx-postgres = { workspace = true }
+# Keep the shared SQLite driver's Executor feature in sync with sqlx-core.
+sqlx-sqlite = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread", "signal", "sync"] }
+tracing = { workspace = true }
+opentelemetry = { version = "=0.32.0", features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "=0.32.1", features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { version = "=0.32.0", features = ["http-proto", "reqwest-blocking-client", "trace", "metrics", "logs"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+typst-assets = { workspace = true }
+uuid = { workspace = true, features = ["v7", "serde"] }

@@ -1,0 +1,54 @@
+{
+  "schema_version": "codex-refresh-premerge-review/v1",
+  "checked_at": "2026-09-22T17:01:50.768773+00:00",
+  "base_commit": "305ef0c14bb22a65894bc8a2bfaa1a721ac1e2f6",
+  "source_branch": "codex/harness-refresh-plan-2026-09-22",
+  "target_branch": "main",
+  "verdict": "APPROVE_FOR_USER_SCOPED_LOCAL_UPGRADE",
+  "authorization": "User requested final verification, merge into main, and deletion of the merged upgrade branch. Ordinary remote main synchronization is included.",
+  "checks": {
+    "targeted_runtime_tests": {
+      "passed": 71,
+      "exit_code": 0,
+      "log": "tmp/codex-refresh-integration/premerge-runtime-tests.log"
+    },
+    "independent_fix_review": {
+      "passed": 6,
+      "exit_code": 0,
+      "verdict": "APPROVE"
+    },
+    "source_contract": {
+      "passed": 18,
+      "exit_code": 0,
+      "verdict": "APPROVE"
+    },
+    "harness": {
+      "exit_code": 0
+    },
+    "validate_config": {
+      "exit_code": 0
+    },
+    "diff_check": {
+      "exit_code": 0
+    },
+    "runtime_recheck": {
+      "status": "NOT_COMPLETED_STACK_STOPPED",
+      "detail": "All containers were stopped before this turn. PostgreSQL check timed out; the validation process was terminated rather than restarting the stack. No new runtime PASS is claimed. Prior exact-source live receipts remain the live evidence."
+    }
+  },
+  "source_hashes": {
+    "src/services/agent_runtime/model_plane.py": "be5e2f16250c95d361b0430b5c043d557583f127a9e5ef6a0a41815a2ee21a3d",
+    "src/services/agent_runtime/control/thread_lifecycle.py": "94eeaccf8af523404e814e188d2bc183ec5a9c6d2bce28064a4cd6216283ba3c",
+    "src/services/agent_runtime/control_plane.py": "bfdee68d44c09ee7df5f1415188f9def3abf9dcd5f37238947d3987a71221063",
+    "deploy/agent-runtime-source/lock.json": "6423c41ea79d8bde9153d5191b7ffe22379b0b0fbad14990c55e51fc389103f3",
+    "rust/agent-runtime-overlay/manifest.json": "4de951a5d56c9aa386bfb35bfc46daeb77382e793d25beb329bddc8fe7af9880"
+  },
+  "new_files_reviewed_before_this_receipt": 46,
+  "credential_and_build_artifacts": "env, E2E credentials and tmp build/mirrors remain ignored; no unexpected binary or high-confidence secret detected in candidate files",
+  "existing_limits": [
+    "LOC no-growth 27 failures remain documented",
+    "complete release/restore/hosted Rust matrix unverified",
+    "dispatched Worker cancellation immediate cleanup not proven",
+    "auxiliary local_node_catalog case lacks device_id; no execution proof"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "runtime-capability-lease/v1",
+  "capability_id": "read_attachment",
+  "arguments": {
+    "attachment_id": "art_0123456789abcdef",
+    "operation": "content",
+    "max_chars": 1000
+  },
+  "scope": {
+    "tenant_id": "tenant-fixture",
+    "user_id": "user-fixture",
+    "session_id": "session-fixture"
+  },
+  "expected": {
+    "provider_key_present": false,
+    "path_traversal_allowed": false,
+    "proof_ttl_seconds_at_most": 120
+  }
+}

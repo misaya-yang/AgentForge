@@ -1,0 +1,11 @@
+# Rendered from validated nonoverlapping CIDRs by platform-data-security render.
+# Retains Unix peer bootstrap. No trust, plaintext TCP, replication or superuser TCP.
+local all all peer
+hostnossl all all 0.0.0.0/0 reject
+hostnossl all all ::/0 reject
+# PgBouncer's backend certificate identifies the pooler; SCRAM authenticates each role.
+hostssl gateway ai_gateway_gateway,ai_gateway_runtime,ai_gateway_capability_worker,ai_gateway_knowledge_api,ai_gateway_knowledge_worker @BACKEND_CIDR@ scram-sha-256 clientcert=verify-ca
+# Direct cancellation control and authority connections retain certificate CN == login role.
+hostssl gateway ai_gateway_gateway,ai_gateway_runtime,ai_gateway_capability_worker,ai_gateway_knowledge_api,ai_gateway_knowledge_worker,ai_gateway_migrator @CLIENT_CIDR@ cert
+host all all 0.0.0.0/0 reject
+host all all ::/0 reject

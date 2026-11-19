@@ -1,0 +1,9 @@
+[Unit]
+Description=AgentForge daily base backup (WAL archives continuously)
+[Timer]
+OnCalendar=*-*-* 02:00:00
+RandomizedDelaySec=10m
+Persistent=true
+Unit=recovery-backup.service
+[Install]
+WantedBy=timers.target

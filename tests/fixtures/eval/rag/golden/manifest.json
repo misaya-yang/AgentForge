@@ -1,0 +1,19 @@
+{
+  "version": "2026-08-28.1",
+  "frozen_at": "2026-08-28",
+  "files": {
+    "rag_regression_v1.jsonl": {
+      "sha256": "dee0b0507dbbddb65e58b6ec140bfc105962f1a792ac659f7df5c0ac212502c3",
+      "purpose": "two-track RAG golden expectations consumed by scripts/eval_rag.py (Makefile target rag-eval-regression-gate)"
+    },
+    "../observations/rag_regression_v1.jsonl": {
+      "sha256": "df118c91d87df876fb084e958c89fa464c2354b591a49e96a07dff7af9846d2c",
+      "purpose": "pre-recorded observations joined with the expectations fixture; regenerable for the retrieval track via scripts/regen_rag_observations.py record --retrieval-only"
+    },
+    "kb_golden_qa_v1.jsonl": {
+      "sha256": "1d4e622caee64c4651076e3569af3eeed408885719cf25c0c0ddaf07e4bb8933",
+      "purpose": "bilingual KB golden QA starter set (18 cases) emitted by scripts/seed_kb_golden_set.py; provenance seed-machine-generated, human-review-pending"
+    }
+  },
+  "notes": "Ragged golden asset manifest for PRD T0-#2/T0-#7. Hashes cover exact file bytes; verify with scripts/regen_rag_observations.py verify --manifest tests/fixtures/eval/rag/golden/manifest.json. Segment ids in the fixtures are synthetic placeholders; rebinding to a live dataset requires a new version entry here."
+}

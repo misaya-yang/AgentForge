@@ -1,0 +1,372 @@
+{
+  "schema_version": "prd-phase-harness/loop-state/v4",
+  "goal": "完成主PRD的一期可信运行闭环；真实代码/契约/测试/活栈证据决定状态。",
+  "cycle": [
+    "observe",
+    "act",
+    "verify",
+    "decide"
+  ],
+  "active_phase": "P1-10",
+  "active_feature": "P1-F011",
+  "iteration": 2,
+  "max_iterations": 5,
+  "last_result": "P1 local integration verified and implementation fast-forward merged into local main; external release and formal Eval promotion remain unverified.",
+  "next_action": "本地集成收尾；如启动公开发行，先补独立fresh-machine、完整冻结回滚与目标平台证据。",
+  "blockers": [],
+  "confirmation": null,
+  "phases": [
+    {
+      "id": "P1-00",
+      "file": "phase-00-freeze-phase-one-contracts-and-evidence.md",
+      "depends_on": [],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-00.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-01",
+      "file": "phase-01-enforce-evaluation-identity-and-dataset-authorization.md",
+      "depends_on": [
+        "P1-00"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-01.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-02",
+      "file": "phase-02-unify-tool-authorization-and-stream-recovery.md",
+      "depends_on": [
+        "P1-01"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-02.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-03",
+      "file": "phase-03-bound-capability-execution-and-cancellation.md",
+      "depends_on": [
+        "P1-02"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-03.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-04",
+      "file": "phase-04-bind-model-pricing-and-evaluator-profiles.md",
+      "depends_on": [
+        "P1-03"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-04.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-05",
+      "file": "phase-05-unify-admission-and-retry-semantics.md",
+      "depends_on": [
+        "P1-04"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-05.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-06",
+      "file": "phase-06-recover-evaluation-jobs-after-worker-interruption.md",
+      "depends_on": [
+        "P1-05"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-06.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-07",
+      "file": "phase-07-validate-knowledge-configuration-and-lifecycle.md",
+      "depends_on": [
+        "P1-06"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-07.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-08",
+      "file": "phase-08-make-health-truthful-and-close-import-exceptions.md",
+      "depends_on": [
+        "P1-07"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-08.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-09",
+      "file": "phase-09-verify-independent-cli-and-paired-runtime-artifacts.md",
+      "depends_on": [
+        "P1-08"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-09.yml"
+      ],
+      "review": "approved"
+    },
+    {
+      "id": "P1-10",
+      "file": "phase-10-validate-integrated-phase-one-release-and-rollback.md",
+      "depends_on": [
+        "P1-09"
+      ],
+      "status": "done",
+      "evidence": [
+        "receipts/P1-10.yml"
+      ],
+      "review": "approved"
+    }
+  ],
+  "features": [
+    {
+      "id": "P1-F001",
+      "phase_id": "P1-00",
+      "description": "建立唯一执行owner、现状/契约/制品/失败基线；无依赖",
+      "steps": [
+        "合同与执行 owner",
+        "harness、架构边界、core边界、单实例、OpenAPI 门禁"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "建立唯一执行owner、现状/契约/制品/失败基线；无依赖",
+        "harness/import/core/singleton/OpenAPI；冻结S01～S15等必需oracles与镜像身份；标记当前event_stream源码漂移"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F002",
+      "phase_id": "P1-01",
+      "description": "修正Eval租户身份及Dataset主体边界；依赖P1-00",
+      "steps": [
+        "租户身份、ACL epoch001、Gateway actor/删除确认",
+        "身份反例与真实PostgreSQL双前缀epoch2权限矩阵"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "修正Eval租户身份及Dataset主体边界；依赖P1-00",
+        "S01/S02/S03；DB privilege matrix、旧ACL迁移/public-sharing矩阵；先离线反例，再isolated HTTP/DB"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F003",
+      "phase_id": "P1-02",
+      "description": "模型工具授权、wire、事件终态与恢复一致；依赖P1-01安全边界",
+      "steps": [
+        "工具授权、provider wire、根/子run终态、事件恢复",
+        "集成回归、Qwen流式回复、刷新恢复和审批恢复"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "模型工具授权、wire、事件终态与恢复一致；依赖P1-01安全边界",
+        "S04～S08；现有SSE/Agent contract+每adapter负向fixture；至少两wire、一root+child、150+事件、网络中断"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F004",
+      "phase_id": "P1-03",
+      "description": "代码执行与内部broker有硬资源/路径/取消边界；依赖P1-01/02",
+      "steps": [
+        "Python supervisor隔离、资源边界、进程组回收",
+        "Docker真实隔离7项、浏览器长Python取消、进程消失及slot复用"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "代码执行与内部broker有硬资源/路径/取消边界；依赖P1-01/02",
+        "S09；真实隔离容器内总磁盘/inode、进程组回收、input/output、错误audience/SSRF负测"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F005",
+      "phase_id": "P1-04",
+      "description": "模型/价格身份、Eval候选/judge模型与权限固定；依赖P1-01/02",
+      "steps": [
+        "tenant/provider/model价格快照与Eval候选/judge固定",
+        "定价与ModelRef反例、真实Eval HTTP结果见统一报告"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "模型/价格身份、Eval候选/judge模型与权限固定；依赖P1-01/02",
+        "S12/S40；双租户/双provider同名模型、失败同步、改价不改历史；judge工具负例在CP-01修复后验证"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F006",
+      "phase_id": "P1-05",
+      "description": "所有入口的容量/重试语义一致；依赖P1-02/04",
+      "steps": [
+        "run/provider/SSE/job统一容量、续租、取消、未知结果不重试",
+        "容量/取消反例、长请求后续跑现场修复及复测"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "所有入口的容量/重试语义一致；依赖P1-02/04",
+        "S13/S14；run/provider容量各1、多轮不死锁；stream绕限反例、请求发送后断连unknown"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F007",
+      "phase_id": "P1-06",
+      "description": "Eval job可reclaim且结果语义诚实；依赖P1-01/02",
+      "steps": [
+        "Eval outbox owner/token/lease fencing与runtime handle恢复",
+        "真实PG过期续租/领取/旧owner四类写拒绝、新owner终态；HTTP结果见报告"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "Eval job可reclaim且结果语义诚实；依赖P1-01/02",
+        "S25；领取批次后kill，旧claim写拒绝，取消/超时/无效judge不伪成功"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F008",
+      "phase_id": "P1-07",
+      "description": "普通知识生命周期可用，配置提前失败，目录/全量请求不截断；依赖P1-01",
+      "steps": [
+        "Knowledge解析配置、目录分页、生命周期与检索",
+        "配置/分页边界测试、真实上传/索引/hybrid检索/Qwen引用问答"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "普通知识生命周期可用，配置提前失败，目录/全量请求不截断；依赖P1-01",
+        "S19/S21/S22；201库、10001段边界；坏parsing config；embedding失败保留旧generation"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F009",
+      "phase_id": "P1-08",
+      "description": "状态/宣传真实，四个到期例外清零；依赖P1-04/06/07",
+      "steps": [
+        "真实健康、指标边界、四个跨服务import例外归零",
+        "599文件0例外、core无增长、浏览器健康及未跑gate显示"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "状态/宣传真实，四个到期例外清零；依赖P1-04/06/07",
+        "S15；零样本/采集错误/Gate未跑；import gate四项违规与entry均0，保留负向自测"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F010",
+      "phase_id": "P1-09",
+      "description": "已支持CLI可独立运行；Runtime/Worker来源及工具/stream边界可验证；依赖P1-02/03",
+      "steps": [
+        "CLI工具/流边界、独立制品验证、Runtime/Worker成对部署",
+        "CLI72测试、Docker镜像与运行验证；native制品结果见报告"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "已支持CLI可独立运行；Runtime/Worker来源及工具/stream边界可验证；依赖P1-02/03",
+        "S10/S29/S30/S32的Linux目标；native真实执行，不能只跑launcher Node tests"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    },
+    {
+      "id": "P1-F011",
+      "phase_id": "P1-10",
+      "description": "一期集成C80→R100与完整发布证据；依赖P1-01～09",
+      "steps": [
+        "一期本地Docker/browser集成、修复与Git收尾",
+        "统一报告中的实际通过/失败/跳过与未验证发行义务"
+      ],
+      "passes": true,
+      "original_release_steps": [
+        "一期集成C80→R100与完整发布证据；依赖P1-01～09",
+        "S37/S38与一期完整旅程；实际UI/provider、fresh machine、全部冻结artifact回切；补全部awaiting_final_live"
+      ],
+      "evidence_scope": "local integration only; original_release_steps are not blanket-passed, see explicit unmet obligations in unified results"
+    }
+  ],
+  "lifecycle": "completed_local",
+  "domain_id": "agent-platform-vnext",
+  "base_sha": "26dfbbc2c2e03c4daa1eef6f64dc7cf79e395c3f",
+  "branch": "codex/agent-platform-vnext-phase1",
+  "active_package": "P1-10",
+  "updated_at": "2026-09-08T03:12:22.250815+00:00",
+  "predecessor_dispositions": [
+    {
+      "program": "platform-architecture-convergence",
+      "prior_active_phase": "ARC-08",
+      "remaining_obligations": [
+        "BLOCKED_EXTERNAL_RUST_CI: no hosted fmt/check/changed-crate or multi-arch receipt for the tested SHA",
+        "BLOCKED_EXTERNAL_ARTIFACT: rollback bundle references three frozen image IDs that are absent and have no registry reference",
+        "NOT_RUN_FRESH_MACHINE: no separate fresh-machine registry pull/quickstart receipt was authorized or executed",
+        "BLOCKED_DOCKER_REGISTRY: built-Nginx smoke could not resolve the public Dockerfile frontend image; config contract and current Web build passed"
+      ],
+      "prior_next_action": "Restore a digest-pinned frozen image bundle and provide hosted Rust CI/multi-arch plus fresh-machine execution, then run ARC-08 rollback/fresh/candidate-manifest gates. Do not mark these PASS until their receipts exist.",
+      "disposition": "adopted into vNext; historical phase evidence retained"
+    },
+    {
+      "program": "agent-runtime-upstream-sync",
+      "prior_active_phase": "ARU-04",
+      "remaining_obligations": [
+        "ARU-F005 full frozen-bundle rehearsal cannot run because the immutable bundle's exact Runtime image is absent and four other frozen service artifacts are absent or digest-mismatched. Candidate Runtime/Worker rollback to the previous locally available pair and back passed, but is not a substitute for the full release-unit rehearsal."
+      ],
+      "prior_next_action": "Commit the final regression repairs and evidence, refresh origin/main, fast-forward main to this branch when topology remains clean, rerun final status checks, and push main normally.",
+      "disposition": "adopted into vNext; historical phase evidence retained"
+    },
+    {
+      "program": "agent-runtime-cli-client",
+      "prior_active_phase": "CLI-05",
+      "remaining_obligations": [],
+      "prior_next_action": "Build and verify Darwin arm64 packaging and an explicit interactive denial journey before declaring cross-platform CANDIDATE_80; retain Darwin/Windows matrix work for RELEASE_100.",
+      "disposition": "adopted into vNext; historical phase evidence retained"
+    },
+    {
+      "program": "kb-rag-ui-t5",
+      "prior_active_phase": "C1–C9 收口；等后端合入 → rebase 新 main → 对接修正 → 活栈串行回归",
+      "remaining_obligations": [],
+      "prior_next_action": null,
+      "disposition": "adopted into vNext; historical phase evidence retained"
+    }
+  ],
+  "execution_policy": "User directed implementation-first batching across P1, with final integrated local Docker/browser acceptance and repair before main merge.",
+  "acceptance_scope": "用户本轮要求的本地Docker+内置浏览器集成；不等于原PRD完整外部分发R100。",
+  "external_release_obligations": [
+    "fresh-machine registry pull/quickstart",
+    "full historical frozen artifact and database rollback",
+    "hosted Rust fmt/check/changed-crate CI",
+    "Darwin/Windows and full multi-architecture native distribution",
+    "native CLI real-provider task and published Linux x64 matrix",
+    "formal Eval regression promotion: legacy full prompt/tool fingerprint plus adequate paired sample evidence"
+  ],
+  "merged_implementation_commit": "5f36974df3a9a58ca6b4fe907389399c32e8a537",
+  "current_branch": "main"
+}

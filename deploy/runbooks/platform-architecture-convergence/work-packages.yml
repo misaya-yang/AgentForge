@@ -1,0 +1,273 @@
+# Work packages — platform-architecture-convergence
+# Schema: harness/work-package/v1 (docs/harness/work-packages.md §3).
+# Until ARC-00 implements the validator this file is a reviewed manual
+# contract; states are recorded truthfully, not aspirationally.
+
+program: platform-architecture-convergence
+prd: docs/plans/platform-architecture-convergence-prd-2026-08.md
+adr: docs/architecture/ADR-008-bounded-contexts-no-new-services.md
+base_sha: 336851c1            # post-RAG base (branch platform-arch-convergence-2026-08)
+head_sha_observed: 9aaa9cab   # tested code candidate; 127 commits ahead of main
+
+execution_note: >
+  The same-directory writer window ended during closeout. The primary session
+  integrated all implementation on the current branch and serialized Docker,
+  database, E2E and provider work. No further subagents are planned. Package
+  states below distinguish verified code from unavailable release evidence.
+
+packages:
+  - id: ARC-00A
+    result: >
+      Machine-readable fact and contract freeze (service topology, data-access
+      inventory, LOC/dependency/skip baselines, contract-freeze), successor
+      ADR-008, single authoritative program, and terminal/superseded ledgers.
+    state: verified
+    base_sha: 336851c1
+    depends_on: []
+    owned_paths:
+      - docs/**                    # PRD file itself must not be rewritten
+      - deploy/runbooks/**
+      - scripts/inventory/**
+      - reports/baselines/**
+      - docs/architecture/**
+    forbidden_paths: [src/**, apps/**, packages/**, web/**, rust/**, Makefile, harness.yml, .github/**]
+    integration_paths: [docs/README.md]   # program-table update deferred to integration commit
+    must_preserve:
+      - every public OpenAPI/SSE/Runtime/Capability V2 contract (contract-freeze.json digests)
+      - historical reports untouched (status-only changes)
+      - determinism of baseline regeneration at fixed revision
+    direct_gates:
+      - python -m json.tool on every generated baseline
+      - python3 scripts/inventory/generate_baselines.py --verify (idempotent rerun)
+      - uv run --all-packages --extra dev ruff check scripts/inventory
+      - make harness-check
+    integration_gates: [none required (docs/ledger package)]
+    live_gates: [none required (offline package); live-stack contract proofs listed in contract-freeze.json live_stack_required]
+    skip_policy: none
+    rollback: old-binary-compatible (docs/ledger/baseline changes only; git revert of the commit set)
+    review: independent cross-review in Wave 1; blocker/high threshold
+    evidence:
+      - docs/architecture/baselines/2026-08-post-rag/*.json
+      - docs/architecture/ADR-008-bounded-contexts-no-new-services.md
+      - deploy/runbooks/platform-architecture-convergence/**
+      - receipts/ARC-00A.yml (draft until final gates pass)
+    stop_conditions:
+      - post-RAG facts contradict an ADR-008-frozen decision -> stop, request new approval (PRD ARC-00A item 3)
+      - baseline determinism fails at a settled tree
+      - PRD §7.5 stop conditions
+
+  - id: ARC-00B
+    result: Trustworthy gates before any module moves (real type-check, offline+live OpenAPI split, static import boundary, gate schema/selector/CI, hygiene + LOC no-growth).
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-00A]
+    owned_paths: [web/tsconfig*.json, web/package.json, tests/harness/**, scripts/harness/**, harness.yml (integration commit only), .github/workflows/** (integration commit only)]
+    forbidden_paths: [business semantics, database/**]
+    integration_paths: [harness.yml, .github/workflows/**]
+    must_preserve: [no false-green gate may remain green without checking real files, release-required gates zero unexpected skips]
+    direct_gates: [real tsc over app+node projects, negative self-tests for import boundary, gate selector coverage]
+    integration_gates: [check_harness semantic validation]
+    live_gates: [none required for gate infrastructure itself]
+    skip_policy: none for release-required
+    rollback: old-binary-compatible
+    review: Wave 1 cross-review
+    evidence: [receipts/ARC-00B.yml]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-00C
+    result: Rust build/distribution economics (per-source-closure artifact identity, build/update scripts, shared integration/rust-build locks, versioned multi-arch candidate images); absorbs PPR-01.
+    state: blocked                # local Docker candidate passed; hosted Rust CI/multi-arch not run
+    base_sha: 336851c1
+    depends_on: [ARC-00A]
+    owned_paths: [rust/agent-runtime-overlay/manifest.json, scripts/** (build/lock scripts), Makefile (integration commit only), docs/harness/integration-and-rollback.md]
+    forbidden_paths: [Runtime/Worker protocol or execution semantics, Compose business topology]
+    integration_paths: [Makefile]
+    must_preserve: [Runtime image <=150 MB numeric gate, warm edit->healthy <=15 min, no host Cargo, jobs=1 inside Docker/CI]
+    direct_gates: [artifact identity recomputation, lock acquire/release/heartbeat tests]
+    integration_gates: [make validate-config]
+    live_gates: [builder-produced multi-arch candidate pull/identity/smoke]
+    skip_policy: none
+    rollback: old-binary-compatible (build tooling only)
+    review: Wave 1 cross-review
+    evidence: [receipts/ARC-00C.yml]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-01
+    result: Assistant Gateway API modularization (src/api/v1/assistant.py split) with OpenAPI/SSE/import/error-contract parity.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-00B]
+    owned_paths: [src/api/v1/assistant.py, src/api/v1/assistant/**, tests/api/** (assistant scope)]
+    forbidden_paths: [behavior changes, contract drift]
+    integration_paths: [src/api/router.py]
+    must_preserve: [OpenAPI snapshot equality, SSE fixture agreement, error-contract parity]
+    direct_gates: [uv run --all-packages --extra test pytest -q --no-cov <scoped>, ruff check]
+    integration_gates: [in-process OpenAPI comparison]
+    live_gates: [named scenarios deferred to ARC-08 where heavy]
+    skip_policy: none for release-required
+    rollback: old-binary-compatible
+    review: Wave 2 review gate
+    evidence: [receipts/ARC-01.yml]
+    stop_conditions: [PRD §7.5, contract parity gates failing twice on the same cause]
+
+  - id: ARC-01B
+    result: src/services/agent_runtime/agent_runtime.py split by use case.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-01]
+    owned_paths: [src/services/agent_runtime/agent_runtime.py, src/services/agent_runtime/** (split targets), tests/services/knowledge** (seam stubs only)]
+    forbidden_paths: [execution semantics changes]
+    integration_paths: []
+    must_preserve: [worker test seam signatures (monkeypatched by tests; update stubs in the same commit)]
+    direct_gates: [scoped pytest incl. tests/services/knowledge, ruff]
+    integration_gates: [import-boundary gate]
+    live_gates: [none beyond inherited]
+    skip_policy: none for release-required
+    rollback: old-binary-compatible
+    review: required
+    evidence: [receipts/ARC-01B.yml]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-02
+    result: Runtime control/model plane modularization, Gateway self-HTTP removal, ResolvedAgentLaunchV1 contract, Capability V2 convergence.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-01]
+    owned_paths: [src/services/agent_runtime/**, src/services/assistant/** (launch resolution), packages/ai-gateway-core/src/ai_gateway_core/leases/** ]
+    forbidden_paths: [wire protocol drift, lease/proof invariant changes]
+    integration_paths: [src/main.py]
+    must_preserve: [ModelLeaseV1 semantics, append-only ledgers, published->dispatched->terminal tool lifecycle, ADR-008 §5 retained invariants]
+    direct_gates: [scoped pytest, ruff, capability fixture tests]
+    integration_gates: [isolated DB ledger tests, self-HTTP regression absence check]
+    live_gates: [cross-entrypoint parity journeys; heavy ones bound to ARC-08]
+    skip_policy: none for release-required
+    rollback: old-binary-compatible
+    review: Wave 3 review gate incl. security look at lease changes
+    evidence: [receipts/ARC-02.yml]
+    stop_conditions: [PRD §7.5, any lease/proof invariant violation]
+
+  - id: ARC-02B
+    result: Runtime/Worker HTTP boundary module split with zero wire-protocol drift.
+    state: blocked                # Docker/wire/live passed; hosted Rust fmt/check/tests not run
+    base_sha: 336851c1
+    depends_on: [ARC-00B]
+    owned_paths: [rust/agent-runtime-overlay/kernel-rs/ai-platform-runtime-http/**, rust/agent-runtime-overlay/kernel-rs/ai-platform-capability-worker/src/http/**]
+    forbidden_paths: [wire protocol changes, fixture rewrites]
+    integration_paths: []
+    must_preserve: [byte-level protocol equality against frozen fixtures (contract-freeze.json)]
+    direct_gates: [hosted-CI changed-crate tests, fixture replay]
+    integration_gates: [Gateway adapter tests]
+    live_gates: [runtime regression gate]
+    skip_policy: none
+    rollback: old-binary-compatible
+    review: Wave 3 review gate
+    evidence: [receipts/ARC-02B.yml]
+    stop_conditions: [PRD §7.5, any fixture drift]
+
+  - id: ARC-03
+    result: Single migration authority then per-service PostgreSQL roles/grants/adoption; baseline freeze of schema fingerprints.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-00A]
+    owned_paths: [database/**, scripts/database/**, tests/database/**]
+    forbidden_paths: [application cross-schema write widening, destructive migrations]
+    integration_paths: [database/schema.sql]
+    must_preserve: [additive-only migration discipline, function SECURITY DEFINER ownership, append-only store write paths]
+    direct_gates: [runner crash/checksum/multi-source gates, fresh/upgrade/idempotent migration tests]
+    integration_gates: [isolated DB role matrix, positive+negative permission tests]
+    live_gates: [adoption rehearsal on the stack]
+    skip_policy: none
+    rollback: restore-required class for grant narrowing (documented per step); additive migrations old-binary-compatible
+    review: required incl. security review of grants
+    evidence: [receipts/ARC-03.yml, data-access-inventory.json as input]
+    stop_conditions: [PRD §7.5, fingerprint mismatch between schema.sql and migrations]
+
+  - id: ARC-04
+    result: Shrink ai-gateway-core behind an I/O-free contracts layer; allowlist gate; consumption inventory report.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-00A]
+    owned_paths: [packages/ai-gateway-core/**, packages/ai-gateway-contracts/**, tests/packages/**]
+    forbidden_paths: [behavior changes behind moved shims]
+    integration_paths: []
+    must_preserve: [import parity through shims, minimal wheel contents]
+    direct_gates: [allowlist gate with negative self-test, scoped pytest, ruff]
+    integration_gates: [dependency-baseline violations trend toward zero]
+    live_gates: [none beyond inherited]
+    skip_policy: none for release-required
+    rollback: old-binary-compatible
+    review: Wave 4 review gate
+    evidence: [receipts/ARC-04.yml, dependency-baseline.json as input]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-05
+    result: Durable long jobs, dependency health classification, service identity, end-to-end trace.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-02, ARC-03]
+    owned_paths: [src/services/health/**, src/services/jobs/** (to be confirmed at observe), trace plumbing per context]
+    forbidden_paths: [probe weakening, optional-dep reclassification without evidence]
+    integration_paths: [src/main.py]
+    must_preserve: [/health and /health/ready semantics, W3C trace identity]
+    direct_gates: [fault-injection unit tests]
+    integration_gates: [isolated restart/disconnect terminal-state tests]
+    live_gates: [disconnect/restart/fault-injection journeys (ARC-08 batchable)]
+    skip_policy: none
+    rollback: old-binary-compatible
+    review: required
+    evidence: [receipts/ARC-05.yml]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-06
+    result: Compact/Scale deployment modes, admin architecture-status page, topology ownership and single-instance guards.
+    state: awaiting_final_live    # current mode/admin passed; compact+scale live pair not run
+    base_sha: 336851c1
+    depends_on: [ARC-05]
+    owned_paths: [docker-compose*.yml (integration commits), src/api/v1/admin/** (status page), scripts/deploy/**]
+    forbidden_paths: [business topology changes beyond modes, fixed container identity removal without adoption gate]
+    integration_paths: [docker-compose*.yml, .env.example]
+    must_preserve: [fixed Compose identity until ARC-06 adoption gate, single-instance scheduler guards]
+    direct_gates: [mode resolution tests]
+    integration_gates: [make validate-config per mode]
+    live_gates: [worker scale/recovery adoption gate, compact fresh-install journey]
+    skip_policy: none
+    rollback: restore-required (mode change)
+    review: required incl. operations review
+    evidence: [receipts/ARC-06.yml]
+    stop_conditions: [PRD §7.5, resource-gate failure]
+
+  - id: ARC-07
+    result: Repository quality and evidence governance — historical backlog cleanup, rule re-verification, evidence portability.
+    state: verified
+    base_sha: 336851c1
+    depends_on: [ARC-00B]
+    owned_paths: [docs/** (non-PRD), reports/**, tests/** (stale test cleanup), scripts/** (hygiene)]
+    forbidden_paths: [rewriting historical evidence content]
+    integration_paths: [docs/README.md]
+    must_preserve: [dated reports as-is; deletion only after rg re-verification per hygiene-scan memory rule]
+    direct_gates: [hygiene-check, link check, LOC no-growth]
+    integration_gates: [harness-check]
+    live_gates: [none]
+    skip_policy: none
+    rollback: old-binary-compatible
+    review: required
+    evidence: [receipts/ARC-07.yml]
+    stop_conditions: [PRD §7.5]
+
+  - id: ARC-08
+    result: Unified release compatibility matrix, final full regression, current->frozen->current rollback, fresh-environment proof; retires superseded docs.
+    state: blocked                # missing hosted Rust/fresh/frozen rollback receipts
+    base_sha: 336851c1
+    depends_on: [ARC-00C, ARC-01, ARC-01B, ARC-02, ARC-02B, ARC-03, ARC-04, ARC-05, ARC-06, ARC-07]
+    owned_paths: [release manifest files, docs retirement list, final closeout report]
+    forbidden_paths: [contract changes during the matrix]
+    integration_paths: [Makefile, .github/workflows/**, docs/README.md]
+    must_preserve: [every release-required gate passing with zero unexpected skips, rollback bundle digest equality]
+    direct_gates: [full scoped gate suite]
+    integration_gates: [isolated fresh/upgrade matrix]
+    live_gates: [full Docker/browser/provider/rollback journeys incl. all deferred package scenarios]
+    skip_policy: none (release package)
+    rollback: the package itself rehearses rollback
+    review: final program review
+    evidence: [receipts/ARC-08.yml, final closeout report]
+    stop_conditions: [PRD §7.5, any deferred live scenario unreproducible]

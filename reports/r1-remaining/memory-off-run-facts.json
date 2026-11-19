@@ -1,0 +1,9 @@
+{
+  "run_id": "8e1ac41c-1b27-4b81-874a-829af2554829",
+  "status": "cancelled",
+  "session_id": "d63756d8-c255-4b56-997f-be123f96f6f1",
+  "tenant_id": "default",
+  "memory_mode": "off",
+  "context_status": "not_loaded",
+  "executions": []
+}

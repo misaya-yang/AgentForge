@@ -1,0 +1,49 @@
+{
+  "scope": "real original-thread followup; no original unknown action replay",
+  "runs": [
+    {
+      "run_id": "e5dd2355-a4cc-4845-84d6-1b7f461bd378",
+      "harness_thread_id": "01a0e41a-9b1b-76b0-969d-d746ea69f9ed",
+      "status": "cancelled",
+      "owner_expired": true,
+      "scenario": "original_unknown",
+      "executions": [
+        {
+          "execution_id": "01a0e41c-0f2a-7eb1-87ce-421a27b3d65b",
+          "attempt_id": "call_199dbab1f1bf4e998b1fa968",
+          "status": "side_effect_unknown",
+          "dispatched": true
+        }
+      ],
+      "approvals": [
+        {
+          "approval_id": "01a0e41a-c868-7912-868a-aa8618f99a57",
+          "status": "consumed"
+        }
+      ]
+    },
+    {
+      "run_id": "58b9a7b7-a735-4709-84b5-458de2d3baac",
+      "harness_thread_id": "01a0e41a-9b1b-76b0-969d-d746ea69f9ed",
+      "status": "cancelled",
+      "owner_expired": true,
+      "scenario": "pending",
+      "executions": [],
+      "approvals": [
+        {
+          "approval_id": "01a0e446-6df7-7071-9196-c576feed80f9",
+          "status": "cancelled"
+        }
+      ]
+    },
+    {
+      "run_id": "bbf3e4b0-960e-4d1a-b710-07290a7c5376",
+      "harness_thread_id": "01a0e41a-9b1b-76b0-969d-d746ea69f9ed",
+      "status": "succeeded",
+      "owner_expired": true,
+      "scenario": "after_cancel",
+      "executions": [],
+      "approvals": []
+    }
+  ]
+}

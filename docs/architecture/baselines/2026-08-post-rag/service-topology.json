@@ -1,0 +1,677 @@
+{
+  "base_git_sha": "4e3805409a5bb2a3d0231a8576a58cd9ced537dc",
+  "baseline_id": "2026-08-post-rag",
+  "compose_files": {
+    "docker-compose.build.yml": {
+      "exists": true,
+      "services": [
+        "frontend",
+        "gateway",
+        "knowledge-service",
+        "migrate"
+      ]
+    },
+    "docker-compose.compact.yml": {
+      "exists": true,
+      "services": [
+        "agent-runtime",
+        "gateway",
+        "knowledge-service",
+        "knowledge-worker"
+      ]
+    },
+    "docker-compose.dev.yml": {
+      "exists": true,
+      "services": [
+        "gateway",
+        "knowledge-service",
+        "knowledge-worker"
+      ]
+    },
+    "docker-compose.full.yml": {
+      "exists": true,
+      "services": [
+        "agent-capability-worker",
+        "agent-runtime",
+        "gateway",
+        "knowledge-service",
+        "knowledge-worker"
+      ]
+    },
+    "docker-compose.scale.yml": {
+      "exists": true,
+      "services": [
+        "agent-capability-worker",
+        "agent-runtime",
+        "gateway",
+        "knowledge-service",
+        "knowledge-worker"
+      ]
+    },
+    "docker-compose.yml": {
+      "exists": true,
+      "services": [
+        "agent-capability-worker",
+        "agent-runtime",
+        "frontend",
+        "gateway",
+        "gateway-init",
+        "knowledge-service",
+        "knowledge-worker",
+        "migrate",
+        "postgres",
+        "qdrant",
+        "redis",
+        "tempo"
+      ]
+    }
+  },
+  "compose_modes": {
+    "compact": {
+      "files": [
+        "docker-compose.yml",
+        "docker-compose.compact.yml"
+      ]
+    },
+    "full": {
+      "files": [
+        "docker-compose.yml",
+        "docker-compose.full.yml"
+      ]
+    },
+    "scale": {
+      "files": [
+        "docker-compose.yml",
+        "docker-compose.scale.yml"
+      ]
+    }
+  },
+  "default_mode": "full",
+  "gateway_routes": {
+    "available": true,
+    "operation_count": 392,
+    "path_count": 296,
+    "sha256": "a202f10e75f9d5afaaaae7476ac65fc07af7e13f7ef9107232e1eee3a0a23ed7",
+    "source": "sdk/openapi.json"
+  },
+  "generator": "scripts/inventory/generate_baselines.py",
+  "groups": [
+    {
+      "display_name": "Gateway Control",
+      "id": "gateway-control"
+    },
+    {
+      "display_name": "Agent Execution",
+      "id": "agent-execution"
+    },
+    {
+      "display_name": "Knowledge",
+      "id": "knowledge"
+    },
+    {
+      "display_name": "Infrastructure",
+      "id": "infrastructure"
+    }
+  ],
+  "knowledge_routes": {
+    "route_decorator_count": 90,
+    "route_file_count": 6
+  },
+  "manifest_sha256": "81ccfd3a9a2304a16dab280776c8e494fc89c69df4db34db8a20c2f82b2829cd",
+  "schema": "ai-gateway/baseline/service-topology/v1",
+  "services": [
+    {
+      "bounded_context": "gateway-control",
+      "display_name": "Web Console",
+      "exposure": "public",
+      "health_contract": {
+        "kind": "http",
+        "source_key": "frontend"
+      },
+      "image_artifact": {
+        "default_version": "2.0.0",
+        "version_env": "FRONTEND_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "Static administrator and user console",
+      "required_deps": [
+        "gateway"
+      ],
+      "scale_contract": {
+        "class": "stateless",
+        "hpa_allowed": true,
+        "max_replicas": null
+      },
+      "scale_support": "stateless",
+      "service_id": "frontend",
+      "state_owner": "none"
+    },
+    {
+      "bounded_context": "gateway-control",
+      "display_name": "Gateway",
+      "exposure": "public",
+      "health_contract": {
+        "kind": "gateway",
+        "source_key": "gateway_core"
+      },
+      "image_artifact": {
+        "default_version": "2.0.0",
+        "version_env": "GATEWAY_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [
+        "knowledge-service",
+        "agent-capability-worker"
+      ],
+      "process_role": "Public API, authentication, routing and control plane",
+      "required_deps": [
+        "postgres",
+        "redis",
+        "agent-runtime"
+      ],
+      "scale_contract": {
+        "class": "single-instance",
+        "helm_values_key": "gateway",
+        "hpa_allowed": false,
+        "max_replicas": 1
+      },
+      "scale_support": "single-instance",
+      "service_id": "gateway",
+      "state_owner": "gateway and assistant control state"
+    },
+    {
+      "bounded_context": "gateway-control",
+      "display_name": "Gateway Init",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "completion",
+        "source_key": "gateway-init"
+      },
+      "image_artifact": {
+        "default_version": "16",
+        "version_env": "POSTGRES_IMAGE"
+      },
+      "lifecycle": "one-shot",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "One-time volume ownership initializer",
+      "required_deps": [],
+      "scale_contract": {
+        "class": "one-shot",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "one-shot",
+      "service_id": "gateway-init",
+      "state_owner": "none"
+    },
+    {
+      "bounded_context": "agent-execution",
+      "display_name": "Agent Runtime",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "agent_runtime"
+      },
+      "image_artifact": {
+        "default_version": "candidate",
+        "version_env": "AI_PLATFORM_AGENT_RUNTIME_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [
+        "agent-capability-worker"
+      ],
+      "process_role": "Rust Thread, Turn and Item execution kernel",
+      "required_deps": [
+        "postgres",
+        "gateway"
+      ],
+      "scale_contract": {
+        "class": "single-instance",
+        "helm_values_key": "agentRuntime",
+        "hpa_allowed": false,
+        "max_replicas": 1
+      },
+      "scale_support": "single-instance",
+      "service_id": "agent-runtime",
+      "state_owner": "runtime threads, items, snapshots and leases"
+    },
+    {
+      "bounded_context": "agent-execution",
+      "display_name": "Capability Worker",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "capability_worker"
+      },
+      "image_artifact": {
+        "default_version": "candidate",
+        "version_env": "AGENT_CAPABILITY_WORKER_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 2
+        }
+      },
+      "optional_deps": [
+        "knowledge-service",
+        "gateway"
+      ],
+      "process_role": "Durable capability and tool execution worker",
+      "required_deps": [
+        "postgres",
+        "agent-runtime"
+      ],
+      "scale_contract": {
+        "class": "worker",
+        "hpa_allowed": true,
+        "max_replicas": null
+      },
+      "scale_support": "worker",
+      "service_id": "agent-capability-worker",
+      "state_owner": "capability execution and event ledger"
+    },
+    {
+      "bounded_context": "agent-execution",
+      "display_name": "Local Node",
+      "exposure": "host-local",
+      "health_contract": {
+        "kind": "external",
+        "source_key": "local-node"
+      },
+      "image_artifact": {
+        "default_version": "external",
+        "version_env": null
+      },
+      "lifecycle": "external",
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": false,
+          "replicas": 0
+        },
+        "scale": {
+          "present": false,
+          "replicas": 0
+        }
+      },
+      "optional_deps": [],
+      "process_role": "User-hosted local capability daemon",
+      "required_deps": [
+        "gateway"
+      ],
+      "scale_contract": {
+        "class": "per-host",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "per-host",
+      "service_id": "local-node",
+      "state_owner": "user-host local ledger"
+    },
+    {
+      "bounded_context": "knowledge",
+      "display_name": "Knowledge API",
+      "exposure": "gateway-proxied",
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "knowledge_service"
+      },
+      "image_artifact": {
+        "default_version": "2.0.0",
+        "version_env": "KNOWLEDGE_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "all"
+        },
+        "full": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "api"
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "api"
+        }
+      },
+      "optional_deps": [
+        "redis"
+      ],
+      "process_role": "Knowledge CRUD and retrieval API",
+      "required_deps": [
+        "postgres",
+        "qdrant"
+      ],
+      "scale_contract": {
+        "class": "stateless",
+        "hpa_allowed": true,
+        "max_replicas": null
+      },
+      "scale_support": "stateless",
+      "service_id": "knowledge-service",
+      "state_owner": "knowledge relational and vector state"
+    },
+    {
+      "bounded_context": "knowledge",
+      "display_name": "Knowledge Worker",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "worker",
+        "source_key": "knowledge_worker"
+      },
+      "image_artifact": {
+        "default_version": "2.0.0",
+        "version_env": "KNOWLEDGE_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": true,
+          "replicas": 1,
+          "runtime_role": "worker"
+        },
+        "scale": {
+          "present": true,
+          "replicas": 2,
+          "runtime_role": "worker"
+        }
+      },
+      "optional_deps": [
+        "redis"
+      ],
+      "process_role": "Durable ingestion and indexing worker",
+      "required_deps": [
+        "postgres",
+        "qdrant"
+      ],
+      "scale_contract": {
+        "class": "worker",
+        "hpa_allowed": true,
+        "max_replicas": null
+      },
+      "scale_support": "worker",
+      "service_id": "knowledge-worker",
+      "state_owner": "knowledge durable job claims"
+    },
+    {
+      "bounded_context": "infrastructure",
+      "display_name": "Migration Authority",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "completion",
+        "source_key": "migrate"
+      },
+      "image_artifact": {
+        "default_version": "2.0.0",
+        "version_env": "MIGRATE_IMAGE"
+      },
+      "lifecycle": "one-shot",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "One-time schema migration authority",
+      "required_deps": [
+        "postgres"
+      ],
+      "scale_contract": {
+        "class": "one-shot",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "one-shot",
+      "service_id": "migrate",
+      "state_owner": "schema baseline and change ledgers"
+    },
+    {
+      "bounded_context": "infrastructure",
+      "display_name": "PostgreSQL",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "database"
+      },
+      "image_artifact": {
+        "default_version": "16",
+        "version_env": "POSTGRES_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "Relational system of record",
+      "required_deps": [],
+      "scale_contract": {
+        "class": "stateful",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "stateful",
+      "service_id": "postgres",
+      "state_owner": "all relational domains"
+    },
+    {
+      "bounded_context": "infrastructure",
+      "display_name": "Redis",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "gateway-dependency",
+        "source_key": "redis"
+      },
+      "image_artifact": {
+        "default_version": "7",
+        "version_env": "REDIS_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "Cache and coordination store",
+      "required_deps": [],
+      "scale_contract": {
+        "class": "stateful",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "stateful",
+      "service_id": "redis",
+      "state_owner": "non-authoritative cache and coordination state"
+    },
+    {
+      "bounded_context": "infrastructure",
+      "display_name": "Qdrant",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "dependency",
+        "source_key": "qdrant"
+      },
+      "image_artifact": {
+        "default_version": "1.18.2",
+        "version_env": "QDRANT_IMAGE"
+      },
+      "lifecycle": "long-running",
+      "modes": {
+        "compact": {
+          "present": true,
+          "replicas": 1
+        },
+        "full": {
+          "present": true,
+          "replicas": 1
+        },
+        "scale": {
+          "present": true,
+          "replicas": 1
+        }
+      },
+      "optional_deps": [],
+      "process_role": "Knowledge vector store",
+      "required_deps": [],
+      "scale_contract": {
+        "class": "stateful",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "stateful",
+      "service_id": "qdrant",
+      "state_owner": "knowledge vector collections"
+    },
+    {
+      "bounded_context": "infrastructure",
+      "display_name": "Tempo",
+      "exposure": "private",
+      "health_contract": {
+        "kind": "optional",
+        "source_key": "tempo"
+      },
+      "image_artifact": {
+        "default_version": "2.5.0",
+        "version_env": "TEMPO_IMAGE"
+      },
+      "lifecycle": "optional",
+      "modes": {
+        "compact": {
+          "present": false,
+          "replicas": 0
+        },
+        "full": {
+          "present": false,
+          "replicas": 0
+        },
+        "scale": {
+          "present": false,
+          "replicas": 0
+        }
+      },
+      "optional_deps": [
+        "gateway",
+        "knowledge-service"
+      ],
+      "process_role": "Optional trace store",
+      "required_deps": [],
+      "scale_contract": {
+        "class": "stateful",
+        "hpa_allowed": false,
+        "max_replicas": null
+      },
+      "scale_support": "stateful",
+      "service_id": "tempo",
+      "state_owner": "trace retention"
+    }
+  ],
+  "topology_revision": "arc06-2026-08-v1",
+  "topology_schema": "ai-gateway/service-topology/v1"
+}

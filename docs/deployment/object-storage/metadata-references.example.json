@@ -1,0 +1,15 @@
+{
+  "schema": "agentforge-blob-metadata/v1",
+  "snapshot_id": "replace-with-quiesced-metadata-snapshot-identity",
+  "objects": [
+    {
+      "owner": "gateway.files",
+      "record_id": "replace-with-actual-record-id",
+      "tenant_id": "tenant-a",
+      "key": "dev/uploads/tenant-a/user/file.txt",
+      "size_bytes": 5,
+      "content_type": "text/plain",
+      "sha256": null
+    }
+  ]
+}

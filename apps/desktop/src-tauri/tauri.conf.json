@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AgentForge Desktop Candidate",
+  "version": "0.1.0",
+  "identifier": "org.agentforge.desktop.candidate",
+  "build": {
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "companion",
+        "title": "AgentForge Companion",
+        "url": "native/index.html",
+        "width": 540,
+        "height": 760,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "capabilities": [
+        "companion"
+      ],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; require-trusted-types-for 'script'; trusted-types dompurify",
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "entitlements": "Entitlements.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": []
+    }
+  }
+}
